@@ -1,0 +1,7 @@
+[project]
+name = "miniaudio-mojo"
+version = "0.1.0"
+description = "A Mojo project scaffold for miniaudio experiments"
+
+[toolchain]
+channel = "stable"
