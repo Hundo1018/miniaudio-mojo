@@ -6,7 +6,11 @@ platforms = ["linux-64"]
 version = "0.1.0"
 
 [tasks]
-run = "mojo main.mojo"
+run = "pixi run build-native-lib && mojo main.mojo"
+build-native-lib = "mkdir -p build && cc -O2 -fPIC -shared -o build/libminiaudio_mojo.so src/native/miniaudio_shim.c vendor/miniaudio/miniaudio.c -Ivendor/miniaudio -lpthread -lm -ldl -latomic"
+build-native-smoke = "mkdir -p build && cc -O2 -o build/native_smoke examples/native_smoke.c src/native/miniaudio_shim.c vendor/miniaudio/miniaudio.c -Ivendor/miniaudio -Isrc/native -lpthread -lm -ldl -latomic"
+smoke-native = "pixi run build-native-smoke && ./build/native_smoke"
+run-ffi = "pixi run build-native-lib && mojo main.mojo"
 
 [dependencies]
 mojo = ">=1.0.0b2.dev2026051006,<2"
