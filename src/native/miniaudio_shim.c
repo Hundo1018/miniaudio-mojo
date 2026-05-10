@@ -3,6 +3,7 @@
 #include "miniaudio.h"
 
 #include <math.h>
+#include <stdlib.h>
 #if defined(_WIN32)
 #include <windows.h>
 #else
@@ -19,6 +20,16 @@ typedef struct mmj_sine_state {
     float gain;
     uint32_t channels;
 } mmj_sine_state;
+
+typedef struct mmj_context_handle {
+    ma_context context;
+    int initialized;
+} mmj_context_handle;
+
+typedef struct mmj_decoder_handle {
+    ma_decoder decoder;
+    int initialized;
+} mmj_decoder_handle;
 
 static void mmj_sleep_ms(uint32_t duration_ms) {
 #if defined(_WIN32)
@@ -109,4 +120,156 @@ int mmj_play_sine_f32(
     mmj_sleep_ms((uint32_t)(duration_seconds * 1000.0));
     ma_device_uninit(&device);
     return MA_SUCCESS;
+}
+
+void* mmj_context_create(void) {
+    mmj_context_handle* handle = (mmj_context_handle*)calloc(1, sizeof(mmj_context_handle));
+    return handle;
+}
+
+int mmj_context_init_default(void* context_handle) {
+    mmj_context_handle* handle = (mmj_context_handle*)context_handle;
+    ma_result result;
+
+    if (handle == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (handle->initialized) {
+        return MA_SUCCESS;
+    }
+
+    result = ma_context_init(NULL, 0, NULL, &handle->context);
+    if (result == MA_SUCCESS) {
+        handle->initialized = 1;
+    }
+
+    return result;
+}
+
+int mmj_context_uninit(void* context_handle) {
+    mmj_context_handle* handle = (mmj_context_handle*)context_handle;
+
+    if (handle == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (!handle->initialized) {
+        return MA_SUCCESS;
+    }
+
+    ma_context_uninit(&handle->context);
+    handle->initialized = 0;
+    return MA_SUCCESS;
+}
+
+void mmj_context_destroy(void* context_handle) {
+    mmj_context_handle* handle = (mmj_context_handle*)context_handle;
+
+    if (handle == NULL) {
+        return;
+    }
+
+    if (handle->initialized) {
+        ma_context_uninit(&handle->context);
+        handle->initialized = 0;
+    }
+
+    free(handle);
+}
+
+void* mmj_decoder_create(void) {
+    mmj_decoder_handle* handle = (mmj_decoder_handle*)calloc(1, sizeof(mmj_decoder_handle));
+    return handle;
+}
+
+int mmj_decoder_init_file_f32(
+    void* decoder_handle,
+    const char* file_path,
+    uint32_t output_channels,
+    uint32_t output_sample_rate
+) {
+    mmj_decoder_handle* handle = (mmj_decoder_handle*)decoder_handle;
+    ma_decoder_config config;
+    ma_result result;
+
+    if (handle == NULL || file_path == NULL || output_channels == 0) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (handle->initialized) {
+        ma_decoder_uninit(&handle->decoder);
+        handle->initialized = 0;
+    }
+
+    config = ma_decoder_config_init(ma_format_f32, output_channels, output_sample_rate);
+    result = ma_decoder_init_file(file_path, &config, &handle->decoder);
+    if (result == MA_SUCCESS) {
+        handle->initialized = 1;
+    }
+
+    return result;
+}
+
+int mmj_decoder_read_pcm_frames_f32(
+    void* decoder_handle,
+    float* output,
+    uint64_t frame_count,
+    uint64_t* frames_read
+) {
+    mmj_decoder_handle* handle = (mmj_decoder_handle*)decoder_handle;
+    ma_uint64 local_frames_read = 0;
+    ma_result result;
+
+    if (handle == NULL || !handle->initialized || output == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    result = ma_decoder_read_pcm_frames(&handle->decoder, output, (ma_uint64)frame_count, &local_frames_read);
+    if (frames_read != NULL) {
+        *frames_read = (uint64_t)local_frames_read;
+    }
+
+    return result;
+}
+
+int mmj_decoder_seek_to_pcm_frame(void* decoder_handle, uint64_t frame_index) {
+    mmj_decoder_handle* handle = (mmj_decoder_handle*)decoder_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    return ma_decoder_seek_to_pcm_frame(&handle->decoder, (ma_uint64)frame_index);
+}
+
+int mmj_decoder_uninit(void* decoder_handle) {
+    mmj_decoder_handle* handle = (mmj_decoder_handle*)decoder_handle;
+
+    if (handle == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (!handle->initialized) {
+        return MA_SUCCESS;
+    }
+
+    ma_decoder_uninit(&handle->decoder);
+    handle->initialized = 0;
+    return MA_SUCCESS;
+}
+
+void mmj_decoder_destroy(void* decoder_handle) {
+    mmj_decoder_handle* handle = (mmj_decoder_handle*)decoder_handle;
+
+    if (handle == NULL) {
+        return;
+    }
+
+    if (handle->initialized) {
+        ma_decoder_uninit(&handle->decoder);
+        handle->initialized = 0;
+    }
+
+    free(handle);
 }

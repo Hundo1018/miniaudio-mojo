@@ -9,7 +9,8 @@ Mojo project for miniaudio integration.
 	- Native C shim:
 		- `src/native/miniaudio_shim.c`
 		- `src/native/miniaudio_shim.h`
-	- Mojo bridge layers:
+		- Lifecycle foundation APIs for context and decoder handles (`create/init/uninit/destroy`)
+	- Mojo bridge layers (pure Mojo FFI, no Python ctypes runtime dependency):
 		- `src/ffi/miniaudio_ctypes.mojo`
 		- `src/api/miniaudio.mojo`
 	- Native smoke demo:
