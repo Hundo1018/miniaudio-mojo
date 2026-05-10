@@ -35,6 +35,7 @@ int mmj_decoder_read_pcm_frames_f32(
     uint64_t frame_count,
     uint64_t* frames_read
 );
+int64_t mmj_decoder_read_probe_f32(void* decoder_handle, uint64_t frame_count);
 int mmj_decoder_seek_to_pcm_frame(void* decoder_handle, uint64_t frame_index);
 int mmj_decoder_uninit(void* decoder_handle);
 void mmj_decoder_destroy(void* decoder_handle);

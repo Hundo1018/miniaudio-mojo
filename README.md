@@ -30,6 +30,8 @@ Mojo project for miniaudio integration.
 	MINIAUDIO_DECODER_FILE=/absolute/path/to/sample.wav pixi run run-ffi
 	```
 
+	This validates decoder init, seek, and a small PCM read probe.
+
 - Run context lifecycle smoke:
 
 	```bash

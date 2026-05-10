@@ -233,6 +233,53 @@ int mmj_decoder_read_pcm_frames_f32(
     return result;
 }
 
+int64_t mmj_decoder_read_probe_f32(void* decoder_handle, uint64_t frame_count) {
+    mmj_decoder_handle* handle = (mmj_decoder_handle*)decoder_handle;
+    ma_uint32 channels = 0;
+    ma_uint64 local_frames_read = 0;
+    ma_result result;
+    float* buffer = NULL;
+
+    if (handle == NULL || !handle->initialized || frame_count == 0) {
+        return (int64_t)MA_INVALID_ARGS;
+    }
+
+    result = ma_decoder_get_data_format(
+        &handle->decoder,
+        NULL,
+        &channels,
+        NULL,
+        NULL,
+        0
+    );
+    if (result != MA_SUCCESS) {
+        return (int64_t)result;
+    }
+
+    if (channels == 0) {
+        return (int64_t)MA_INVALID_DATA;
+    }
+
+    buffer = (float*)malloc(sizeof(float) * (size_t)frame_count * (size_t)channels);
+    if (buffer == NULL) {
+        return (int64_t)MA_OUT_OF_MEMORY;
+    }
+
+    result = ma_decoder_read_pcm_frames(
+        &handle->decoder,
+        buffer,
+        (ma_uint64)frame_count,
+        &local_frames_read
+    );
+    free(buffer);
+
+    if (result != MA_SUCCESS) {
+        return (int64_t)result;
+    }
+
+    return (int64_t)local_frames_read;
+}
+
 int mmj_decoder_seek_to_pcm_frame(void* decoder_handle, uint64_t frame_index) {
     mmj_decoder_handle* handle = (mmj_decoder_handle*)decoder_handle;
 

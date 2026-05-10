@@ -32,7 +32,20 @@ def run_decoder_smoke(file_path: String) raises:
             + ")"
         )
 
-    print("decoder smoke ok (init + seek + cleanup)")
+    var probe_read = bridge.decoder_read_probe_f32(decoder, 1024)
+    if probe_read < 0:
+        _ = bridge.decoder_uninit(decoder)
+        bridge.decoder_destroy(decoder)
+        var probe_error = Int(probe_read)
+        raise Error(
+            "decoder read probe failed: "
+            + bridge.result_description(probe_error)
+            + " ("
+            + String(probe_error)
+            + ")"
+        )
+
+    print("decoder smoke ok (init + seek + read + cleanup), frames:", probe_read)
 
     _ = bridge.decoder_uninit(decoder)
     bridge.decoder_destroy(decoder)

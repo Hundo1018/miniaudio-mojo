@@ -93,6 +93,16 @@ struct MiniAudioCtypes:
             )
         )
 
+    def decoder_read_probe_f32(
+        self,
+        decoder_handle: OpaquePointer[MutExternalOrigin],
+        frame_count: UInt64,
+    ) -> Int64:
+        return self._lib.call["mmj_decoder_read_probe_f32", Int64](
+            decoder_handle,
+            frame_count,
+        )
+
     def decoder_uninit(
         self, decoder_handle: OpaquePointer[MutExternalOrigin]
     ) -> Int:
