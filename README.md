@@ -24,6 +24,18 @@ Mojo project for miniaudio integration.
 	pixi run run-ffi
 	```
 
+- Run decoder smoke with an audio file (WAV/FLAC/etc supported by miniaudio decoders):
+
+	```bash
+	MINIAUDIO_DECODER_FILE=/absolute/path/to/sample.wav pixi run run-ffi
+	```
+
+- Run context lifecycle smoke:
+
+	```bash
+	MINIAUDIO_CONTEXT_SMOKE=1 pixi run run-ffi
+	```
+
 - Run native smoke test directly:
 
 	```bash

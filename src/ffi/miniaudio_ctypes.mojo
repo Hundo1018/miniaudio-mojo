@@ -71,10 +71,11 @@ struct MiniAudioCtypes:
         output_channels: UInt32,
         output_sample_rate: UInt32,
     ) -> Int:
+        var file_path_c = file_path + "\x00"
         return Int(
             self._lib.call["mmj_decoder_init_file_f32", Int32](
                 decoder_handle,
-                file_path.unsafe_cstr_ptr(),
+                file_path_c.as_bytes().unsafe_ptr(),
                 output_channels,
                 output_sample_rate,
             )
