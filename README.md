@@ -5,11 +5,15 @@ Mojo project for miniaudio integration.
 ## Current status
 
 - Mojo workspace initialized with pixi.
-- Phase 1 implementation started with a native C shim:
-	- `src/native/miniaudio_shim.c`
-	- `src/native/miniaudio_shim.h`
-- Native smoke demo:
-	- `examples/native_smoke.c`
+- Phase 1 implementation includes:
+	- Native C shim:
+		- `src/native/miniaudio_shim.c`
+		- `src/native/miniaudio_shim.h`
+	- Mojo bridge layers:
+		- `src/ffi/miniaudio_ctypes.mojo`
+		- `src/api/miniaudio.mojo`
+	- Native smoke demo:
+		- `examples/native_smoke.c`
 
 ## Quick commands
 
@@ -29,10 +33,4 @@ Mojo project for miniaudio integration.
 
 	```bash
 	pixi run build-native-lib
-	```
-
-- Build and run native playback smoke test:
-
-	```bash
-	pixi run smoke-native
 	```
