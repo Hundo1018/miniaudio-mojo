@@ -22,6 +22,10 @@ typedef struct mmj_sine_state {
     uint32_t channels;
 } mmj_sine_state;
 
+typedef struct mmj_capture_state {
+    uint64_t observed_frames;
+} mmj_capture_state;
+
 typedef struct mmj_context_handle {
     ma_context context;
     int initialized;
@@ -69,6 +73,24 @@ static void mmj_data_callback(
     }
 
     (void)input;
+}
+
+static void mmj_capture_callback(
+    ma_device* device,
+    void* output,
+    const void* input,
+    ma_uint32 frame_count
+) {
+    mmj_capture_state* state = (mmj_capture_state*)device->pUserData;
+
+    (void)output;
+    (void)input;
+
+    if (state == NULL) {
+        return;
+    }
+
+    state->observed_frames += (uint64_t)frame_count;
 }
 
 const char* mmj_miniaudio_version(void) {
@@ -120,6 +142,46 @@ int mmj_play_sine_f32(
 
     mmj_sleep_ms((uint32_t)(duration_seconds * 1000.0));
     ma_device_uninit(&device);
+    return MA_SUCCESS;
+}
+
+int mmj_capture_smoke_f32(
+    uint32_t sample_rate,
+    uint32_t channels,
+    double duration_seconds
+) {
+    ma_result result;
+    ma_device_config config;
+    ma_device device;
+    mmj_capture_state state;
+
+    if (sample_rate == 0 || channels == 0 || duration_seconds <= 0.0) {
+        return MA_INVALID_ARGS;
+    }
+
+    state.observed_frames = 0;
+
+    config = ma_device_config_init(ma_device_type_capture);
+    config.sampleRate = sample_rate;
+    config.capture.format = ma_format_f32;
+    config.capture.channels = channels;
+    config.dataCallback = mmj_capture_callback;
+    config.pUserData = &state;
+
+    result = ma_device_init(NULL, &config, &device);
+    if (result != MA_SUCCESS) {
+        return result;
+    }
+
+    result = ma_device_start(&device);
+    if (result != MA_SUCCESS) {
+        ma_device_uninit(&device);
+        return result;
+    }
+
+    mmj_sleep_ms((uint32_t)(duration_seconds * 1000.0));
+    ma_device_uninit(&device);
+
     return MA_SUCCESS;
 }
 

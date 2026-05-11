@@ -1,4 +1,5 @@
 from miniaudio import run_playback_smoke
+from miniaudio_capture import run_capture_smoke
 from miniaudio_context import run_context_smoke
 from miniaudio_decoder import run_decoder_smoke
 from miniaudio_devices import run_devices_smoke
@@ -12,6 +13,11 @@ def main() raises:
     if context_smoke != "":
         print("Running context smoke")
         run_context_smoke()
+
+    var capture_smoke = getenv("MINIAUDIO_CAPTURE_SMOKE")
+    if capture_smoke != "":
+        print("Running capture smoke")
+        run_capture_smoke()
 
     var devices_smoke = getenv("MINIAUDIO_DEVICES_SMOKE")
     if devices_smoke != "":

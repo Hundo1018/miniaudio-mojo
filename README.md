@@ -38,6 +38,12 @@ Mojo project for miniaudio integration.
 	MINIAUDIO_CONTEXT_SMOKE=1 pixi run run-ffi
 	```
 
+- Run capture lifecycle smoke:
+
+	```bash
+	MINIAUDIO_CAPTURE_SMOKE=1 pixi run run-ffi
+	```
+
 - Run device enumeration smoke:
 
 	```bash

@@ -16,6 +16,11 @@ int mmj_play_sine_f32(
     double duration_seconds,
     float gain
 );
+int mmj_capture_smoke_f32(
+    uint32_t sample_rate,
+    uint32_t channels,
+    double duration_seconds
+);
 
 void* mmj_context_create(void);
 int mmj_context_init_default(void* context_handle);
