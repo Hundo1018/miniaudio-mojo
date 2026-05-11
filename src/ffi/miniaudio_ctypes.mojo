@@ -41,6 +41,21 @@ struct MiniAudioCtypes:
             )
         )
 
+    def play_file_f32(
+        self,
+        file_path: String,
+        output_channels: UInt32,
+        output_sample_rate: UInt32,
+    ) -> Int:
+        var file_path_c = file_path + "\x00"
+        return Int(
+            self._lib.call["mmj_play_file_f32", Int32](
+                file_path_c.as_bytes().unsafe_ptr(),
+                output_channels,
+                output_sample_rate,
+            )
+        )
+
     def capture_smoke(
         self,
         sample_rate: UInt32,
@@ -49,6 +64,23 @@ struct MiniAudioCtypes:
     ) -> Int:
         return Int(
             self._lib.call["mmj_capture_smoke_f32", Int32](
+                sample_rate,
+                channels,
+                duration_seconds,
+            )
+        )
+
+    def capture_to_wav_f32(
+        self,
+        output_path: String,
+        sample_rate: UInt32,
+        channels: UInt32,
+        duration_seconds: Float64,
+    ) -> Int:
+        var output_path_c = output_path + "\x00"
+        return Int(
+            self._lib.call["mmj_capture_to_wav_f32", Int32](
+                output_path_c.as_bytes().unsafe_ptr(),
                 sample_rate,
                 channels,
                 duration_seconds,
@@ -157,6 +189,160 @@ struct MiniAudioCtypes:
     def context_destroy(self, context_handle: OpaquePointer[MutExternalOrigin]):
         self._lib.call["mmj_context_destroy", NoneType](context_handle)
 
+    def device_create(self) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_device_create", OpaquePointer[MutExternalOrigin]]()
+
+    def device_init_playback_f32(
+        self,
+        device_handle: OpaquePointer[MutExternalOrigin],
+        sample_rate: UInt32,
+        channels: UInt32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_device_init_playback_f32", Int32](
+                device_handle,
+                sample_rate,
+                channels,
+            )
+        )
+
+    def device_init_capture_f32(
+        self,
+        device_handle: OpaquePointer[MutExternalOrigin],
+        sample_rate: UInt32,
+        channels: UInt32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_device_init_capture_f32", Int32](
+                device_handle,
+                sample_rate,
+                channels,
+            )
+        )
+
+    def device_init_duplex_f32(
+        self,
+        device_handle: OpaquePointer[MutExternalOrigin],
+        sample_rate: UInt32,
+        channels: UInt32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_device_init_duplex_f32", Int32](
+                device_handle,
+                sample_rate,
+                channels,
+            )
+        )
+
+    def device_init_duplex_loopback_f32(
+        self,
+        device_handle: OpaquePointer[MutExternalOrigin],
+        sample_rate: UInt32,
+        channels: UInt32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_device_init_duplex_loopback_f32", Int32](
+                device_handle,
+                sample_rate,
+                channels,
+            )
+        )
+
+    def device_init_f32(
+        self,
+        device_handle: OpaquePointer[MutExternalOrigin],
+        device_kind: Int,
+        sample_rate: UInt32,
+        channels: UInt32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_device_init_f32", Int32](
+                device_handle,
+                Int32(device_kind),
+                sample_rate,
+                channels,
+            )
+        )
+
+    def device_start(
+        self,
+        device_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_device_start", Int32](device_handle)
+        )
+
+    def device_stop(
+        self,
+        device_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_device_stop", Int32](device_handle)
+        )
+
+    def device_is_started(
+        self,
+        device_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Bool:
+        return self._lib.call["mmj_device_is_started", Int32](device_handle) != 0
+
+    def device_get_kind(
+        self,
+        device_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_device_get_kind", Int32](device_handle)
+        )
+
+    def device_get_sample_rate(
+        self,
+        device_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_device_get_sample_rate", Int32](device_handle)
+        )
+
+    def device_get_channels(
+        self,
+        device_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_device_get_channels", Int32](device_handle)
+        )
+
+    def device_set_master_volume_f32(
+        self,
+        device_handle: OpaquePointer[MutExternalOrigin],
+        volume: Float32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_device_set_master_volume_f32", Int32](
+                device_handle,
+                volume,
+            )
+        )
+
+    def device_get_master_volume_milli(
+        self,
+        device_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_device_get_master_volume_milli", Int32](
+                device_handle
+            )
+        )
+
+    def device_uninit(
+        self,
+        device_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_device_uninit", Int32](device_handle)
+        )
+
+    def device_destroy(self, device_handle: OpaquePointer[MutExternalOrigin]):
+        self._lib.call["mmj_device_destroy", NoneType](device_handle)
+
     def decoder_create(self) -> OpaquePointer[MutExternalOrigin]:
         return self._lib.call["mmj_decoder_create", OpaquePointer[MutExternalOrigin]]()
 
@@ -197,6 +383,21 @@ struct MiniAudioCtypes:
         return self._lib.call["mmj_decoder_read_probe_f32", Int64](
             decoder_handle,
             frame_count,
+        )
+
+    def decoder_read_pcm_frames_f32(
+        self,
+        decoder_handle: OpaquePointer[MutExternalOrigin],
+        output_buffer: String,
+        frame_count: UInt64,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_decoder_read_pcm_frames_f32", Int32](
+                decoder_handle,
+                output_buffer.as_bytes().unsafe_ptr(),
+                frame_count,
+                OpaquePointer[MutExternalOrigin](unsafe_from_address=0),
+            )
         )
 
     def decoder_uninit(

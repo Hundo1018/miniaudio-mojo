@@ -16,7 +16,18 @@ int mmj_play_sine_f32(
     double duration_seconds,
     float gain
 );
+int mmj_play_file_f32(
+    const char* file_path,
+    uint32_t output_channels,
+    uint32_t output_sample_rate
+);
 int mmj_capture_smoke_f32(
+    uint32_t sample_rate,
+    uint32_t channels,
+    double duration_seconds
+);
+int mmj_capture_to_wav_f32(
+    const char* output_path,
     uint32_t sample_rate,
     uint32_t channels,
     double duration_seconds
@@ -45,6 +56,44 @@ int mmj_context_get_capture_device_name(
     uint32_t output_capacity
 );
 void mmj_context_destroy(void* context_handle);
+
+void* mmj_device_create(void);
+int mmj_device_init_playback_f32(
+    void* device_handle,
+    uint32_t sample_rate,
+    uint32_t channels
+);
+int mmj_device_init_capture_f32(
+    void* device_handle,
+    uint32_t sample_rate,
+    uint32_t channels
+);
+int mmj_device_init_duplex_f32(
+    void* device_handle,
+    uint32_t sample_rate,
+    uint32_t channels
+);
+int mmj_device_init_duplex_loopback_f32(
+    void* device_handle,
+    uint32_t sample_rate,
+    uint32_t channels
+);
+int mmj_device_init_f32(
+    void* device_handle,
+    int device_kind,
+    uint32_t sample_rate,
+    uint32_t channels
+);
+int mmj_device_start(void* device_handle);
+int mmj_device_stop(void* device_handle);
+int mmj_device_is_started(void* device_handle);
+int mmj_device_get_kind(void* device_handle);
+int mmj_device_get_sample_rate(void* device_handle);
+int mmj_device_get_channels(void* device_handle);
+int mmj_device_set_master_volume_f32(void* device_handle, float volume);
+int mmj_device_get_master_volume_milli(void* device_handle);
+int mmj_device_uninit(void* device_handle);
+void mmj_device_destroy(void* device_handle);
 
 void* mmj_decoder_create(void);
 int mmj_decoder_init_file_f32(

@@ -32,11 +32,23 @@ Mojo project for miniaudio integration.
 
 	This validates decoder init, seek, and a small PCM read probe.
 
+- Run playback file smoke with an audio file:
+
+	```bash
+	MINIAUDIO_PLAYBACK_FILE=/absolute/path/to/sample.wav pixi run run-ffi
+	```
+
+	This validates decoder + playback device end-to-end using the native shim callback.
+
 - Decoder smoke shortcut tasks:
 
 	```bash
 	pixi run run-decoder-smoke-success
 	pixi run run-decoder-smoke-missing
+	pixi run run-decoder-read-smoke-success
+	pixi run run-decoder-read-smoke-missing
+	pixi run run-playback-file-smoke-success
+	pixi run run-playback-file-smoke-missing
 	```
 
 - Run context lifecycle smoke:
@@ -51,10 +63,24 @@ Mojo project for miniaudio integration.
 	MINIAUDIO_CAPTURE_SMOKE=1 pixi run run-ffi
 	```
 
+- Run capture-to-file smoke:
+
+	```bash
+	MINIAUDIO_CAPTURE_FILE=/absolute/path/to/capture.wav pixi run run-ffi
+	```
+
+	This validates capture + WAV encoding in the native shim.
+
 - Run duplex smoke (capture + playback in one device):
 
 	```bash
 	MINIAUDIO_DUPLEX_SMOKE=1 pixi run run-ffi
+	```
+
+- Run duplex control smoke (loopback + start/stop):
+
+	```bash
+	MINIAUDIO_DUPLEX_CONTROL_SMOKE=1 pixi run run-ffi
 	```
 
 - Run device enumeration smoke:
@@ -63,13 +89,37 @@ Mojo project for miniaudio integration.
 	MINIAUDIO_DEVICES_SMOKE=1 pixi run run-ffi
 	```
 
+- Run device control smoke:
+
+	```bash
+	MINIAUDIO_DEVICE_CONTROL_SMOKE=1 pixi run run-ffi
+	```
+
+- Run device volume smoke:
+
+	```bash
+	MINIAUDIO_DEVICE_VOLUME_SMOKE=1 pixi run run-ffi
+	```
+
+- Run device config smoke:
+
+	```bash
+	MINIAUDIO_DEVICE_CONFIG_SMOKE=1 pixi run run-ffi
+	```
+
 - Shortcut tasks:
 
 	```bash
 	pixi run run-context-smoke
 	pixi run run-capture-smoke
+	pixi run run-capture-file-smoke-success
+	pixi run run-capture-file-smoke-missing
 	pixi run run-duplex-smoke
+	pixi run run-duplex-control-smoke
 	pixi run run-devices-smoke
+	pixi run run-device-control-smoke
+	pixi run run-device-volume-smoke
+	pixi run run-device-config-smoke
 	pixi run run-all-smokes
 	```
 
