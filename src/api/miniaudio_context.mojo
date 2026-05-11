@@ -1,4 +1,5 @@
 from miniaudio_ctypes import MiniAudioCtypes
+from miniaudio_errors import result_name
 
 
 def run_context_smoke() raises:
@@ -14,6 +15,8 @@ def run_context_smoke() raises:
         bridge.context_destroy(context)
         raise Error(
             "context init failed: "
+            + result_name(init_result)
+            + " - "
             + bridge.result_description(init_result)
             + " ("
             + String(init_result)
@@ -25,6 +28,8 @@ def run_context_smoke() raises:
         bridge.context_destroy(context)
         raise Error(
             "context uninit failed: "
+            + result_name(uninit_result)
+            + " - "
             + bridge.result_description(uninit_result)
             + " ("
             + String(uninit_result)

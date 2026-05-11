@@ -1,4 +1,5 @@
 from miniaudio_ctypes import MiniAudioCtypes
+from miniaudio_errors import result_name
 
 
 def run_decoder_smoke(file_path: String) raises:
@@ -14,6 +15,8 @@ def run_decoder_smoke(file_path: String) raises:
         bridge.decoder_destroy(decoder)
         raise Error(
             "decoder init failed: "
+            + result_name(init_result)
+            + " - "
             + bridge.result_description(init_result)
             + " ("
             + String(init_result)
@@ -26,6 +29,8 @@ def run_decoder_smoke(file_path: String) raises:
         bridge.decoder_destroy(decoder)
         raise Error(
             "decoder seek failed: "
+            + result_name(seek_result)
+            + " - "
             + bridge.result_description(seek_result)
             + " ("
             + String(seek_result)
@@ -39,6 +44,8 @@ def run_decoder_smoke(file_path: String) raises:
         var probe_error = Int(probe_read)
         raise Error(
             "decoder read probe failed: "
+            + result_name(probe_error)
+            + " - "
             + bridge.result_description(probe_error)
             + " ("
             + String(probe_error)

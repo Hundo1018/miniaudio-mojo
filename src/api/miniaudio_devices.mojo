@@ -1,4 +1,5 @@
 from miniaudio_ctypes import MiniAudioCtypes
+from miniaudio_errors import result_name
 
 
 def run_devices_smoke() raises:
@@ -27,6 +28,8 @@ def run_devices_smoke() raises:
         var code = Int(playback_count_probe)
         raise Error(
             "context_get_playback_device_count failed: "
+            + result_name(code)
+            + " - "
             + bridge.result_description(code)
             + " ("
             + String(code)
@@ -40,6 +43,8 @@ def run_devices_smoke() raises:
         var code = Int(capture_count_probe)
         raise Error(
             "context_get_capture_device_count failed: "
+            + result_name(code)
+            + " - "
             + bridge.result_description(code)
             + " ("
             + String(code)

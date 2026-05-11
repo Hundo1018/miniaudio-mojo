@@ -1,4 +1,5 @@
 from miniaudio_ctypes import MiniAudioCtypes
+from miniaudio_errors import result_name
 
 
 def run_playback_smoke() raises:
@@ -11,6 +12,8 @@ def run_playback_smoke() raises:
     if result != 0:
         raise Error(
             "playback failed: "
+            + result_name(result)
+            + " - "
             + bridge.result_description(result)
             + " ("
             + String(result)
