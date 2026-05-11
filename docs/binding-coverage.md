@@ -27,7 +27,7 @@ Estimated totals:
 | Capture/duplex smoke paths | implemented | smoke helpers via shim |
 | Engine/Sound | partial | engine lifecycle + play_sound + sound object controls (init/start/stop/loop/volume) |
 | Resource manager | partial | manager init/uninit + data source init/length + async result polling |
-| 3D audio controls | partial | listener controls + sound spatialization/position/rolloff/min-max distance |
+| 3D audio controls | partial | listener controls + sound spatial controls + scenario sequence smoke |
 | Node graph routing | not started | planned |
 | Effect chain (LPF/reverb slices) | not started | planned vertical slices |
 

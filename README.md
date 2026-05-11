@@ -101,6 +101,14 @@ For implementation tracking, see `docs/binding-coverage.md`.
 
 	This validates sound-side 3D controls (`spatialization`, `position`, `rolloff`, `min/max distance`).
 
+- Run spatial scene sequence smoke:
+
+	```bash
+	MINIAUDIO_SPATIAL_SCENE_FILE=/absolute/path/to/sample.wav pixi run run-ffi
+	```
+
+	This validates listener + sound 3D controls together in a single scenario sequence.
+
 - Run resource manager smoke with an audio file:
 
 	```bash
@@ -139,6 +147,8 @@ For implementation tracking, see `docs/binding-coverage.md`.
 	pixi run run-sound-control-smoke-missing
 	pixi run run-sound-spatial-smoke-success
 	pixi run run-sound-spatial-smoke-missing
+	pixi run run-spatial-scene-smoke-success
+	pixi run run-spatial-scene-smoke-missing
 	pixi run run-resource-manager-smoke-success
 	pixi run run-resource-manager-smoke-missing
 	pixi run run-resource-manager-async-smoke-success

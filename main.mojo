@@ -7,7 +7,7 @@ from miniaudio_devices import run_devices_smoke
 from miniaudio_duplex import run_duplex_control_smoke, run_duplex_smoke
 from miniaudio_engine import run_engine_listener_control_smoke, run_engine_play_sound_smoke
 from miniaudio_resource_manager import run_resource_manager_async_poll_smoke, run_resource_manager_smoke
-from miniaudio_sound import run_sound_control_smoke, run_sound_spatial_smoke
+from miniaudio_sound import run_sound_control_smoke, run_sound_spatial_scene_smoke, run_sound_spatial_smoke
 from std.os.env import getenv
 
 
@@ -93,6 +93,11 @@ def main() raises:
     if sound_spatial_file != "":
         print("Running sound spatial control smoke for:", sound_spatial_file)
         run_sound_spatial_smoke(sound_spatial_file)
+
+    var spatial_scene_file = getenv("MINIAUDIO_SPATIAL_SCENE_FILE")
+    if spatial_scene_file != "":
+        print("Running sound spatial scene smoke for:", spatial_scene_file)
+        run_sound_spatial_scene_smoke(spatial_scene_file)
 
     var resource_file = getenv("MINIAUDIO_RESOURCE_FILE")
     if resource_file != "":
