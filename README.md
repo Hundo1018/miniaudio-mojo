@@ -56,6 +56,16 @@ Mojo project for miniaudio integration.
 	MINIAUDIO_DEVICES_SMOKE=1 pixi run run-ffi
 	```
 
+- Shortcut tasks:
+
+	```bash
+	pixi run run-context-smoke
+	pixi run run-capture-smoke
+	pixi run run-duplex-smoke
+	pixi run run-devices-smoke
+	pixi run run-all-smokes
+	```
+
 ## Callback safety notes
 
 - Do not call device lifecycle APIs from inside miniaudio data callbacks. In particular, avoid calling init/start/stop/uninit from callback threads.

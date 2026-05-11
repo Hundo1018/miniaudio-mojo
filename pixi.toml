@@ -11,6 +11,11 @@ build-native-lib = "mkdir -p build && cc -O2 -fPIC -shared -o build/libminiaudio
 build-native-smoke = "mkdir -p build && cc -O2 -o build/native_smoke examples/native_smoke.c src/native/miniaudio_shim.c vendor/miniaudio/miniaudio.c -Ivendor/miniaudio -Isrc/native -lpthread -lm -ldl -latomic"
 smoke-native = "pixi run build-native-smoke && ./build/native_smoke"
 run-ffi = "pixi run build-native-lib && mojo run -I src/api -I src/ffi main.mojo"
+run-context-smoke = "MINIAUDIO_CONTEXT_SMOKE=1 pixi run run-ffi"
+run-capture-smoke = "MINIAUDIO_CAPTURE_SMOKE=1 pixi run run-ffi"
+run-duplex-smoke = "MINIAUDIO_DUPLEX_SMOKE=1 pixi run run-ffi"
+run-devices-smoke = "MINIAUDIO_DEVICES_SMOKE=1 pixi run run-ffi"
+run-all-smokes = "MINIAUDIO_CONTEXT_SMOKE=1 MINIAUDIO_CAPTURE_SMOKE=1 MINIAUDIO_DUPLEX_SMOKE=1 MINIAUDIO_DEVICES_SMOKE=1 pixi run run-ffi"
 
 [dependencies]
 mojo = ">=1.0.0b2.dev2026051006,<2"
