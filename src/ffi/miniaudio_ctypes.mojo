@@ -58,6 +58,74 @@ struct MiniAudioCtypes:
             self._lib.call["mmj_context_uninit", Int32](context_handle)
         )
 
+    def context_get_playback_device_count(
+        self,
+        context_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int64:
+        return self._lib.call["mmj_context_get_playback_device_count", Int64](
+            context_handle
+        )
+
+    def context_get_capture_device_count(
+        self,
+        context_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int64:
+        return self._lib.call["mmj_context_get_capture_device_count", Int64](
+            context_handle
+        )
+
+    def context_get_playback_device_name(
+        self,
+        context_handle: OpaquePointer[MutExternalOrigin],
+        index: UInt32,
+    ) raises -> String:
+        var buffer = String(" ") * 512
+        var bytes = buffer.as_bytes()
+        var result = Int(
+            self._lib.call["mmj_context_get_playback_device_name", Int32](
+                context_handle,
+                index,
+                bytes.unsafe_ptr(),
+                UInt32(512),
+            )
+        )
+        if result != 0:
+            raise Error(
+                "context_get_playback_device_name failed: "
+                + self.result_description(result)
+                + " ("
+                + String(result)
+                + ")"
+            )
+
+        return String(unsafe_from_utf8_ptr=bytes.unsafe_ptr())
+
+    def context_get_capture_device_name(
+        self,
+        context_handle: OpaquePointer[MutExternalOrigin],
+        index: UInt32,
+    ) raises -> String:
+        var buffer = String(" ") * 512
+        var bytes = buffer.as_bytes()
+        var result = Int(
+            self._lib.call["mmj_context_get_capture_device_name", Int32](
+                context_handle,
+                index,
+                bytes.unsafe_ptr(),
+                UInt32(512),
+            )
+        )
+        if result != 0:
+            raise Error(
+                "context_get_capture_device_name failed: "
+                + self.result_description(result)
+                + " ("
+                + String(result)
+                + ")"
+            )
+
+        return String(unsafe_from_utf8_ptr=bytes.unsafe_ptr())
+
     def context_destroy(self, context_handle: OpaquePointer[MutExternalOrigin]):
         self._lib.call["mmj_context_destroy", NoneType](context_handle)
 

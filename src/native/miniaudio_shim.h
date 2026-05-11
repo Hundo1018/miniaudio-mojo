@@ -20,6 +20,20 @@ int mmj_play_sine_f32(
 void* mmj_context_create(void);
 int mmj_context_init_default(void* context_handle);
 int mmj_context_uninit(void* context_handle);
+int64_t mmj_context_get_playback_device_count(void* context_handle);
+int64_t mmj_context_get_capture_device_count(void* context_handle);
+int mmj_context_get_playback_device_name(
+    void* context_handle,
+    uint32_t index,
+    char* output,
+    uint32_t output_capacity
+);
+int mmj_context_get_capture_device_name(
+    void* context_handle,
+    uint32_t index,
+    char* output,
+    uint32_t output_capacity
+);
 void mmj_context_destroy(void* context_handle);
 
 void* mmj_decoder_create(void);

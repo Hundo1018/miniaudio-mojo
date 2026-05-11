@@ -38,6 +38,12 @@ Mojo project for miniaudio integration.
 	MINIAUDIO_CONTEXT_SMOKE=1 pixi run run-ffi
 	```
 
+- Run device enumeration smoke:
+
+	```bash
+	MINIAUDIO_DEVICES_SMOKE=1 pixi run run-ffi
+	```
+
 - Run native smoke test directly:
 
 	```bash

@@ -4,6 +4,7 @@
 
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
 #if defined(_WIN32)
 #include <windows.h>
 #else
@@ -161,6 +162,130 @@ int mmj_context_uninit(void* context_handle) {
     ma_context_uninit(&handle->context);
     handle->initialized = 0;
     return MA_SUCCESS;
+}
+
+static int64_t mmj_context_get_device_count_internal(
+    void* context_handle,
+    int is_playback
+) {
+    mmj_context_handle* handle = (mmj_context_handle*)context_handle;
+    ma_device_info* playback_infos = NULL;
+    ma_device_info* capture_infos = NULL;
+    ma_uint32 playback = 0;
+    ma_uint32 capture = 0;
+    ma_result result;
+
+    if (handle == NULL || !handle->initialized) {
+        return (int64_t)MA_INVALID_ARGS;
+    }
+
+    result = ma_context_get_devices(
+        &handle->context,
+        &playback_infos,
+        &playback,
+        &capture_infos,
+        &capture
+    );
+    (void)playback_infos;
+    (void)capture_infos;
+    if (result != MA_SUCCESS) {
+        return (int64_t)result;
+    }
+
+    if (is_playback) {
+        return (int64_t)playback;
+    }
+    return (int64_t)capture;
+}
+
+int64_t mmj_context_get_playback_device_count(void* context_handle) {
+    return mmj_context_get_device_count_internal(context_handle, 1);
+}
+
+int64_t mmj_context_get_capture_device_count(void* context_handle) {
+    return mmj_context_get_device_count_internal(context_handle, 0);
+}
+
+static int mmj_context_get_device_name_internal(
+    mmj_context_handle* handle,
+    uint32_t index,
+    char* output,
+    uint32_t output_capacity,
+    int is_playback
+) {
+    ma_device_info* playback_infos = NULL;
+    ma_device_info* capture_infos = NULL;
+    ma_uint32 playback = 0;
+    ma_uint32 capture = 0;
+    const char* name = NULL;
+    ma_result result;
+
+    if (handle == NULL || !handle->initialized || output == NULL || output_capacity == 0) {
+        return MA_INVALID_ARGS;
+    }
+
+    result = ma_context_get_devices(
+        &handle->context,
+        &playback_infos,
+        &playback,
+        &capture_infos,
+        &capture
+    );
+    if (result != MA_SUCCESS) {
+        return result;
+    }
+
+    if (is_playback) {
+        if (index >= playback) {
+            return MA_OUT_OF_RANGE;
+        }
+        name = playback_infos[index].name;
+    } else {
+        if (index >= capture) {
+            return MA_OUT_OF_RANGE;
+        }
+        name = capture_infos[index].name;
+    }
+
+    if (name == NULL) {
+        return MA_INVALID_DATA;
+    }
+
+    strncpy(output, name, (size_t)output_capacity - 1u);
+    output[output_capacity - 1u] = '\0';
+    return MA_SUCCESS;
+}
+
+int mmj_context_get_playback_device_name(
+    void* context_handle,
+    uint32_t index,
+    char* output,
+    uint32_t output_capacity
+) {
+    mmj_context_handle* handle = (mmj_context_handle*)context_handle;
+    return mmj_context_get_device_name_internal(
+        handle,
+        index,
+        output,
+        output_capacity,
+        1
+    );
+}
+
+int mmj_context_get_capture_device_name(
+    void* context_handle,
+    uint32_t index,
+    char* output,
+    uint32_t output_capacity
+) {
+    mmj_context_handle* handle = (mmj_context_handle*)context_handle;
+    return mmj_context_get_device_name_internal(
+        handle,
+        index,
+        output,
+        output_capacity,
+        0
+    );
 }
 
 void mmj_context_destroy(void* context_handle) {
