@@ -5,6 +5,9 @@ from miniaudio_decoder import run_decoder_read_smoke, run_decoder_smoke
 from miniaudio_device import run_device_config_smoke, run_device_control_smoke, run_device_volume_smoke
 from miniaudio_devices import run_devices_smoke
 from miniaudio_duplex import run_duplex_control_smoke, run_duplex_smoke
+from miniaudio_engine import run_engine_listener_control_smoke, run_engine_play_sound_smoke
+from miniaudio_resource_manager import run_resource_manager_async_poll_smoke, run_resource_manager_smoke
+from miniaudio_sound import run_sound_control_smoke, run_sound_spatial_smoke
 from std.os.env import getenv
 
 
@@ -70,3 +73,33 @@ def main() raises:
     if playback_file != "":
         print("Running playback file smoke for:", playback_file)
         run_playback_file_smoke(playback_file)
+
+    var engine_play_file = getenv("MINIAUDIO_ENGINE_PLAY_FILE")
+    if engine_play_file != "":
+        print("Running engine play sound smoke for:", engine_play_file)
+        run_engine_play_sound_smoke(engine_play_file)
+
+    var engine_listener_smoke = getenv("MINIAUDIO_ENGINE_LISTENER_SMOKE")
+    if engine_listener_smoke != "":
+        print("Running engine listener control smoke")
+        run_engine_listener_control_smoke()
+
+    var sound_file = getenv("MINIAUDIO_SOUND_FILE")
+    if sound_file != "":
+        print("Running sound control smoke for:", sound_file)
+        run_sound_control_smoke(sound_file)
+
+    var sound_spatial_file = getenv("MINIAUDIO_SOUND_SPATIAL_FILE")
+    if sound_spatial_file != "":
+        print("Running sound spatial control smoke for:", sound_spatial_file)
+        run_sound_spatial_smoke(sound_spatial_file)
+
+    var resource_file = getenv("MINIAUDIO_RESOURCE_FILE")
+    if resource_file != "":
+        print("Running resource manager smoke for:", resource_file)
+        run_resource_manager_smoke(resource_file)
+
+    var resource_async_file = getenv("MINIAUDIO_RESOURCE_ASYNC_FILE")
+    if resource_async_file != "":
+        print("Running resource manager async poll smoke for:", resource_async_file)
+        run_resource_manager_async_poll_smoke(resource_async_file)

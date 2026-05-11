@@ -61,6 +61,26 @@ typedef struct mmj_decoder_handle {
     int initialized;
 } mmj_decoder_handle;
 
+typedef struct mmj_engine_handle {
+    ma_engine engine;
+    int initialized;
+} mmj_engine_handle;
+
+typedef struct mmj_sound_handle {
+    ma_sound sound;
+    int initialized;
+} mmj_sound_handle;
+
+typedef struct mmj_resource_manager_handle {
+    ma_resource_manager resource_manager;
+    int initialized;
+} mmj_resource_manager_handle;
+
+typedef struct mmj_resource_data_source_handle {
+    ma_resource_manager_data_source data_source;
+    int initialized;
+} mmj_resource_data_source_handle;
+
 typedef struct mmj_device_state {
     uint32_t channels;
     int mode;
@@ -767,6 +787,489 @@ void mmj_context_destroy(void* context_handle) {
     }
 
     free(handle);
+}
+
+void* mmj_engine_create(void) {
+    mmj_engine_handle* handle = (mmj_engine_handle*)calloc(1, sizeof(mmj_engine_handle));
+    return handle;
+}
+
+int mmj_engine_init_default(void* engine_handle) {
+    mmj_engine_handle* handle = (mmj_engine_handle*)engine_handle;
+    ma_engine_config config;
+    ma_result result;
+
+    if (handle == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (handle->initialized) {
+        return MA_SUCCESS;
+    }
+
+    config = ma_engine_config_init();
+    result = ma_engine_init(&config, &handle->engine);
+    if (result == MA_SUCCESS) {
+        handle->initialized = 1;
+    }
+
+    return result;
+}
+
+int mmj_engine_uninit(void* engine_handle) {
+    mmj_engine_handle* handle = (mmj_engine_handle*)engine_handle;
+
+    if (handle == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (!handle->initialized) {
+        return MA_SUCCESS;
+    }
+
+    ma_engine_uninit(&handle->engine);
+    handle->initialized = 0;
+    return MA_SUCCESS;
+}
+
+int mmj_engine_play_sound(void* engine_handle, const char* file_path) {
+    mmj_engine_handle* handle = (mmj_engine_handle*)engine_handle;
+
+    if (handle == NULL || !handle->initialized || file_path == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    return ma_engine_play_sound(&handle->engine, file_path, NULL);
+}
+
+int mmj_engine_listener_set_position(
+    void* engine_handle,
+    uint32_t listener_index,
+    float x,
+    float y,
+    float z
+) {
+    mmj_engine_handle* handle = (mmj_engine_handle*)engine_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    ma_engine_listener_set_position(&handle->engine, listener_index, x, y, z);
+    return MA_SUCCESS;
+}
+
+int mmj_engine_listener_set_direction(
+    void* engine_handle,
+    uint32_t listener_index,
+    float x,
+    float y,
+    float z
+) {
+    mmj_engine_handle* handle = (mmj_engine_handle*)engine_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    ma_engine_listener_set_direction(&handle->engine, listener_index, x, y, z);
+    return MA_SUCCESS;
+}
+
+int mmj_engine_listener_set_world_up(
+    void* engine_handle,
+    uint32_t listener_index,
+    float x,
+    float y,
+    float z
+) {
+    mmj_engine_handle* handle = (mmj_engine_handle*)engine_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    ma_engine_listener_set_world_up(&handle->engine, listener_index, x, y, z);
+    return MA_SUCCESS;
+}
+
+void mmj_engine_destroy(void* engine_handle) {
+    mmj_engine_handle* handle = (mmj_engine_handle*)engine_handle;
+
+    if (handle == NULL) {
+        return;
+    }
+
+    if (handle->initialized) {
+        ma_engine_uninit(&handle->engine);
+        handle->initialized = 0;
+    }
+
+    free(handle);
+}
+
+void* mmj_sound_create(void) {
+    mmj_sound_handle* handle = (mmj_sound_handle*)calloc(1, sizeof(mmj_sound_handle));
+    return handle;
+}
+
+int mmj_sound_init_from_file(
+    void* sound_handle,
+    void* engine_handle,
+    const char* file_path
+) {
+    mmj_sound_handle* sound = (mmj_sound_handle*)sound_handle;
+    mmj_engine_handle* engine = (mmj_engine_handle*)engine_handle;
+    ma_result result;
+
+    if (sound == NULL || engine == NULL || !engine->initialized || file_path == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (sound->initialized) {
+        ma_sound_uninit(&sound->sound);
+        sound->initialized = 0;
+    }
+
+    result = ma_sound_init_from_file(&engine->engine, file_path, 0, NULL, NULL, &sound->sound);
+    if (result == MA_SUCCESS) {
+        sound->initialized = 1;
+    }
+
+    return result;
+}
+
+int mmj_sound_start(void* sound_handle) {
+    mmj_sound_handle* handle = (mmj_sound_handle*)sound_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    return ma_sound_start(&handle->sound);
+}
+
+int mmj_sound_stop(void* sound_handle) {
+    mmj_sound_handle* handle = (mmj_sound_handle*)sound_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    return ma_sound_stop(&handle->sound);
+}
+
+int mmj_sound_set_looping(void* sound_handle, int is_looping) {
+    mmj_sound_handle* handle = (mmj_sound_handle*)sound_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    ma_sound_set_looping(&handle->sound, is_looping ? MA_TRUE : MA_FALSE);
+    return MA_SUCCESS;
+}
+
+int mmj_sound_set_volume_f32(void* sound_handle, float volume) {
+    mmj_sound_handle* handle = (mmj_sound_handle*)sound_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    ma_sound_set_volume(&handle->sound, volume);
+    return MA_SUCCESS;
+}
+
+int mmj_sound_set_spatialization_enabled(void* sound_handle, int is_enabled) {
+    mmj_sound_handle* handle = (mmj_sound_handle*)sound_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    ma_sound_set_spatialization_enabled(&handle->sound, is_enabled ? MA_TRUE : MA_FALSE);
+    return MA_SUCCESS;
+}
+
+int mmj_sound_set_position(
+    void* sound_handle,
+    float x,
+    float y,
+    float z
+) {
+    mmj_sound_handle* handle = (mmj_sound_handle*)sound_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    ma_sound_set_position(&handle->sound, x, y, z);
+    return MA_SUCCESS;
+}
+
+int mmj_sound_set_rolloff(void* sound_handle, float rolloff) {
+    mmj_sound_handle* handle = (mmj_sound_handle*)sound_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    ma_sound_set_rolloff(&handle->sound, rolloff);
+    return MA_SUCCESS;
+}
+
+int mmj_sound_set_min_distance(void* sound_handle, float min_distance) {
+    mmj_sound_handle* handle = (mmj_sound_handle*)sound_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    ma_sound_set_min_distance(&handle->sound, min_distance);
+    return MA_SUCCESS;
+}
+
+int mmj_sound_set_max_distance(void* sound_handle, float max_distance) {
+    mmj_sound_handle* handle = (mmj_sound_handle*)sound_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    ma_sound_set_max_distance(&handle->sound, max_distance);
+    return MA_SUCCESS;
+}
+
+int mmj_sound_uninit(void* sound_handle) {
+    mmj_sound_handle* handle = (mmj_sound_handle*)sound_handle;
+
+    if (handle == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (!handle->initialized) {
+        return MA_SUCCESS;
+    }
+
+    ma_sound_uninit(&handle->sound);
+    handle->initialized = 0;
+    return MA_SUCCESS;
+}
+
+void mmj_sound_destroy(void* sound_handle) {
+    mmj_sound_handle* handle = (mmj_sound_handle*)sound_handle;
+
+    if (handle == NULL) {
+        return;
+    }
+
+    if (handle->initialized) {
+        ma_sound_uninit(&handle->sound);
+        handle->initialized = 0;
+    }
+
+    free(handle);
+}
+
+void* mmj_resource_manager_create(void) {
+    mmj_resource_manager_handle* handle = (mmj_resource_manager_handle*)calloc(1, sizeof(mmj_resource_manager_handle));
+    return handle;
+}
+
+int mmj_resource_manager_init_default(void* resource_manager_handle) {
+    mmj_resource_manager_handle* handle = (mmj_resource_manager_handle*)resource_manager_handle;
+    ma_resource_manager_config config;
+    ma_result result;
+
+    if (handle == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (handle->initialized) {
+        return MA_SUCCESS;
+    }
+
+    config = ma_resource_manager_config_init();
+    result = ma_resource_manager_init(&config, &handle->resource_manager);
+    if (result == MA_SUCCESS) {
+        handle->initialized = 1;
+    }
+
+    return result;
+}
+
+int mmj_resource_manager_uninit(void* resource_manager_handle) {
+    mmj_resource_manager_handle* handle = (mmj_resource_manager_handle*)resource_manager_handle;
+
+    if (handle == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (!handle->initialized) {
+        return MA_SUCCESS;
+    }
+
+    ma_resource_manager_uninit(&handle->resource_manager);
+    handle->initialized = 0;
+    return MA_SUCCESS;
+}
+
+void mmj_resource_manager_destroy(void* resource_manager_handle) {
+    mmj_resource_manager_handle* handle = (mmj_resource_manager_handle*)resource_manager_handle;
+
+    if (handle == NULL) {
+        return;
+    }
+
+    if (handle->initialized) {
+        ma_resource_manager_uninit(&handle->resource_manager);
+        handle->initialized = 0;
+    }
+
+    free(handle);
+}
+
+void* mmj_resource_data_source_create(void) {
+    mmj_resource_data_source_handle* handle = (mmj_resource_data_source_handle*)calloc(1, sizeof(mmj_resource_data_source_handle));
+    return handle;
+}
+
+int mmj_resource_data_source_init_file(
+    void* data_source_handle,
+    void* resource_manager_handle,
+    const char* file_path,
+    uint32_t flags
+) {
+    mmj_resource_data_source_handle* data_source = (mmj_resource_data_source_handle*)data_source_handle;
+    mmj_resource_manager_handle* resource_manager = (mmj_resource_manager_handle*)resource_manager_handle;
+    ma_result result;
+
+    if (
+        data_source == NULL
+        || resource_manager == NULL
+        || !resource_manager->initialized
+        || file_path == NULL
+    ) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (data_source->initialized) {
+        ma_resource_manager_data_source_uninit(&data_source->data_source);
+        data_source->initialized = 0;
+    }
+
+    result = ma_resource_manager_data_source_init(
+        &resource_manager->resource_manager,
+        file_path,
+        flags,
+        NULL,
+        &data_source->data_source
+    );
+    if (result == MA_SUCCESS) {
+        data_source->initialized = 1;
+    }
+
+    return result;
+}
+
+int mmj_resource_data_source_result(void* data_source_handle) {
+    mmj_resource_data_source_handle* handle = (mmj_resource_data_source_handle*)data_source_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    return (int)ma_resource_manager_data_source_result(&handle->data_source);
+}
+
+int mmj_resource_data_source_wait_result(
+    void* data_source_handle,
+    uint32_t timeout_ms,
+    uint32_t poll_interval_ms
+) {
+    mmj_resource_data_source_handle* handle = (mmj_resource_data_source_handle*)data_source_handle;
+    uint32_t elapsed_ms = 0;
+    ma_result result;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (poll_interval_ms == 0) {
+        poll_interval_ms = 10;
+    }
+
+    for (;;) {
+        result = ma_resource_manager_data_source_result(&handle->data_source);
+        if (result != MA_BUSY) {
+            return (int)result;
+        }
+
+        if (elapsed_ms >= timeout_ms) {
+            return MA_TIMEOUT;
+        }
+
+        mmj_sleep_ms(poll_interval_ms);
+        elapsed_ms += poll_interval_ms;
+    }
+}
+
+int64_t mmj_resource_data_source_get_length_in_pcm_frames(void* data_source_handle) {
+    mmj_resource_data_source_handle* handle = (mmj_resource_data_source_handle*)data_source_handle;
+    ma_uint64 length_in_frames = 0;
+    ma_result result;
+
+    if (handle == NULL || !handle->initialized) {
+        return (int64_t)MA_INVALID_ARGS;
+    }
+
+    result = ma_data_source_get_length_in_pcm_frames(
+        (ma_data_source*)&handle->data_source,
+        &length_in_frames
+    );
+    if (result != MA_SUCCESS) {
+        return (int64_t)result;
+    }
+
+    return (int64_t)length_in_frames;
+}
+
+int mmj_resource_data_source_uninit(void* data_source_handle) {
+    mmj_resource_data_source_handle* handle = (mmj_resource_data_source_handle*)data_source_handle;
+
+    if (handle == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (!handle->initialized) {
+        return MA_SUCCESS;
+    }
+
+    if (ma_resource_manager_data_source_uninit(&handle->data_source) != MA_SUCCESS) {
+        return MA_INVALID_OPERATION;
+    }
+    handle->initialized = 0;
+    return MA_SUCCESS;
+}
+
+void mmj_resource_data_source_destroy(void* data_source_handle) {
+    mmj_resource_data_source_handle* handle = (mmj_resource_data_source_handle*)data_source_handle;
+
+    if (handle == NULL) {
+        return;
+    }
+
+    if (handle->initialized) {
+        ma_resource_manager_data_source_uninit(&handle->data_source);
+        handle->initialized = 0;
+    }
+
+    free(handle);
+}
+
+uint32_t mmj_resource_data_source_flag_async(void) {
+    return (uint32_t)MA_RESOURCE_MANAGER_DATA_SOURCE_FLAG_ASYNC;
 }
 
 void* mmj_device_create(void) {
