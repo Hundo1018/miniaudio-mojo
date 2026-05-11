@@ -32,6 +32,13 @@ Mojo project for miniaudio integration.
 
 	This validates decoder init, seek, and a small PCM read probe.
 
+- Decoder smoke shortcut tasks:
+
+	```bash
+	pixi run run-decoder-smoke-success
+	pixi run run-decoder-smoke-missing
+	```
+
 - Run context lifecycle smoke:
 
 	```bash
