@@ -26,6 +26,11 @@ typedef struct mmj_capture_state {
     uint64_t observed_frames;
 } mmj_capture_state;
 
+typedef struct mmj_duplex_state {
+    uint64_t observed_frames;
+    uint32_t channels;
+} mmj_duplex_state;
+
 typedef struct mmj_context_handle {
     ma_context context;
     int initialized;
@@ -91,6 +96,41 @@ static void mmj_capture_callback(
     }
 
     state->observed_frames += (uint64_t)frame_count;
+}
+
+static void mmj_duplex_callback(
+    ma_device* device,
+    void* output,
+    const void* input,
+    ma_uint32 frame_count
+) {
+    mmj_duplex_state* state = (mmj_duplex_state*)device->pUserData;
+    float* out = (float*)output;
+    const float* in = (const float*)input;
+    ma_uint64 i;
+    ma_uint64 total_samples;
+
+    if (state == NULL) {
+        return;
+    }
+
+    state->observed_frames += (uint64_t)frame_count;
+
+    if (out == NULL) {
+        return;
+    }
+
+    total_samples = (ma_uint64)frame_count * (ma_uint64)state->channels;
+    if (in == NULL) {
+        for (i = 0; i < total_samples; ++i) {
+            out[i] = 0.0f;
+        }
+        return;
+    }
+
+    for (i = 0; i < total_samples; ++i) {
+        out[i] = in[i];
+    }
 }
 
 const char* mmj_miniaudio_version(void) {
@@ -166,6 +206,49 @@ int mmj_capture_smoke_f32(
     config.capture.format = ma_format_f32;
     config.capture.channels = channels;
     config.dataCallback = mmj_capture_callback;
+    config.pUserData = &state;
+
+    result = ma_device_init(NULL, &config, &device);
+    if (result != MA_SUCCESS) {
+        return result;
+    }
+
+    result = ma_device_start(&device);
+    if (result != MA_SUCCESS) {
+        ma_device_uninit(&device);
+        return result;
+    }
+
+    mmj_sleep_ms((uint32_t)(duration_seconds * 1000.0));
+    ma_device_uninit(&device);
+
+    return MA_SUCCESS;
+}
+
+int mmj_duplex_smoke_f32(
+    uint32_t sample_rate,
+    uint32_t channels,
+    double duration_seconds
+) {
+    ma_result result;
+    ma_device_config config;
+    ma_device device;
+    mmj_duplex_state state;
+
+    if (sample_rate == 0 || channels == 0 || duration_seconds <= 0.0) {
+        return MA_INVALID_ARGS;
+    }
+
+    state.observed_frames = 0;
+    state.channels = channels;
+
+    config = ma_device_config_init(ma_device_type_duplex);
+    config.sampleRate = sample_rate;
+    config.capture.format = ma_format_f32;
+    config.capture.channels = channels;
+    config.playback.format = ma_format_f32;
+    config.playback.channels = channels;
+    config.dataCallback = mmj_duplex_callback;
     config.pUserData = &state;
 
     result = ma_device_init(NULL, &config, &device);

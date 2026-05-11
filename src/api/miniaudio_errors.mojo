@@ -6,8 +6,10 @@ comptime MA_OUT_OF_RANGE = Int(-5)
 comptime MA_DOES_NOT_EXIST = Int(-7)
 comptime MA_BUSY = Int(-19)
 comptime MA_IO_ERROR = Int(-20)
+comptime MA_ALREADY_IN_USE = Int(-23)
 comptime MA_INVALID_DATA = Int(-33)
 comptime MA_TIMEOUT = Int(-34)
+comptime MA_UNAVAILABLE = Int(-22)
 comptime MA_NO_NETWORK = Int(-35)
 comptime MA_NOT_IMPLEMENTED = Int(-29)
 
@@ -31,6 +33,10 @@ def result_name(code: Int) -> String:
         return "MA_INVALID_DATA"
     if code == MA_BUSY:
         return "MA_BUSY"
+    if code == MA_ALREADY_IN_USE:
+        return "MA_ALREADY_IN_USE"
+    if code == MA_UNAVAILABLE:
+        return "MA_UNAVAILABLE"
     if code == MA_INVALID_OPERATION:
         return "MA_INVALID_OPERATION"
     if code == MA_NOT_IMPLEMENTED:

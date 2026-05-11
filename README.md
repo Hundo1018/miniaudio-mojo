@@ -44,11 +44,22 @@ Mojo project for miniaudio integration.
 	MINIAUDIO_CAPTURE_SMOKE=1 pixi run run-ffi
 	```
 
+- Run duplex smoke (capture + playback in one device):
+
+	```bash
+	MINIAUDIO_DUPLEX_SMOKE=1 pixi run run-ffi
+	```
+
 - Run device enumeration smoke:
 
 	```bash
 	MINIAUDIO_DEVICES_SMOKE=1 pixi run run-ffi
 	```
+
+## Callback safety notes
+
+- Do not call device lifecycle APIs from inside miniaudio data callbacks. In particular, avoid calling init/start/stop/uninit from callback threads.
+- If you need to stop or reconfigure audio, signal from callback and perform lifecycle operations on another thread.
 
 - Run native smoke test directly:
 

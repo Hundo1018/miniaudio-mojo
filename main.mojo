@@ -3,6 +3,7 @@ from miniaudio_capture import run_capture_smoke
 from miniaudio_context import run_context_smoke
 from miniaudio_decoder import run_decoder_smoke
 from miniaudio_devices import run_devices_smoke
+from miniaudio_duplex import run_duplex_smoke
 from std.os.env import getenv
 
 
@@ -18,6 +19,11 @@ def main() raises:
     if capture_smoke != "":
         print("Running capture smoke")
         run_capture_smoke()
+
+    var duplex_smoke = getenv("MINIAUDIO_DUPLEX_SMOKE")
+    if duplex_smoke != "":
+        print("Running duplex smoke")
+        run_duplex_smoke()
 
     var devices_smoke = getenv("MINIAUDIO_DEVICES_SMOKE")
     if devices_smoke != "":

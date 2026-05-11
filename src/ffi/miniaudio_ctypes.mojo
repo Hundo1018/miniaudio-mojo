@@ -55,6 +55,20 @@ struct MiniAudioCtypes:
             )
         )
 
+    def duplex_smoke(
+        self,
+        sample_rate: UInt32,
+        channels: UInt32,
+        duration_seconds: Float64,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_duplex_smoke_f32", Int32](
+                sample_rate,
+                channels,
+                duration_seconds,
+            )
+        )
+
     def context_create(self) -> OpaquePointer[MutExternalOrigin]:
         return self._lib.call["mmj_context_create", OpaquePointer[MutExternalOrigin]]()
 
