@@ -38,10 +38,10 @@ Expected result: short sine playback and `playback ok`.
 | Device lifecycle/control | implemented |
 | Decoder (file/seek/read-probe/read) | implemented |
 | Capture/duplex smoke paths | implemented |
-| Engine/Sound high-level API | planned |
-| Resource manager | planned |
-| 3D listener/sound controls | planned |
-| Node graph/effects slices | planned |
+| Engine/Sound high-level API | partial |
+| Resource manager | partial |
+| 3D listener/sound controls | partial |
+| Node graph/effects slices | partial |
 
 For implementation tracking, see `docs/binding-coverage.md`.
 
@@ -109,6 +109,38 @@ For implementation tracking, see `docs/binding-coverage.md`.
 
 	This validates listener + sound 3D controls together in a single scenario sequence.
 
+- Run node attach/detach smoke:
+
+	```bash
+	MINIAUDIO_NODE_ATTACH_FILE=/absolute/path/to/sample.wav pixi run run-ffi
+	```
+
+	This validates node attach/detach on a sound node routed to the engine endpoint.
+
+- Run node routing scene smoke:
+
+	```bash
+	MINIAUDIO_NODE_ROUTING_FILE=/absolute/path/to/sample.wav pixi run run-ffi
+	```
+
+	This validates node output-bus routing + per-bus volume control.
+
+- Run LPF node smoke:
+
+	```bash
+	MINIAUDIO_LPF_NODE_FILE=/absolute/path/to/sample.wav pixi run run-ffi
+	```
+
+	This validates sound -> LPF -> endpoint routing and cutoff sweep.
+
+- Run reverb-like chain smoke:
+
+	```bash
+	MINIAUDIO_REVERB_LIKE_CHAIN_FILE=/absolute/path/to/sample.wav pixi run run-ffi
+	```
+
+	This validates a reverb-like chain (sound -> LPF -> delay -> endpoint).
+
 - Run resource manager smoke with an audio file:
 
 	```bash
@@ -149,6 +181,14 @@ For implementation tracking, see `docs/binding-coverage.md`.
 	pixi run run-sound-spatial-smoke-missing
 	pixi run run-spatial-scene-smoke-success
 	pixi run run-spatial-scene-smoke-missing
+	pixi run run-node-attach-smoke-success
+	pixi run run-node-attach-smoke-missing
+	pixi run run-node-routing-smoke-success
+	pixi run run-node-routing-smoke-missing
+	pixi run run-lpf-node-smoke-success
+	pixi run run-lpf-node-smoke-missing
+	pixi run run-reverb-like-chain-smoke-success
+	pixi run run-reverb-like-chain-smoke-missing
 	pixi run run-resource-manager-smoke-success
 	pixi run run-resource-manager-smoke-missing
 	pixi run run-resource-manager-async-smoke-success

@@ -9,12 +9,12 @@ This document tracks miniaudio binding coverage in this repository.
 - Mojo bridge surface: `src/ffi/miniaudio_ctypes.mojo`
 - Mojo API layer: `src/api/*`
 
-## Current baseline (2026-05-12)
+## Current baseline (2026-05-16)
 
 Estimated totals:
 
 - Upstream exported API (`MA_API`): large surface (roughly hundreds of functions).
-- Current shim exports (`mmj_*`): 38 public functions.
+- Current shim exports (`mmj_*`): 65 public functions.
 - Effective coverage mode: foundational I/O path coverage, not high-level feature parity.
 
 ## Module status
@@ -28,8 +28,8 @@ Estimated totals:
 | Engine/Sound | partial | engine lifecycle + play_sound + sound object controls (init/start/stop/loop/volume) |
 | Resource manager | partial | manager init/uninit + data source init/length + async result polling |
 | 3D audio controls | partial | listener controls + sound spatial controls + scenario sequence smoke |
-| Node graph routing | not started | planned |
-| Effect chain (LPF/reverb slices) | not started | planned vertical slices |
+| Node graph routing | partial | endpoint lookup + sound node attach/detach + output bus volume control |
+| Effect chain (LPF/reverb slices) | partial | LPF node smoke + reverb-like LPF->delay chain smoke |
 
 ## Planned milestones
 
