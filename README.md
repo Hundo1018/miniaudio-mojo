@@ -1,4 +1,3 @@
-| Biquad EQ (MVP - identity filter) | implemented (MVP) |
 # miniaudio-mojo
 
 Mojo-first bindings project for miniaudio.
@@ -37,13 +36,16 @@ Expected result: short sine playback and `playback ok`.
 | --- | --- |
 | Context | implemented |
 | Device lifecycle/control | implemented |
-| Decoder (file/seek/read-probe/read) | implemented |
+| Decoder (file+memory/seek/read-probe/read) | implemented |
 | Capture/duplex smoke paths | implemented |
 | Engine/Sound high-level API | partial |
 | Resource manager | partial |
 | Logging (callback + post) | implemented (MVP) |
 | 3D listener/sound controls | partial |
 | Node graph/effects slices | partial |
+| Resampler (linear f32) | implemented (MVP) |
+| Channel converter (f32) | implemented (MVP) |
+| Data Source/RingBuffer | partial |
 
 For implementation tracking, see `docs/binding-coverage.md`.
 
@@ -62,6 +64,70 @@ For implementation tracking, see `docs/binding-coverage.md`.
 	```
 
 	This validates decoder init, seek, and a small PCM read probe.
+
+ - Run decoder output format matrix smoke with an audio file:
+
+	 ```bash
+	 MINIAUDIO_DECODER_FORMAT_MATRIX_FILE=/absolute/path/to/sample.wav pixi run run-ffi
+	 ```
+
+	 This validates decoder init across output format matrix (`f32`, `s16`, `s32`, `u8`, `s24`) and invalid-format rejection.
+
+- Run decoder memory smoke (embedded WAV bytes):
+
+	```bash
+	MINIAUDIO_DECODER_MEMORY_SMOKE=1 pixi run run-ffi
+	```
+
+	This validates decoder memory init (`ma_decoder_init_memory`) + seek + PCM read probe.
+
+- Run decoder memory invalid-args smoke:
+
+	```bash
+	MINIAUDIO_DECODER_MEMORY_INVALID_ARGS_SMOKE=1 pixi run run-ffi
+	```
+
+	This validates decoder memory init argument checks.
+
+- Run decoder memory output format matrix smoke:
+
+	```bash
+	MINIAUDIO_DECODER_MEMORY_FORMAT_MATRIX_SMOKE=1 pixi run run-ffi
+	```
+
+	This validates decoder memory init across output format matrix (`f32`, `s16`, `s32`, `u8`, `s24`) and invalid-format rejection.
+
+- Run encoder WAV output format matrix smoke:
+
+	```bash
+	MINIAUDIO_ENCODER_FORMAT_MATRIX_SMOKE=1 pixi run run-ffi
+	```
+
+	This validates encoder WAV init across output format matrix (`f32`, `s16`, `s32`, `u8`) and invalid-format rejection.
+ 
+ - Run decoder format matrix smoke success:
+ 
+	 ```bash
+	 pixi run run-decoder-format-matrix-smoke-success
+	 ```
+ 
+ - Run decoder format matrix smoke missing:
+ 
+	 ```bash
+	 pixi run run-decoder-format-matrix-smoke-missing
+	 ```
+
+ - Run decoder memory format matrix smoke:
+
+	 ```bash
+	 pixi run run-decoder-memory-format-matrix-smoke
+	 ```
+
+ - Run encoder format matrix smoke:
+
+	 ```bash
+	 pixi run run-encoder-format-matrix-smoke
+	 ```
 
 - Run playback file smoke with an audio file:
 
@@ -199,6 +265,62 @@ For implementation tracking, see `docs/binding-coverage.md`.
 
 	This validates a negative path by posting before `log_init` and expecting `MA_INVALID_ARGS`.
 
+- Run resampler linear smoke:
+
+	```bash
+	MINIAUDIO_RESAMPLER_LINEAR_SMOKE=1 pixi run run-ffi
+	```
+
+	This validates linear f32 resampler init/process path.
+
+- Run resampler invalid-rate smoke:
+
+	```bash
+	MINIAUDIO_RESAMPLER_INVALID_RATE_SMOKE=1 pixi run run-ffi
+	```
+
+	This validates negative path for invalid sample rate.
+
+- Run channel converter stereo-to-mono smoke:
+
+	```bash
+	MINIAUDIO_CHANNEL_CONVERTER_STEREO_MONO_SMOKE=1 pixi run run-ffi
+	```
+
+	This validates f32 channel conversion (2ch -> 1ch).
+
+- Run channel converter invalid-channels smoke:
+
+	```bash
+	MINIAUDIO_CHANNEL_CONVERTER_INVALID_CHANNELS_SMOKE=1 pixi run run-ffi
+	```
+
+	This validates negative path for zero-channel init.
+
+- Run PCM ring buffer smoke:
+
+	```bash
+	MINIAUDIO_PCM_RB_SMOKE=1 pixi run run-ffi
+	```
+
+	This validates ring buffer f32 write/read/available behavior.
+
+- Run PCM ring buffer overflow smoke:
+
+	```bash
+	MINIAUDIO_PCM_RB_OVERFLOW_SMOKE=1 pixi run run-ffi
+	```
+
+	This validates overflow boundary behavior (full buffer write attempt).
+
+- Run PCM ring buffer invalid-args smoke:
+
+	```bash
+	MINIAUDIO_PCM_RB_INVALID_ARGS_SMOKE=1 pixi run run-ffi
+	```
+
+	This validates parameter rejection for invalid initialization.
+
 - Run all current Mojo smoke paths:
 
 	```bash
@@ -212,6 +334,8 @@ For implementation tracking, see `docs/binding-coverage.md`.
 	pixi run run-decoder-smoke-missing
 	pixi run run-decoder-read-smoke-success
 	pixi run run-decoder-read-smoke-missing
+	pixi run run-decoder-memory-smoke
+	pixi run run-decoder-memory-invalid-args-smoke
 	pixi run run-encoder-write-frames-smoke-success
 	pixi run run-encoder-write-frames-smoke-missing
 	pixi run run-playback-file-smoke-success
@@ -243,6 +367,16 @@ For implementation tracking, see `docs/binding-coverage.md`.
 	pixi run run-resource-manager-async-smoke-missing
 	pixi run run-logging-smoke
 	pixi run run-logging-invalid-smoke
+	pixi run run-resampler-linear-smoke
+	pixi run run-resampler-invalid-rate-smoke
+	pixi run run-resampler-expected-count-smoke
+	pixi run run-channel-converter-stereo-mono-smoke
+	pixi run run-channel-converter-invalid-channels-smoke
+	pixi run run-channel-converter-init-mode-smoke
+	pixi run run-pcm-rb-smoke
+	pixi run run-pcm-rb-overflow-smoke
+	pixi run run-pcm-rb-invalid-args-smoke
+	pixi run run-pcm-rb-handle-smoke
 	```
 
 - Run context lifecycle smoke:
@@ -301,6 +435,14 @@ For implementation tracking, see `docs/binding-coverage.md`.
 	MINIAUDIO_DEVICE_CONFIG_SMOKE=1 pixi run run-ffi
 	```
 
+- Run device format matrix smoke:
+
+	```bash
+	MINIAUDIO_DEVICE_FORMAT_MATRIX_SMOKE=1 pixi run run-ffi
+	```
+
+	This validates playback/capture/duplex/duplex-loopback device init across a format matrix (`f32`, `s16`, `s32`, `u8`, `s24`) and checks invalid-format rejection.
+
 - Shortcut tasks:
 
 	```bash
@@ -314,6 +456,7 @@ For implementation tracking, see `docs/binding-coverage.md`.
 	pixi run run-device-control-smoke
 	pixi run run-device-volume-smoke
 	pixi run run-device-config-smoke
+	pixi run run-device-format-matrix-smoke
 	pixi run run-all-smokes
 	```
 

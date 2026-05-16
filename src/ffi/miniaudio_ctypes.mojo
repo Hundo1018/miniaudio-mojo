@@ -902,6 +902,70 @@ struct MiniAudioCtypes:
             )
         )
 
+    def device_init_playback_format(
+        self,
+        device_handle: OpaquePointer[MutExternalOrigin],
+        sample_rate: UInt32,
+        channels: UInt32,
+        sample_format: Int,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_device_init_playback_format", Int32](
+                device_handle,
+                sample_rate,
+                channels,
+                Int32(sample_format),
+            )
+        )
+
+    def device_init_capture_format(
+        self,
+        device_handle: OpaquePointer[MutExternalOrigin],
+        sample_rate: UInt32,
+        channels: UInt32,
+        sample_format: Int,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_device_init_capture_format", Int32](
+                device_handle,
+                sample_rate,
+                channels,
+                Int32(sample_format),
+            )
+        )
+
+    def device_init_duplex_format(
+        self,
+        device_handle: OpaquePointer[MutExternalOrigin],
+        sample_rate: UInt32,
+        channels: UInt32,
+        sample_format: Int,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_device_init_duplex_format", Int32](
+                device_handle,
+                sample_rate,
+                channels,
+                Int32(sample_format),
+            )
+        )
+
+    def device_init_duplex_loopback_format(
+        self,
+        device_handle: OpaquePointer[MutExternalOrigin],
+        sample_rate: UInt32,
+        channels: UInt32,
+        sample_format: Int,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_device_init_duplex_loopback_format", Int32](
+                device_handle,
+                sample_rate,
+                channels,
+                Int32(sample_format),
+            )
+        )
+
     def device_init_capture_f32(
         self,
         device_handle: OpaquePointer[MutExternalOrigin],
@@ -1145,6 +1209,63 @@ struct MiniAudioCtypes:
             )
         )
 
+    def decoder_init_file_format(
+        self,
+        decoder_handle: OpaquePointer[MutExternalOrigin],
+        file_path: String,
+        output_channels: UInt32,
+        output_sample_rate: UInt32,
+        sample_format: Int,
+    ) -> Int:
+        var file_path_c = file_path + "\x00"
+        return Int(
+            self._lib.call["mmj_decoder_init_file_format", Int32](
+                decoder_handle,
+                file_path_c.as_bytes().unsafe_ptr(),
+                output_channels,
+                output_sample_rate,
+                Int32(sample_format),
+            )
+        )
+
+    def decoder_init_memory_f32(
+        self,
+        decoder_handle: OpaquePointer[MutExternalOrigin],
+        encoded_data: String,
+        encoded_data_size: UInt64,
+        output_channels: UInt32,
+        output_sample_rate: UInt32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_decoder_init_memory_f32", Int32](
+                decoder_handle,
+                encoded_data.as_bytes().unsafe_ptr(),
+                encoded_data_size,
+                output_channels,
+                output_sample_rate,
+            )
+        )
+
+    def decoder_init_memory_format(
+        self,
+        decoder_handle: OpaquePointer[MutExternalOrigin],
+        encoded_data: String,
+        encoded_data_size: UInt64,
+        output_channels: UInt32,
+        output_sample_rate: UInt32,
+        sample_format: Int,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_decoder_init_memory_format", Int32](
+                decoder_handle,
+                encoded_data.as_bytes().unsafe_ptr(),
+                encoded_data_size,
+                output_channels,
+                output_sample_rate,
+                Int32(sample_format),
+            )
+        )
+
     def decoder_seek_to_pcm_frame(
         self,
         decoder_handle: OpaquePointer[MutExternalOrigin],
@@ -1209,6 +1330,25 @@ struct MiniAudioCtypes:
                 output_path_c.as_bytes().unsafe_ptr(),
                 channels,
                 sample_rate,
+            )
+        )
+
+    def encoder_init_wav_file_format(
+        self,
+        encoder_handle: OpaquePointer[MutExternalOrigin],
+        output_path: String,
+        channels: UInt32,
+        sample_rate: UInt32,
+        sample_format: Int,
+    ) -> Int:
+        var output_path_c = output_path + "\x00"
+        return Int(
+            self._lib.call["mmj_encoder_init_wav_file_format", Int32](
+                encoder_handle,
+                output_path_c.as_bytes().unsafe_ptr(),
+                channels,
+                sample_rate,
+                Int32(sample_format),
             )
         )
 
@@ -1553,3 +1693,198 @@ struct MiniAudioCtypes:
         self, biquad_node_handle: OpaquePointer[MutExternalOrigin]
     ) -> None:
         self._lib.call["mmj_biquad_node_destroy", NoneType](biquad_node_handle)
+
+    def resampler_create(self) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_resampler_create", OpaquePointer[MutExternalOrigin]]()
+
+    def resampler_init_linear_f32(
+        self,
+        resampler_handle: OpaquePointer[MutExternalOrigin],
+        channels: UInt32,
+        sample_rate_in: UInt32,
+        sample_rate_out: UInt32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_resampler_init_linear_f32", Int32](
+                resampler_handle,
+                channels,
+                sample_rate_in,
+                sample_rate_out,
+            )
+        )
+
+    def resampler_process_f32(
+        self,
+        resampler_handle: OpaquePointer[MutExternalOrigin],
+        input_frames: UnsafePointer[Float32],
+        input_frame_count: UInt64,
+        output_frames: UnsafePointer[Float32],
+        output_frame_capacity: UInt64,
+    ) -> Int64:
+        return self._lib.call["mmj_resampler_process_f32", Int64](
+            resampler_handle,
+            input_frames,
+            input_frame_count,
+            output_frames,
+            output_frame_capacity,
+        )
+
+    def resampler_get_expected_output_frame_count(
+        self,
+        resampler_handle: OpaquePointer[MutExternalOrigin],
+        input_frame_count: UInt64,
+    ) -> Int64:
+        return self._lib.call["mmj_resampler_get_expected_output_frame_count", Int64](
+            resampler_handle,
+            input_frame_count,
+        )
+
+    def resampler_reset(
+        self,
+        resampler_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(self._lib.call["mmj_resampler_reset", Int32](resampler_handle))
+
+    def resampler_uninit(
+        self,
+        resampler_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(self._lib.call["mmj_resampler_uninit", Int32](resampler_handle))
+
+    def resampler_destroy(self, resampler_handle: OpaquePointer[MutExternalOrigin]):
+        self._lib.call["mmj_resampler_destroy", NoneType](resampler_handle)
+
+    def channel_converter_create(self) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_channel_converter_create", OpaquePointer[MutExternalOrigin]]()
+
+    def channel_converter_init_f32(
+        self,
+        converter_handle: OpaquePointer[MutExternalOrigin],
+        channels_in: UInt32,
+        channels_out: UInt32,
+        mix_mode: UInt32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_channel_converter_init_f32", Int32](
+                converter_handle,
+                channels_in,
+                channels_out,
+                mix_mode,
+            )
+        )
+
+    def channel_converter_process_f32(
+        self,
+        converter_handle: OpaquePointer[MutExternalOrigin],
+        input_frames: UnsafePointer[Float32],
+        output_frames: UnsafePointer[Float32],
+        frame_count: UInt64,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_channel_converter_process_f32", Int32](
+                converter_handle,
+                input_frames,
+                output_frames,
+                frame_count,
+            )
+        )
+
+    def channel_converter_uninit(
+        self,
+        converter_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(self._lib.call["mmj_channel_converter_uninit", Int32](converter_handle))
+
+    def channel_converter_destroy(self, converter_handle: OpaquePointer[MutExternalOrigin]):
+        self._lib.call["mmj_channel_converter_destroy", NoneType](converter_handle)
+
+    def pcm_rb_create(self) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_pcm_rb_create", OpaquePointer[MutExternalOrigin]]()
+
+    def pcm_rb_init_f32(
+        self,
+        pcm_rb_handle: OpaquePointer[MutExternalOrigin],
+        channels: UInt32,
+        buffer_size_frames: UInt32,
+        sample_rate: UInt32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_pcm_rb_init_f32", Int32](
+                pcm_rb_handle,
+                channels,
+                buffer_size_frames,
+                sample_rate,
+            )
+        )
+
+    def pcm_rb_write_f32(
+        self,
+        pcm_rb_handle: OpaquePointer[MutExternalOrigin],
+        input_frames: UnsafePointer[Float32],
+        frame_count: UInt64,
+    ) -> Int64:
+        return self._lib.call["mmj_pcm_rb_write_f32", Int64](
+            pcm_rb_handle,
+            input_frames,
+            frame_count,
+        )
+
+    def pcm_rb_read_f32(
+        self,
+        pcm_rb_handle: OpaquePointer[MutExternalOrigin],
+        output_frames: UnsafePointer[Float32],
+        frame_count: UInt64,
+    ) -> Int64:
+        return self._lib.call["mmj_pcm_rb_read_f32", Int64](
+            pcm_rb_handle,
+            output_frames,
+            frame_count,
+        )
+
+    def pcm_rb_available_read(
+        self,
+        pcm_rb_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int64:
+        return self._lib.call["mmj_pcm_rb_available_read", Int64](pcm_rb_handle)
+
+    def pcm_rb_available_write(
+        self,
+        pcm_rb_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int64:
+        return self._lib.call["mmj_pcm_rb_available_write", Int64](pcm_rb_handle)
+
+    def pcm_rb_reset(self, pcm_rb_handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return Int(self._lib.call["mmj_pcm_rb_reset", Int32](pcm_rb_handle))
+
+    def pcm_rb_uninit(self, pcm_rb_handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return Int(self._lib.call["mmj_pcm_rb_uninit", Int32](pcm_rb_handle))
+
+    def pcm_rb_destroy(self, pcm_rb_handle: OpaquePointer[MutExternalOrigin]):
+        self._lib.call["mmj_pcm_rb_destroy", NoneType](pcm_rb_handle)
+
+    def resampler_linear_smoke(self) -> Int:
+        return Int(self._lib.call["mmj_resampler_linear_smoke", Int32]())
+
+    def resampler_invalid_rate_smoke(self) -> Int:
+        return Int(self._lib.call["mmj_resampler_invalid_rate_smoke", Int32]())
+
+    def channel_converter_stereo_to_mono_smoke(self) -> Int:
+        return Int(self._lib.call["mmj_channel_converter_stereo_to_mono_smoke", Int32]())
+
+    def channel_converter_invalid_channels_smoke(self) -> Int:
+        return Int(self._lib.call["mmj_channel_converter_invalid_channels_smoke", Int32]())
+
+    def decoder_memory_smoke(self) -> Int:
+        return Int(self._lib.call["mmj_decoder_memory_smoke", Int32]())
+
+    def decoder_memory_invalid_args_smoke(self) -> Int:
+        return Int(self._lib.call["mmj_decoder_memory_invalid_args_smoke", Int32]())
+
+    def pcm_rb_smoke(self) -> Int:
+        return Int(self._lib.call["mmj_pcm_rb_smoke", Int32]())
+
+    def pcm_rb_overflow_smoke(self) -> Int:
+        return Int(self._lib.call["mmj_pcm_rb_overflow_smoke", Int32]())
+
+    def pcm_rb_invalid_args_smoke(self) -> Int:
+        return Int(self._lib.call["mmj_pcm_rb_invalid_args_smoke", Int32]())

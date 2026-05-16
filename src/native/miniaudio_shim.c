@@ -24,6 +24,12 @@
 #define MMJ_DEVICE_KIND_DUPLEX 3
 #define MMJ_DEVICE_KIND_DUPLEX_LOOPBACK 4
 
+#define MMJ_SAMPLE_FORMAT_U8 1
+#define MMJ_SAMPLE_FORMAT_S16 2
+#define MMJ_SAMPLE_FORMAT_S24 3
+#define MMJ_SAMPLE_FORMAT_S32 4
+#define MMJ_SAMPLE_FORMAT_F32 5
+
 typedef struct mmj_sine_state {
     double phase;
     double phase_step;
@@ -67,6 +73,29 @@ typedef struct mmj_encoder_handle {
     uint32_t channels;
     int initialized;
 } mmj_encoder_handle;
+
+typedef struct mmj_resampler_handle {
+    ma_resampler resampler;
+    uint32_t channels;
+    uint32_t sample_rate_in;
+    uint32_t sample_rate_out;
+    int initialized;
+} mmj_resampler_handle;
+
+typedef struct mmj_channel_converter_handle {
+    ma_channel_converter converter;
+    uint32_t channels_in;
+    uint32_t channels_out;
+    ma_channel_mix_mode mix_mode;
+    int initialized;
+} mmj_channel_converter_handle;
+
+typedef struct mmj_pcm_rb_handle {
+    ma_pcm_rb rb;
+    uint32_t channels;
+    uint32_t sample_rate;
+    int initialized;
+} mmj_pcm_rb_handle;
 
 typedef struct mmj_engine_handle {
     ma_engine engine;
@@ -140,6 +169,8 @@ typedef struct mmj_device_state {
     uint32_t channels;
     int mode;
     int kind;
+    ma_format sample_format;
+    uint32_t bytes_per_sample;
     uint64_t observed_frames;
     /* User-defined callbacks */
     mmj_device_data_callback user_data_callback;
@@ -366,9 +397,9 @@ static void mmj_device_callback(
     ma_uint32 frame_count
 ) {
     mmj_device_state* state = (mmj_device_state*)device->pUserData;
-    ma_uint64 total_samples;
-    float* out = (float*)output;
-    const float* in = (const float*)input;
+    ma_uint64 total_bytes;
+    ma_uint8* out = (ma_uint8*)output;
+    const ma_uint8* in = (const ma_uint8*)input;
     ma_uint64 i;
 
     if (state == NULL || out == NULL) {
@@ -377,7 +408,10 @@ static void mmj_device_callback(
 
     state->observed_frames += (uint64_t)frame_count;
 
-    total_samples = (ma_uint64)frame_count * (ma_uint64)state->channels;
+    total_bytes =
+        (ma_uint64)frame_count
+        * (ma_uint64)state->channels
+        * (ma_uint64)state->bytes_per_sample;
 
     /* Call user-defined callback if set */
     if (state->user_data_callback != NULL) {
@@ -391,13 +425,42 @@ static void mmj_device_callback(
     }
 
     if (state->mode == MMJ_DEVICE_MODE_LOOPBACK && in != NULL) {
-        for (i = 0; i < total_samples; ++i) {
+        for (i = 0; i < total_bytes; ++i) {
             out[i] = in[i];
         }
         return;
     }
 
-    memset(out, 0, (size_t)total_samples * sizeof(float));
+    memset(out, 0, (size_t)total_bytes);
+}
+
+static int mmj_format_from_code(int sample_format, ma_format* out_format) {
+    if (out_format == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (sample_format == MMJ_SAMPLE_FORMAT_U8) {
+        *out_format = ma_format_u8;
+        return MA_SUCCESS;
+    }
+    if (sample_format == MMJ_SAMPLE_FORMAT_S16) {
+        *out_format = ma_format_s16;
+        return MA_SUCCESS;
+    }
+    if (sample_format == MMJ_SAMPLE_FORMAT_S24) {
+        *out_format = ma_format_s24;
+        return MA_SUCCESS;
+    }
+    if (sample_format == MMJ_SAMPLE_FORMAT_S32) {
+        *out_format = ma_format_s32;
+        return MA_SUCCESS;
+    }
+    if (sample_format == MMJ_SAMPLE_FORMAT_F32) {
+        *out_format = ma_format_f32;
+        return MA_SUCCESS;
+    }
+
+    return MA_INVALID_ARGS;
 }
 
 static int mmj_device_init_internal(
@@ -405,6 +468,7 @@ static int mmj_device_init_internal(
     ma_device_type device_type,
     uint32_t sample_rate,
     uint32_t channels,
+    ma_format sample_format,
     int mode
 ) {
     mmj_device_handle* handle = (mmj_device_handle*)device_handle;
@@ -423,11 +487,16 @@ static int mmj_device_init_internal(
 
     handle->state.channels = channels;
     handle->state.mode = mode;
+    handle->state.sample_format = sample_format;
+    handle->state.bytes_per_sample = ma_get_bytes_per_sample(sample_format);
     handle->state.kind = MMJ_DEVICE_KIND_PLAYBACK;
     handle->state.observed_frames = 0;
     handle->state.user_data_callback = NULL;
     handle->state.user_stop_callback = NULL;
     handle->state.user_callback_data = NULL;
+    if (handle->state.bytes_per_sample == 0) {
+        return MA_INVALID_ARGS;
+    }
     if (device_type == ma_device_type_capture) {
         handle->state.kind = MMJ_DEVICE_KIND_CAPTURE;
     } else if (device_type == ma_device_type_duplex) {
@@ -442,12 +511,12 @@ static int mmj_device_init_internal(
     config.pUserData = &handle->state;
 
     if (device_type == ma_device_type_playback || device_type == ma_device_type_duplex) {
-        config.playback.format = ma_format_f32;
+        config.playback.format = sample_format;
         config.playback.channels = channels;
     }
 
     if (device_type == ma_device_type_capture || device_type == ma_device_type_duplex) {
-        config.capture.format = ma_format_f32;
+        config.capture.format = sample_format;
         config.capture.channels = channels;
     }
 
@@ -2200,6 +2269,13 @@ uint32_t mmj_resource_data_source_flag_async(void) {
     return (uint32_t)MA_RESOURCE_MANAGER_DATA_SOURCE_FLAG_ASYNC;
 }
 
+int mmj_device_init_playback_format(
+    void* device_handle,
+    uint32_t sample_rate,
+    uint32_t channels,
+    int sample_format
+);
+
 void* mmj_device_create(void) {
     mmj_device_handle* handle = (mmj_device_handle*)calloc(1, sizeof(mmj_device_handle));
     return handle;
@@ -2210,12 +2286,99 @@ int mmj_device_init_playback_f32(
     uint32_t sample_rate,
     uint32_t channels
 ) {
+    return mmj_device_init_playback_format(
+        device_handle,
+        sample_rate,
+        channels,
+        MMJ_SAMPLE_FORMAT_F32
+    );
+}
+
+int mmj_device_init_playback_format(
+    void* device_handle,
+    uint32_t sample_rate,
+    uint32_t channels,
+    int sample_format
+) {
+    ma_format resolved_format;
+    int format_result = mmj_format_from_code(sample_format, &resolved_format);
+    if (format_result != MA_SUCCESS) {
+        return format_result;
+    }
+
     return mmj_device_init_internal(
         device_handle,
         ma_device_type_playback,
         sample_rate,
         channels,
+        resolved_format,
         MMJ_DEVICE_MODE_SILENCE
+    );
+}
+
+int mmj_device_init_capture_format(
+    void* device_handle,
+    uint32_t sample_rate,
+    uint32_t channels,
+    int sample_format
+) {
+    ma_format resolved_format;
+    int format_result = mmj_format_from_code(sample_format, &resolved_format);
+    if (format_result != MA_SUCCESS) {
+        return format_result;
+    }
+
+    return mmj_device_init_internal(
+        device_handle,
+        ma_device_type_capture,
+        sample_rate,
+        channels,
+        resolved_format,
+        MMJ_DEVICE_MODE_SILENCE
+    );
+}
+
+int mmj_device_init_duplex_format(
+    void* device_handle,
+    uint32_t sample_rate,
+    uint32_t channels,
+    int sample_format
+) {
+    ma_format resolved_format;
+    int format_result = mmj_format_from_code(sample_format, &resolved_format);
+    if (format_result != MA_SUCCESS) {
+        return format_result;
+    }
+
+    return mmj_device_init_internal(
+        device_handle,
+        ma_device_type_duplex,
+        sample_rate,
+        channels,
+        resolved_format,
+        MMJ_DEVICE_MODE_SILENCE
+    );
+}
+
+int mmj_device_init_duplex_loopback_format(
+    void* device_handle,
+    uint32_t sample_rate,
+    uint32_t channels,
+    int sample_format
+) {
+    ma_format resolved_format;
+    int format_result = mmj_format_from_code(sample_format, &resolved_format);
+    if (format_result != MA_SUCCESS) {
+        return format_result;
+    }
+
+    return mmj_device_init_internal(
+        device_handle,
+        ma_device_type_duplex,
+        sample_rate,
+        channels,
+        resolved_format,
+        MMJ_DEVICE_MODE_LOOPBACK
     );
 }
 
@@ -2224,12 +2387,11 @@ int mmj_device_init_capture_f32(
     uint32_t sample_rate,
     uint32_t channels
 ) {
-    return mmj_device_init_internal(
+    return mmj_device_init_capture_format(
         device_handle,
-        ma_device_type_capture,
         sample_rate,
         channels,
-        MMJ_DEVICE_MODE_SILENCE
+        MMJ_SAMPLE_FORMAT_F32
     );
 }
 
@@ -2238,12 +2400,11 @@ int mmj_device_init_duplex_f32(
     uint32_t sample_rate,
     uint32_t channels
 ) {
-    return mmj_device_init_internal(
+    return mmj_device_init_duplex_format(
         device_handle,
-        ma_device_type_duplex,
         sample_rate,
         channels,
-        MMJ_DEVICE_MODE_SILENCE
+        MMJ_SAMPLE_FORMAT_F32
     );
 }
 
@@ -2252,12 +2413,11 @@ int mmj_device_init_duplex_loopback_f32(
     uint32_t sample_rate,
     uint32_t channels
 ) {
-    return mmj_device_init_internal(
+    return mmj_device_init_duplex_loopback_format(
         device_handle,
-        ma_device_type_duplex,
         sample_rate,
         channels,
-        MMJ_DEVICE_MODE_LOOPBACK
+        MMJ_SAMPLE_FORMAT_F32
     );
 }
 
@@ -2655,12 +2815,35 @@ int mmj_decoder_init_file_f32(
     uint32_t output_channels,
     uint32_t output_sample_rate
 ) {
+    return mmj_decoder_init_file_format(
+        decoder_handle,
+        file_path,
+        output_channels,
+        output_sample_rate,
+        MMJ_SAMPLE_FORMAT_F32
+    );
+}
+
+int mmj_decoder_init_file_format(
+    void* decoder_handle,
+    const char* file_path,
+    uint32_t output_channels,
+    uint32_t output_sample_rate,
+    int sample_format
+) {
     mmj_decoder_handle* handle = (mmj_decoder_handle*)decoder_handle;
     ma_decoder_config config;
+    ma_format resolved_format;
+    int format_result;
     ma_result result;
 
     if (handle == NULL || file_path == NULL || output_channels == 0) {
         return MA_INVALID_ARGS;
+    }
+
+    format_result = mmj_format_from_code(sample_format, &resolved_format);
+    if (format_result != MA_SUCCESS) {
+        return format_result;
     }
 
     if (handle->initialized) {
@@ -2668,8 +2851,62 @@ int mmj_decoder_init_file_f32(
         handle->initialized = 0;
     }
 
-    config = ma_decoder_config_init(ma_format_f32, output_channels, output_sample_rate);
+    config = ma_decoder_config_init(resolved_format, output_channels, output_sample_rate);
     result = ma_decoder_init_file(file_path, &config, &handle->decoder);
+    if (result == MA_SUCCESS) {
+        handle->initialized = 1;
+    }
+
+    return result;
+}
+
+int mmj_decoder_init_memory_f32(
+    void* decoder_handle,
+    const void* data,
+    uint64_t data_size,
+    uint32_t output_channels,
+    uint32_t output_sample_rate
+) {
+    return mmj_decoder_init_memory_format(
+        decoder_handle,
+        data,
+        data_size,
+        output_channels,
+        output_sample_rate,
+        MMJ_SAMPLE_FORMAT_F32
+    );
+}
+
+int mmj_decoder_init_memory_format(
+    void* decoder_handle,
+    const void* data,
+    uint64_t data_size,
+    uint32_t output_channels,
+    uint32_t output_sample_rate,
+    int sample_format
+) {
+    mmj_decoder_handle* handle = (mmj_decoder_handle*)decoder_handle;
+    ma_decoder_config config;
+    ma_format resolved_format;
+    int format_result;
+    ma_result result;
+
+    if (handle == NULL || data == NULL || data_size == 0 || output_channels == 0) {
+        return MA_INVALID_ARGS;
+    }
+
+    format_result = mmj_format_from_code(sample_format, &resolved_format);
+    if (format_result != MA_SUCCESS) {
+        return format_result;
+    }
+
+    if (handle->initialized) {
+        ma_decoder_uninit(&handle->decoder);
+        handle->initialized = 0;
+    }
+
+    config = ma_decoder_config_init(resolved_format, output_channels, output_sample_rate);
+    result = ma_decoder_init_memory(data, (size_t)data_size, &config, &handle->decoder);
     if (result == MA_SUCCESS) {
         handle->initialized = 1;
     }
@@ -2701,10 +2938,13 @@ int mmj_decoder_read_pcm_frames_f32(
 
 int64_t mmj_decoder_read_probe_f32(void* decoder_handle, uint64_t frame_count) {
     mmj_decoder_handle* handle = (mmj_decoder_handle*)decoder_handle;
+    ma_format format = ma_format_unknown;
     ma_uint32 channels = 0;
+    ma_uint32 bytes_per_sample = 0;
+    ma_uint64 sample_count = 0;
     ma_uint64 local_frames_read = 0;
     ma_result result;
-    float* buffer = NULL;
+    ma_uint8* buffer = NULL;
 
     if (handle == NULL || !handle->initialized || frame_count == 0) {
         return (int64_t)MA_INVALID_ARGS;
@@ -2712,7 +2952,7 @@ int64_t mmj_decoder_read_probe_f32(void* decoder_handle, uint64_t frame_count) {
 
     result = ma_decoder_get_data_format(
         &handle->decoder,
-        NULL,
+        &format,
         &channels,
         NULL,
         NULL,
@@ -2726,7 +2966,17 @@ int64_t mmj_decoder_read_probe_f32(void* decoder_handle, uint64_t frame_count) {
         return (int64_t)MA_INVALID_DATA;
     }
 
-    buffer = (float*)malloc(sizeof(float) * (size_t)frame_count * (size_t)channels);
+    bytes_per_sample = ma_get_bytes_per_sample(format);
+    if (bytes_per_sample == 0) {
+        return (int64_t)MA_INVALID_DATA;
+    }
+
+    sample_count = (ma_uint64)frame_count * (ma_uint64)channels;
+    if (sample_count > ((ma_uint64)SIZE_MAX / (ma_uint64)bytes_per_sample)) {
+        return (int64_t)MA_OUT_OF_RANGE;
+    }
+
+    buffer = (ma_uint8*)malloc((size_t)sample_count * (size_t)bytes_per_sample);
     if (buffer == NULL) {
         return (int64_t)MA_OUT_OF_MEMORY;
     }
@@ -2792,14 +3042,16 @@ void* mmj_encoder_create(void) {
     return handle;
 }
 
-int mmj_encoder_init_wav_file_f32(
+int mmj_encoder_init_wav_file_format(
     void* encoder_handle,
     const char* output_path,
     uint32_t channels,
-    uint32_t sample_rate
+    uint32_t sample_rate,
+    int sample_format
 ) {
     mmj_encoder_handle* handle = (mmj_encoder_handle*)encoder_handle;
     ma_encoder_config config;
+    ma_format format;
     ma_result result;
 
     if (
@@ -2811,6 +3063,10 @@ int mmj_encoder_init_wav_file_f32(
         return MA_INVALID_ARGS;
     }
 
+    if (mmj_format_from_code(sample_format, &format) != MA_SUCCESS) {
+        return MA_INVALID_ARGS;
+    }
+
     if (handle->initialized) {
         ma_encoder_uninit(&handle->encoder);
         handle->initialized = 0;
@@ -2819,7 +3075,7 @@ int mmj_encoder_init_wav_file_f32(
 
     config = ma_encoder_config_init(
         ma_encoding_format_wav,
-        ma_format_f32,
+        format,
         channels,
         sample_rate
     );
@@ -2830,6 +3086,21 @@ int mmj_encoder_init_wav_file_f32(
     }
 
     return result;
+}
+
+int mmj_encoder_init_wav_file_f32(
+    void* encoder_handle,
+    const char* output_path,
+    uint32_t channels,
+    uint32_t sample_rate
+) {
+    return mmj_encoder_init_wav_file_format(
+        encoder_handle,
+        output_path,
+        channels,
+        sample_rate,
+        MMJ_SAMPLE_FORMAT_F32
+    );
 }
 
 int mmj_encoder_write_silence_f32(void* encoder_handle, uint64_t frame_count) {
@@ -2947,6 +3218,802 @@ void mmj_encoder_destroy(void* encoder_handle) {
     }
 
     free(handle);
+}
+
+void* mmj_resampler_create(void) {
+    mmj_resampler_handle* handle = (mmj_resampler_handle*)calloc(1, sizeof(mmj_resampler_handle));
+    return handle;
+}
+
+int mmj_resampler_init_linear_f32(
+    void* resampler_handle,
+    uint32_t channels,
+    uint32_t sample_rate_in,
+    uint32_t sample_rate_out
+) {
+    mmj_resampler_handle* handle = (mmj_resampler_handle*)resampler_handle;
+    ma_resampler_config config;
+    ma_result result;
+
+    if (
+        handle == NULL
+        || channels == 0
+        || sample_rate_in == 0
+        || sample_rate_out == 0
+    ) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (handle->initialized) {
+        ma_resampler_uninit(&handle->resampler, NULL);
+        handle->initialized = 0;
+    }
+
+    config = ma_resampler_config_init(
+        ma_format_f32,
+        (ma_uint32)channels,
+        (ma_uint32)sample_rate_in,
+        (ma_uint32)sample_rate_out,
+        ma_resample_algorithm_linear
+    );
+    result = ma_resampler_init(&config, NULL, &handle->resampler);
+    if (result == MA_SUCCESS) {
+        handle->channels = channels;
+        handle->sample_rate_in = sample_rate_in;
+        handle->sample_rate_out = sample_rate_out;
+        handle->initialized = 1;
+    }
+
+    return (int)result;
+}
+
+int64_t mmj_resampler_process_f32(
+    void* resampler_handle,
+    const float* input_frames,
+    uint64_t input_frame_count,
+    float* output_frames,
+    uint64_t output_frame_capacity
+) {
+    mmj_resampler_handle* handle = (mmj_resampler_handle*)resampler_handle;
+    ma_uint64 frame_count_in;
+    ma_uint64 frame_count_out;
+    ma_result result;
+
+    if (
+        handle == NULL
+        || !handle->initialized
+        || input_frames == NULL
+        || output_frames == NULL
+    ) {
+        return (int64_t)MA_INVALID_ARGS;
+    }
+
+    if (input_frame_count == 0 || output_frame_capacity == 0) {
+        return 0;
+    }
+
+    frame_count_in = (ma_uint64)input_frame_count;
+    frame_count_out = (ma_uint64)output_frame_capacity;
+    result = ma_resampler_process_pcm_frames(
+        &handle->resampler,
+        input_frames,
+        &frame_count_in,
+        output_frames,
+        &frame_count_out
+    );
+    if (result != MA_SUCCESS) {
+        return (int64_t)result;
+    }
+
+    if (frame_count_out > (ma_uint64)INT64_MAX) {
+        return (int64_t)MA_OUT_OF_RANGE;
+    }
+
+    return (int64_t)frame_count_out;
+}
+
+int64_t mmj_resampler_get_expected_output_frame_count(
+    void* resampler_handle,
+    uint64_t input_frame_count
+) {
+    mmj_resampler_handle* handle = (mmj_resampler_handle*)resampler_handle;
+    ma_uint64 output_frame_count = 0;
+    ma_result result;
+
+    if (handle == NULL || !handle->initialized) {
+        return (int64_t)MA_INVALID_ARGS;
+    }
+
+    result = ma_resampler_get_expected_output_frame_count(
+        &handle->resampler,
+        (ma_uint64)input_frame_count,
+        &output_frame_count
+    );
+    if (result != MA_SUCCESS) {
+        return (int64_t)result;
+    }
+
+    if (output_frame_count > (ma_uint64)INT64_MAX) {
+        return (int64_t)MA_OUT_OF_RANGE;
+    }
+
+    return (int64_t)output_frame_count;
+}
+
+int mmj_resampler_reset(void* resampler_handle) {
+    mmj_resampler_handle* handle = (mmj_resampler_handle*)resampler_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    return (int)ma_resampler_reset(&handle->resampler);
+}
+
+int mmj_resampler_uninit(void* resampler_handle) {
+    mmj_resampler_handle* handle = (mmj_resampler_handle*)resampler_handle;
+
+    if (handle == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (!handle->initialized) {
+        return MA_SUCCESS;
+    }
+
+    ma_resampler_uninit(&handle->resampler, NULL);
+    handle->initialized = 0;
+    handle->channels = 0;
+    handle->sample_rate_in = 0;
+    handle->sample_rate_out = 0;
+    return MA_SUCCESS;
+}
+
+void mmj_resampler_destroy(void* resampler_handle) {
+    mmj_resampler_handle* handle = (mmj_resampler_handle*)resampler_handle;
+
+    if (handle == NULL) {
+        return;
+    }
+
+    if (handle->initialized) {
+        ma_resampler_uninit(&handle->resampler, NULL);
+        handle->initialized = 0;
+    }
+
+    free(handle);
+}
+
+void* mmj_channel_converter_create(void) {
+    mmj_channel_converter_handle* handle = (mmj_channel_converter_handle*)calloc(1, sizeof(mmj_channel_converter_handle));
+    return handle;
+}
+
+int mmj_channel_converter_init_f32(
+    void* converter_handle,
+    uint32_t channels_in,
+    uint32_t channels_out,
+    uint32_t mix_mode
+) {
+    mmj_channel_converter_handle* handle = (mmj_channel_converter_handle*)converter_handle;
+    ma_channel_converter_config config;
+    ma_channel_mix_mode resolved_mix_mode;
+    ma_result result;
+
+    if (handle == NULL || channels_in == 0 || channels_out == 0) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (mix_mode == (uint32_t)ma_channel_mix_mode_rectangular) {
+        resolved_mix_mode = ma_channel_mix_mode_rectangular;
+    } else if (mix_mode == (uint32_t)ma_channel_mix_mode_simple) {
+        resolved_mix_mode = ma_channel_mix_mode_simple;
+    } else {
+        return MA_INVALID_ARGS;
+    }
+
+    if (handle->initialized) {
+        ma_channel_converter_uninit(&handle->converter, NULL);
+        handle->initialized = 0;
+    }
+
+    config = ma_channel_converter_config_init(
+        ma_format_f32,
+        (ma_uint32)channels_in,
+        NULL,
+        (ma_uint32)channels_out,
+        NULL,
+        resolved_mix_mode
+    );
+    result = ma_channel_converter_init(&config, NULL, &handle->converter);
+    if (result == MA_SUCCESS) {
+        handle->channels_in = channels_in;
+        handle->channels_out = channels_out;
+        handle->mix_mode = resolved_mix_mode;
+        handle->initialized = 1;
+    }
+
+    return (int)result;
+}
+
+int mmj_channel_converter_process_f32(
+    void* converter_handle,
+    const float* input_frames,
+    float* output_frames,
+    uint64_t frame_count
+) {
+    mmj_channel_converter_handle* handle = (mmj_channel_converter_handle*)converter_handle;
+    ma_result result;
+
+    if (
+        handle == NULL
+        || !handle->initialized
+        || input_frames == NULL
+        || output_frames == NULL
+    ) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (frame_count == 0) {
+        return MA_SUCCESS;
+    }
+
+    result = ma_channel_converter_process_pcm_frames(
+        &handle->converter,
+        output_frames,
+        input_frames,
+        (ma_uint64)frame_count
+    );
+    return (int)result;
+}
+
+int mmj_channel_converter_uninit(void* converter_handle) {
+    mmj_channel_converter_handle* handle = (mmj_channel_converter_handle*)converter_handle;
+
+    if (handle == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (!handle->initialized) {
+        return MA_SUCCESS;
+    }
+
+    ma_channel_converter_uninit(&handle->converter, NULL);
+    handle->initialized = 0;
+    handle->channels_in = 0;
+    handle->channels_out = 0;
+    handle->mix_mode = ma_channel_mix_mode_default;
+    return MA_SUCCESS;
+}
+
+void mmj_channel_converter_destroy(void* converter_handle) {
+    mmj_channel_converter_handle* handle = (mmj_channel_converter_handle*)converter_handle;
+
+    if (handle == NULL) {
+        return;
+    }
+
+    if (handle->initialized) {
+        ma_channel_converter_uninit(&handle->converter, NULL);
+        handle->initialized = 0;
+    }
+
+    free(handle);
+}
+
+void* mmj_pcm_rb_create(void) {
+    mmj_pcm_rb_handle* handle = (mmj_pcm_rb_handle*)calloc(1, sizeof(mmj_pcm_rb_handle));
+    return handle;
+}
+
+int mmj_pcm_rb_init_f32(
+    void* pcm_rb_handle,
+    uint32_t channels,
+    uint32_t buffer_size_frames,
+    uint32_t sample_rate
+) {
+    mmj_pcm_rb_handle* handle = (mmj_pcm_rb_handle*)pcm_rb_handle;
+    ma_result result;
+
+    if (
+        handle == NULL
+        || channels == 0
+        || buffer_size_frames == 0
+        || sample_rate == 0
+    ) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (handle->initialized) {
+        ma_pcm_rb_uninit(&handle->rb);
+        handle->initialized = 0;
+    }
+
+    result = ma_pcm_rb_init(
+        ma_format_f32,
+        (ma_uint32)channels,
+        (ma_uint32)buffer_size_frames,
+        NULL,
+        NULL,
+        &handle->rb
+    );
+    if (result == MA_SUCCESS) {
+        ma_pcm_rb_set_sample_rate(&handle->rb, (ma_uint32)sample_rate);
+        handle->channels = channels;
+        handle->sample_rate = sample_rate;
+        handle->initialized = 1;
+    }
+
+    return (int)result;
+}
+
+int64_t mmj_pcm_rb_write_f32(
+    void* pcm_rb_handle,
+    const float* input_frames,
+    uint64_t frame_count
+) {
+    mmj_pcm_rb_handle* handle = (mmj_pcm_rb_handle*)pcm_rb_handle;
+    ma_result result;
+    uint64_t remaining;
+    uint64_t total_written;
+    const float* cursor;
+
+    if (
+        handle == NULL
+        || !handle->initialized
+        || input_frames == NULL
+    ) {
+        return (int64_t)MA_INVALID_ARGS;
+    }
+
+    if (frame_count == 0) {
+        return 0;
+    }
+
+    remaining = frame_count;
+    total_written = 0;
+    cursor = input_frames;
+
+    while (remaining > 0) {
+        ma_uint32 requested_frames;
+        void* mapped = NULL;
+        ma_uint64 samples_to_copy;
+
+        requested_frames = (ma_uint32)((remaining > (uint64_t)UINT32_MAX) ? UINT32_MAX : remaining);
+        result = ma_pcm_rb_acquire_write(&handle->rb, &requested_frames, &mapped);
+        if (result != MA_SUCCESS) {
+            return (int64_t)result;
+        }
+
+        if (requested_frames == 0 || mapped == NULL) {
+            break;
+        }
+
+        samples_to_copy = (ma_uint64)requested_frames * (ma_uint64)handle->channels;
+        memcpy(mapped, cursor, (size_t)samples_to_copy * sizeof(float));
+
+        result = ma_pcm_rb_commit_write(&handle->rb, requested_frames);
+        if (result != MA_SUCCESS) {
+            return (int64_t)result;
+        }
+
+        total_written += (uint64_t)requested_frames;
+        remaining -= (uint64_t)requested_frames;
+        cursor += samples_to_copy;
+    }
+
+    if (total_written > (uint64_t)INT64_MAX) {
+        return (int64_t)MA_OUT_OF_RANGE;
+    }
+
+    return (int64_t)total_written;
+}
+
+int64_t mmj_pcm_rb_read_f32(
+    void* pcm_rb_handle,
+    float* output_frames,
+    uint64_t frame_count
+) {
+    mmj_pcm_rb_handle* handle = (mmj_pcm_rb_handle*)pcm_rb_handle;
+    ma_result result;
+    uint64_t remaining;
+    uint64_t total_read;
+    float* cursor;
+
+    if (
+        handle == NULL
+        || !handle->initialized
+        || output_frames == NULL
+    ) {
+        return (int64_t)MA_INVALID_ARGS;
+    }
+
+    if (frame_count == 0) {
+        return 0;
+    }
+
+    remaining = frame_count;
+    total_read = 0;
+    cursor = output_frames;
+
+    while (remaining > 0) {
+        ma_uint32 requested_frames;
+        void* mapped = NULL;
+        ma_uint64 samples_to_copy;
+
+        requested_frames = (ma_uint32)((remaining > (uint64_t)UINT32_MAX) ? UINT32_MAX : remaining);
+        result = ma_pcm_rb_acquire_read(&handle->rb, &requested_frames, &mapped);
+        if (result != MA_SUCCESS) {
+            return (int64_t)result;
+        }
+
+        if (requested_frames == 0 || mapped == NULL) {
+            break;
+        }
+
+        samples_to_copy = (ma_uint64)requested_frames * (ma_uint64)handle->channels;
+        memcpy(cursor, mapped, (size_t)samples_to_copy * sizeof(float));
+
+        result = ma_pcm_rb_commit_read(&handle->rb, requested_frames);
+        if (result != MA_SUCCESS) {
+            return (int64_t)result;
+        }
+
+        total_read += (uint64_t)requested_frames;
+        remaining -= (uint64_t)requested_frames;
+        cursor += samples_to_copy;
+    }
+
+    if (total_read > (uint64_t)INT64_MAX) {
+        return (int64_t)MA_OUT_OF_RANGE;
+    }
+
+    return (int64_t)total_read;
+}
+
+int64_t mmj_pcm_rb_available_read(void* pcm_rb_handle) {
+    mmj_pcm_rb_handle* handle = (mmj_pcm_rb_handle*)pcm_rb_handle;
+    ma_uint32 available;
+
+    if (handle == NULL || !handle->initialized) {
+        return (int64_t)MA_INVALID_ARGS;
+    }
+
+    available = ma_pcm_rb_available_read(&handle->rb);
+    return (int64_t)available;
+}
+
+int64_t mmj_pcm_rb_available_write(void* pcm_rb_handle) {
+    mmj_pcm_rb_handle* handle = (mmj_pcm_rb_handle*)pcm_rb_handle;
+    ma_uint32 available;
+
+    if (handle == NULL || !handle->initialized) {
+        return (int64_t)MA_INVALID_ARGS;
+    }
+
+    available = ma_pcm_rb_available_write(&handle->rb);
+    return (int64_t)available;
+}
+
+int mmj_pcm_rb_reset(void* pcm_rb_handle) {
+    mmj_pcm_rb_handle* handle = (mmj_pcm_rb_handle*)pcm_rb_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    ma_pcm_rb_reset(&handle->rb);
+    return MA_SUCCESS;
+}
+
+int mmj_pcm_rb_uninit(void* pcm_rb_handle) {
+    mmj_pcm_rb_handle* handle = (mmj_pcm_rb_handle*)pcm_rb_handle;
+
+    if (handle == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (!handle->initialized) {
+        return MA_SUCCESS;
+    }
+
+    ma_pcm_rb_uninit(&handle->rb);
+    handle->initialized = 0;
+    handle->channels = 0;
+    handle->sample_rate = 0;
+    return MA_SUCCESS;
+}
+
+void mmj_pcm_rb_destroy(void* pcm_rb_handle) {
+    mmj_pcm_rb_handle* handle = (mmj_pcm_rb_handle*)pcm_rb_handle;
+
+    if (handle == NULL) {
+        return;
+    }
+
+    if (handle->initialized) {
+        ma_pcm_rb_uninit(&handle->rb);
+        handle->initialized = 0;
+    }
+
+    free(handle);
+}
+
+int mmj_resampler_linear_smoke(void) {
+    mmj_resampler_handle handle;
+    ma_result result;
+    float input_frames[64 * 2];
+    float output_frames[96 * 2];
+    ma_uint64 frame_count_in;
+    ma_uint64 frame_count_out;
+    ma_uint64 expected_output = 0;
+    uint64_t i;
+
+    memset(&handle, 0, sizeof(handle));
+    result = (ma_result)mmj_resampler_init_linear_f32(&handle, 2, 44100, 48000);
+    if (result != MA_SUCCESS) {
+        return (int)result;
+    }
+
+    for (i = 0; i < 64; ++i) {
+        float sample = (float)((double)i / 64.0);
+        input_frames[(i * 2) + 0] = sample;
+        input_frames[(i * 2) + 1] = sample;
+    }
+
+    frame_count_in = 64;
+    frame_count_out = 96;
+    result = ma_resampler_process_pcm_frames(
+        &handle.resampler,
+        input_frames,
+        &frame_count_in,
+        output_frames,
+        &frame_count_out
+    );
+    if (result != MA_SUCCESS) {
+        mmj_resampler_uninit(&handle);
+        return (int)result;
+    }
+
+    result = ma_resampler_get_expected_output_frame_count(
+        &handle.resampler,
+        64,
+        &expected_output
+    );
+    if (result != MA_SUCCESS) {
+        mmj_resampler_uninit(&handle);
+        return (int)result;
+    }
+
+    if (frame_count_out == 0 || expected_output == 0) {
+        mmj_resampler_uninit(&handle);
+        return MA_ERROR;
+    }
+
+    return mmj_resampler_uninit(&handle);
+}
+
+int mmj_resampler_invalid_rate_smoke(void) {
+    mmj_resampler_handle handle;
+    int result;
+
+    memset(&handle, 0, sizeof(handle));
+    result = mmj_resampler_init_linear_f32(&handle, 2, 44100, 0);
+    if (result != MA_INVALID_ARGS) {
+        mmj_resampler_uninit(&handle);
+        return MA_ERROR;
+    }
+
+    return MA_SUCCESS;
+}
+
+int mmj_channel_converter_stereo_to_mono_smoke(void) {
+    mmj_channel_converter_handle handle;
+    int result;
+    float input_frames[4 * 2] = {
+        1.0f, -1.0f,
+        0.5f, 0.5f,
+        -0.25f, -0.75f,
+        0.0f, 0.0f
+    };
+    float output_frames[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+
+    memset(&handle, 0, sizeof(handle));
+    result = mmj_channel_converter_init_f32(
+        &handle,
+        2,
+        1,
+        (uint32_t)ma_channel_mix_mode_rectangular
+    );
+    if (result != MA_SUCCESS) {
+        return result;
+    }
+
+    result = mmj_channel_converter_process_f32(
+        &handle,
+        input_frames,
+        output_frames,
+        4
+    );
+    if (result != MA_SUCCESS) {
+        mmj_channel_converter_uninit(&handle);
+        return result;
+    }
+
+    if (output_frames[1] == 0.0f) {
+        mmj_channel_converter_uninit(&handle);
+        return MA_ERROR;
+    }
+
+    return mmj_channel_converter_uninit(&handle);
+}
+
+int mmj_channel_converter_invalid_channels_smoke(void) {
+    mmj_channel_converter_handle handle;
+    int result;
+
+    memset(&handle, 0, sizeof(handle));
+    result = mmj_channel_converter_init_f32(
+        &handle,
+        0,
+        1,
+        (uint32_t)ma_channel_mix_mode_rectangular
+    );
+    if (result != MA_INVALID_ARGS) {
+        mmj_channel_converter_uninit(&handle);
+        return MA_ERROR;
+    }
+
+    return MA_SUCCESS;
+}
+
+int mmj_decoder_memory_smoke(void) {
+    mmj_decoder_handle handle;
+    const unsigned char wav_data[] = {
+        0x52, 0x49, 0x46, 0x46, 0x2C, 0x00, 0x00, 0x00,
+        0x57, 0x41, 0x56, 0x45, 0x66, 0x6D, 0x74, 0x20,
+        0x10, 0x00, 0x00, 0x00, 0x01, 0x00, 0x02, 0x00,
+        0x80, 0xBB, 0x00, 0x00, 0x00, 0xEE, 0x02, 0x00,
+        0x04, 0x00, 0x10, 0x00, 0x64, 0x61, 0x74, 0x61,
+        0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00
+    };
+    int result;
+    int64_t frames_read;
+
+    memset(&handle, 0, sizeof(handle));
+
+    result = mmj_decoder_init_memory_f32(
+        &handle,
+        wav_data,
+        sizeof(wav_data),
+        2,
+        48000
+    );
+    if (result != MA_SUCCESS) {
+        return result;
+    }
+
+    frames_read = mmj_decoder_read_probe_f32(&handle, 2);
+    if (frames_read <= 0) {
+        mmj_decoder_uninit(&handle);
+        return MA_ERROR;
+    }
+
+    return mmj_decoder_uninit(&handle);
+}
+
+int mmj_decoder_memory_invalid_args_smoke(void) {
+    mmj_decoder_handle handle;
+    int result;
+
+    memset(&handle, 0, sizeof(handle));
+
+    result = mmj_decoder_init_memory_f32(&handle, NULL, 8, 2, 48000);
+    if (result != MA_INVALID_ARGS) {
+        mmj_decoder_uninit(&handle);
+        return MA_ERROR;
+    }
+
+    result = mmj_decoder_init_memory_f32(&handle, "x", 1, 0, 48000);
+    if (result != MA_INVALID_ARGS) {
+        mmj_decoder_uninit(&handle);
+        return MA_ERROR;
+    }
+
+    return MA_SUCCESS;
+}
+
+int mmj_pcm_rb_smoke(void) {
+    mmj_pcm_rb_handle handle;
+    float input_frames[8 * 2] = {
+        0.1f, 0.2f,
+        0.3f, 0.4f,
+        0.5f, 0.6f,
+        0.7f, 0.8f,
+        0.9f, 1.0f,
+        1.1f, 1.2f,
+        1.3f, 1.4f,
+        1.5f, 1.6f
+    };
+    float output_frames[8 * 2];
+    int64_t written;
+    int64_t read;
+    int64_t available_read;
+    int result;
+
+    memset(&handle, 0, sizeof(handle));
+    memset(output_frames, 0, sizeof(output_frames));
+
+    result = mmj_pcm_rb_init_f32(&handle, 2, 16, 48000);
+    if (result != MA_SUCCESS) {
+        return result;
+    }
+
+    written = mmj_pcm_rb_write_f32(&handle, input_frames, 8);
+    if (written != 8) {
+        mmj_pcm_rb_uninit(&handle);
+        return MA_ERROR;
+    }
+
+    available_read = mmj_pcm_rb_available_read(&handle);
+    if (available_read < 8) {
+        mmj_pcm_rb_uninit(&handle);
+        return MA_ERROR;
+    }
+
+    read = mmj_pcm_rb_read_f32(&handle, output_frames, 4);
+    if (read != 4) {
+        mmj_pcm_rb_uninit(&handle);
+        return MA_ERROR;
+    }
+
+    if (output_frames[0] != input_frames[0] || output_frames[1] != input_frames[1]) {
+        mmj_pcm_rb_uninit(&handle);
+        return MA_ERROR;
+    }
+
+    return mmj_pcm_rb_uninit(&handle);
+}
+
+int mmj_pcm_rb_overflow_smoke(void) {
+    mmj_pcm_rb_handle handle;
+    float input_frames[8 * 2] = {0};
+    int64_t written_first;
+    int64_t written_second;
+    int64_t available_write;
+    int result;
+
+    memset(&handle, 0, sizeof(handle));
+    result = mmj_pcm_rb_init_f32(&handle, 2, 4, 48000);
+    if (result != MA_SUCCESS) {
+        return result;
+    }
+
+    written_first = mmj_pcm_rb_write_f32(&handle, input_frames, 4);
+    written_second = mmj_pcm_rb_write_f32(&handle, input_frames, 4);
+    available_write = mmj_pcm_rb_available_write(&handle);
+
+    if (written_first != 4 || written_second != 0 || available_write != 0) {
+        mmj_pcm_rb_uninit(&handle);
+        return MA_ERROR;
+    }
+
+    return mmj_pcm_rb_uninit(&handle);
+}
+
+int mmj_pcm_rb_invalid_args_smoke(void) {
+    mmj_pcm_rb_handle handle;
+    int result;
+
+    memset(&handle, 0, sizeof(handle));
+    result = mmj_pcm_rb_init_f32(&handle, 0, 16, 48000);
+    if (result != MA_INVALID_ARGS) {
+        mmj_pcm_rb_uninit(&handle);
+        return MA_ERROR;
+    }
+
+    return MA_SUCCESS;
 }
 
 /* === Memory-based I/O implementations === */

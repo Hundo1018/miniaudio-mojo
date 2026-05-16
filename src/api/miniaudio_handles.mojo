@@ -720,6 +720,65 @@ struct MiniAudioDecoderHandle:
             raise Error(format_result_error(bridge, "decoder init failed", result))
         self.initialized = True
 
+    def init_file_format(
+        mut self,
+        bridge: MiniAudioCtypes,
+        file_path: String,
+        output_channels: UInt32,
+        output_sample_rate: UInt32,
+        sample_format: Int,
+    ) raises:
+        var result = bridge.decoder_init_file_format(
+            self.raw,
+            file_path,
+            output_channels,
+            output_sample_rate,
+            sample_format,
+        )
+        if result != 0:
+            raise Error(format_result_error(bridge, "decoder format init failed", result))
+        self.initialized = True
+
+    def init_memory_f32(
+        mut self,
+        bridge: MiniAudioCtypes,
+        encoded_data: String,
+        encoded_data_size: UInt64,
+        output_channels: UInt32,
+        output_sample_rate: UInt32,
+    ) raises:
+        var result = bridge.decoder_init_memory_f32(
+            self.raw,
+            encoded_data,
+            encoded_data_size,
+            output_channels,
+            output_sample_rate,
+        )
+        if result != 0:
+            raise Error(format_result_error(bridge, "decoder memory init failed", result))
+        self.initialized = True
+
+    def init_memory_format(
+        mut self,
+        bridge: MiniAudioCtypes,
+        encoded_data: String,
+        encoded_data_size: UInt64,
+        output_channels: UInt32,
+        output_sample_rate: UInt32,
+        sample_format: Int,
+    ) raises:
+        var result = bridge.decoder_init_memory_format(
+            self.raw,
+            encoded_data,
+            encoded_data_size,
+            output_channels,
+            output_sample_rate,
+            sample_format,
+        )
+        if result != 0:
+            raise Error(format_result_error(bridge, "decoder memory format init failed", result))
+        self.initialized = True
+
     def seek_to_pcm_frame(
         self,
         bridge: MiniAudioCtypes,
@@ -1014,6 +1073,26 @@ struct MiniAudioEncoderHandle:
         self.initialized = True
         self.channels = channels
 
+    def init_wav_file_format(
+        mut self,
+        bridge: MiniAudioCtypes,
+        output_path: String,
+        channels: UInt32,
+        sample_rate: UInt32,
+        sample_format: Int,
+    ) raises:
+        var result = bridge.encoder_init_wav_file_format(
+            self.raw,
+            output_path,
+            channels,
+            sample_rate,
+            sample_format,
+        )
+        if result != 0:
+            raise Error(format_result_error(bridge, "encoder init failed", result))
+        self.initialized = True
+        self.channels = channels
+
     def write_silence_f32(
         self,
         bridge: MiniAudioCtypes,
@@ -1153,4 +1232,165 @@ struct MiniAudioBiquadNodeHandle:
             self.initialized = False
 
         bridge.biquad_node_destroy(self.raw)
+        self.raw = miniaudio_null_handle()
+
+
+struct MiniAudioResamplerHandle:
+    var raw: OpaquePointer[MutExternalOrigin]
+    var initialized: Bool
+
+    def __init__(out self, bridge: MiniAudioCtypes) raises:
+        self.raw = bridge.resampler_create()
+        self.initialized = False
+        if self.raw == miniaudio_null_handle():
+            raise Error("resampler_create failed")
+
+    def init_linear_f32(
+        mut self,
+        bridge: MiniAudioCtypes,
+        channels: UInt32,
+        sample_rate_in: UInt32,
+        sample_rate_out: UInt32,
+    ) raises:
+        var result = bridge.resampler_init_linear_f32(
+            self.raw,
+            channels,
+            sample_rate_in,
+            sample_rate_out,
+        )
+        if result != 0:
+            raise Error(format_result_error(bridge, "resampler init failed", result))
+        self.initialized = True
+
+    def get_expected_output_frame_count(
+        self,
+        bridge: MiniAudioCtypes,
+        input_frame_count: UInt64,
+    ) raises -> UInt64:
+        var result = bridge.resampler_get_expected_output_frame_count(
+            self.raw,
+            input_frame_count,
+        )
+        if result < 0:
+            var code = Int(result)
+            raise Error(
+                format_result_error(
+                    bridge,
+                    "resampler expected output frame count failed",
+                    code,
+                )
+            )
+        return UInt64(result)
+
+    def reset(self, bridge: MiniAudioCtypes) raises:
+        var result = bridge.resampler_reset(self.raw)
+        if result != 0:
+            raise Error(format_result_error(bridge, "resampler reset failed", result))
+
+    def close(mut self, bridge: MiniAudioCtypes):
+        if self.raw == miniaudio_null_handle():
+            return
+
+        if self.initialized:
+            _ = bridge.resampler_uninit(self.raw)
+            self.initialized = False
+
+        bridge.resampler_destroy(self.raw)
+        self.raw = miniaudio_null_handle()
+
+
+struct MiniAudioChannelConverterHandle:
+    var raw: OpaquePointer[MutExternalOrigin]
+    var initialized: Bool
+
+    def __init__(out self, bridge: MiniAudioCtypes) raises:
+        self.raw = bridge.channel_converter_create()
+        self.initialized = False
+        if self.raw == miniaudio_null_handle():
+            raise Error("channel_converter_create failed")
+
+    def init_f32(
+        mut self,
+        bridge: MiniAudioCtypes,
+        channels_in: UInt32,
+        channels_out: UInt32,
+        mix_mode: UInt32,
+    ) raises:
+        var result = bridge.channel_converter_init_f32(
+            self.raw,
+            channels_in,
+            channels_out,
+            mix_mode,
+        )
+        if result != 0:
+            raise Error(format_result_error(bridge, "channel converter init failed", result))
+        self.initialized = True
+
+    def close(mut self, bridge: MiniAudioCtypes):
+        if self.raw == miniaudio_null_handle():
+            return
+
+        if self.initialized:
+            _ = bridge.channel_converter_uninit(self.raw)
+            self.initialized = False
+
+        bridge.channel_converter_destroy(self.raw)
+        self.raw = miniaudio_null_handle()
+
+
+struct MiniAudioPcmRingBufferHandle:
+    var raw: OpaquePointer[MutExternalOrigin]
+    var initialized: Bool
+
+    def __init__(out self, bridge: MiniAudioCtypes) raises:
+        self.raw = bridge.pcm_rb_create()
+        self.initialized = False
+        if self.raw == miniaudio_null_handle():
+            raise Error("pcm_rb_create failed")
+
+    def init_f32(
+        mut self,
+        bridge: MiniAudioCtypes,
+        channels: UInt32,
+        buffer_size_frames: UInt32,
+        sample_rate: UInt32,
+    ) raises:
+        var result = bridge.pcm_rb_init_f32(
+            self.raw,
+            channels,
+            buffer_size_frames,
+            sample_rate,
+        )
+        if result != 0:
+            raise Error(format_result_error(bridge, "pcm ring buffer init failed", result))
+        self.initialized = True
+
+    def available_read(self, bridge: MiniAudioCtypes) raises -> UInt64:
+        var result = bridge.pcm_rb_available_read(self.raw)
+        if result < 0:
+            var code = Int(result)
+            raise Error(format_result_error(bridge, "pcm ring buffer available read failed", code))
+        return UInt64(result)
+
+    def available_write(self, bridge: MiniAudioCtypes) raises -> UInt64:
+        var result = bridge.pcm_rb_available_write(self.raw)
+        if result < 0:
+            var code = Int(result)
+            raise Error(format_result_error(bridge, "pcm ring buffer available write failed", code))
+        return UInt64(result)
+
+    def reset(self, bridge: MiniAudioCtypes) raises:
+        var result = bridge.pcm_rb_reset(self.raw)
+        if result != 0:
+            raise Error(format_result_error(bridge, "pcm ring buffer reset failed", result))
+
+    def close(mut self, bridge: MiniAudioCtypes):
+        if self.raw == miniaudio_null_handle():
+            return
+
+        if self.initialized:
+            _ = bridge.pcm_rb_uninit(self.raw)
+            self.initialized = False
+
+        bridge.pcm_rb_destroy(self.raw)
         self.raw = miniaudio_null_handle()

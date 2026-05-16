@@ -222,6 +222,30 @@ void mmj_resource_data_source_destroy(void* data_source_handle);
 uint32_t mmj_resource_data_source_flag_async(void);
 
 void* mmj_device_create(void);
+int mmj_device_init_playback_format(
+    void* device_handle,
+    uint32_t sample_rate,
+    uint32_t channels,
+    int sample_format
+);
+int mmj_device_init_capture_format(
+    void* device_handle,
+    uint32_t sample_rate,
+    uint32_t channels,
+    int sample_format
+);
+int mmj_device_init_duplex_format(
+    void* device_handle,
+    uint32_t sample_rate,
+    uint32_t channels,
+    int sample_format
+);
+int mmj_device_init_duplex_loopback_format(
+    void* device_handle,
+    uint32_t sample_rate,
+    uint32_t channels,
+    int sample_format
+);
 int mmj_device_init_playback_f32(
     void* device_handle,
     uint32_t sample_rate,
@@ -284,9 +308,31 @@ int mmj_device_uninit(void* device_handle);
 void mmj_device_destroy(void* device_handle);
 
 void* mmj_decoder_create(void);
+int mmj_decoder_init_file_format(
+    void* decoder_handle,
+    const char* file_path,
+    uint32_t output_channels,
+    uint32_t output_sample_rate,
+    int sample_format
+);
 int mmj_decoder_init_file_f32(
     void* decoder_handle,
     const char* file_path,
+    uint32_t output_channels,
+    uint32_t output_sample_rate
+);
+int mmj_decoder_init_memory_format(
+    void* decoder_handle,
+    const void* data,
+    uint64_t data_size,
+    uint32_t output_channels,
+    uint32_t output_sample_rate,
+    int sample_format
+);
+int mmj_decoder_init_memory_f32(
+    void* decoder_handle,
+    const void* data,
+    uint64_t data_size,
     uint32_t output_channels,
     uint32_t output_sample_rate
 );
@@ -302,6 +348,13 @@ int mmj_decoder_uninit(void* decoder_handle);
 void mmj_decoder_destroy(void* decoder_handle);
 
 void* mmj_encoder_create(void);
+int mmj_encoder_init_wav_file_format(
+    void* encoder_handle,
+    const char* output_path,
+    uint32_t channels,
+    uint32_t sample_rate,
+    int sample_format
+);
 int mmj_encoder_init_wav_file_f32(
     void* encoder_handle,
     const char* output_path,
@@ -316,6 +369,81 @@ int64_t mmj_encoder_write_pcm_frames_f32(
 );
 int mmj_encoder_uninit(void* encoder_handle);
 void mmj_encoder_destroy(void* encoder_handle);
+
+/* Resampler primitives (f32 + linear algorithm MVP) */
+void* mmj_resampler_create(void);
+int mmj_resampler_init_linear_f32(
+    void* resampler_handle,
+    uint32_t channels,
+    uint32_t sample_rate_in,
+    uint32_t sample_rate_out
+);
+int64_t mmj_resampler_process_f32(
+    void* resampler_handle,
+    const float* input_frames,
+    uint64_t input_frame_count,
+    float* output_frames,
+    uint64_t output_frame_capacity
+);
+int64_t mmj_resampler_get_expected_output_frame_count(
+    void* resampler_handle,
+    uint64_t input_frame_count
+);
+int mmj_resampler_reset(void* resampler_handle);
+int mmj_resampler_uninit(void* resampler_handle);
+void mmj_resampler_destroy(void* resampler_handle);
+
+/* Channel converter primitives (f32 + default channel map MVP) */
+void* mmj_channel_converter_create(void);
+int mmj_channel_converter_init_f32(
+    void* converter_handle,
+    uint32_t channels_in,
+    uint32_t channels_out,
+    uint32_t mix_mode
+);
+int mmj_channel_converter_process_f32(
+    void* converter_handle,
+    const float* input_frames,
+    float* output_frames,
+    uint64_t frame_count
+);
+int mmj_channel_converter_uninit(void* converter_handle);
+void mmj_channel_converter_destroy(void* converter_handle);
+
+/* PCM ring buffer primitives (f32 interleaved MVP) */
+void* mmj_pcm_rb_create(void);
+int mmj_pcm_rb_init_f32(
+    void* pcm_rb_handle,
+    uint32_t channels,
+    uint32_t buffer_size_frames,
+    uint32_t sample_rate
+);
+int64_t mmj_pcm_rb_write_f32(
+    void* pcm_rb_handle,
+    const float* input_frames,
+    uint64_t frame_count
+);
+int64_t mmj_pcm_rb_read_f32(
+    void* pcm_rb_handle,
+    float* output_frames,
+    uint64_t frame_count
+);
+int64_t mmj_pcm_rb_available_read(void* pcm_rb_handle);
+int64_t mmj_pcm_rb_available_write(void* pcm_rb_handle);
+int mmj_pcm_rb_reset(void* pcm_rb_handle);
+int mmj_pcm_rb_uninit(void* pcm_rb_handle);
+void mmj_pcm_rb_destroy(void* pcm_rb_handle);
+
+/* Resampler/channel-converter smoke helpers */
+int mmj_resampler_linear_smoke(void);
+int mmj_resampler_invalid_rate_smoke(void);
+int mmj_channel_converter_stereo_to_mono_smoke(void);
+int mmj_channel_converter_invalid_channels_smoke(void);
+int mmj_decoder_memory_smoke(void);
+int mmj_decoder_memory_invalid_args_smoke(void);
+int mmj_pcm_rb_smoke(void);
+int mmj_pcm_rb_overflow_smoke(void);
+int mmj_pcm_rb_invalid_args_smoke(void);
 
 /* Logging primitives for smoke-level observability checks */
 void* mmj_log_create(void);

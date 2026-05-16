@@ -2,9 +2,9 @@ from miniaudio import run_playback_file_smoke, run_playback_smoke
 from miniaudio_biquad import run_biquad_invalid_q_smoke, run_biquad_peaking_eq_smoke
 from miniaudio_capture import run_capture_file_smoke, run_capture_smoke, run_encoder_wav_smoke
 from miniaudio_context import run_context_smoke
-from miniaudio_decoder import run_decoder_read_smoke, run_decoder_smoke
-from miniaudio_encoder import run_encoder_write_frames_smoke
-from miniaudio_device import run_device_callback_longrun_smoke, run_device_callback_smoke, run_device_config_smoke, run_device_control_smoke, run_device_volume_smoke, run_device_user_callback_smoke
+from miniaudio_decoder import run_decoder_memory_invalid_args_smoke, run_decoder_memory_output_format_matrix_smoke, run_decoder_memory_smoke, run_decoder_output_format_matrix_smoke, run_decoder_read_smoke, run_decoder_smoke
+from miniaudio_encoder import run_encoder_wav_format_matrix_smoke, run_encoder_write_frames_smoke
+from miniaudio_device import run_device_callback_longrun_smoke, run_device_callback_smoke, run_device_config_smoke, run_device_control_smoke, run_device_format_matrix_smoke, run_device_volume_smoke, run_device_user_callback_smoke
 from miniaudio_devices import run_device_select_smoke, run_devices_smoke
 from miniaudio_duplex import run_duplex_control_smoke, run_duplex_smoke
 from miniaudio_engine import run_engine_listener_control_smoke, run_engine_play_sound_smoke
@@ -12,6 +12,8 @@ from miniaudio_effects import run_hpf_node_smoke, run_lpf_node_smoke, run_reverb
 from miniaudio_logging import run_logging_invalid_state_smoke, run_logging_smoke
 from miniaudio_node import run_node_attach_detach_smoke, run_node_routing_scene_smoke
 from miniaudio_resource_manager import run_resource_manager_async_poll_smoke, run_resource_manager_smoke
+from miniaudio_ring_buffer import run_pcm_rb_handle_smoke, run_pcm_rb_invalid_args_smoke, run_pcm_rb_overflow_smoke, run_pcm_rb_smoke
+from miniaudio_resampler import run_channel_converter_init_mode_smoke, run_channel_converter_invalid_channels_smoke, run_channel_converter_stereo_to_mono_smoke, run_resampler_expected_count_smoke, run_resampler_invalid_rate_smoke, run_resampler_linear_smoke
 from miniaudio_sound import run_sound_control_smoke, run_sound_pause_smoke, run_sound_progress_smoke, run_sound_seek_smoke, run_sound_spatial_scene_smoke, run_sound_spatial_smoke
 from std.os.env import getenv
 
@@ -38,6 +40,11 @@ def main() raises:
     if encoder_wav_file != "":
         print("Running encoder wav smoke for:", encoder_wav_file)
         run_encoder_wav_smoke(encoder_wav_file)
+
+    var encoder_format_matrix_smoke = getenv("MINIAUDIO_ENCODER_FORMAT_MATRIX_SMOKE")
+    if encoder_format_matrix_smoke != "":
+        print("Running encoder wav format matrix smoke")
+        run_encoder_wav_format_matrix_smoke("./build/test_assets/encoder_format_matrix.wav")
 
     var duplex_smoke = getenv("MINIAUDIO_DUPLEX_SMOKE")
     if duplex_smoke != "":
@@ -74,6 +81,11 @@ def main() raises:
         print("Running device config smoke")
         run_device_config_smoke()
 
+    var device_format_matrix_smoke = getenv("MINIAUDIO_DEVICE_FORMAT_MATRIX_SMOKE")
+    if device_format_matrix_smoke != "":
+        print("Running device format matrix smoke")
+        run_device_format_matrix_smoke()
+
     var device_callback_smoke = getenv("MINIAUDIO_DEVICE_CALLBACK_SMOKE")
     if device_callback_smoke != "":
         print("Running device callback smoke")
@@ -104,6 +116,26 @@ def main() raises:
     if decoder_read_file != "":
         print("Running decoder read smoke for:", decoder_read_file)
         run_decoder_read_smoke(decoder_read_file)
+
+    var decoder_format_matrix_file = getenv("MINIAUDIO_DECODER_FORMAT_MATRIX_FILE")
+    if decoder_format_matrix_file != "":
+        print("Running decoder output format matrix smoke for:", decoder_format_matrix_file)
+        run_decoder_output_format_matrix_smoke(decoder_format_matrix_file)
+
+    var decoder_memory_smoke = getenv("MINIAUDIO_DECODER_MEMORY_SMOKE")
+    if decoder_memory_smoke != "":
+        print("Running decoder memory smoke")
+        run_decoder_memory_smoke()
+
+    var decoder_memory_format_matrix_smoke = getenv("MINIAUDIO_DECODER_MEMORY_FORMAT_MATRIX_SMOKE")
+    if decoder_memory_format_matrix_smoke != "":
+        print("Running decoder memory output format matrix smoke")
+        run_decoder_memory_output_format_matrix_smoke()
+
+    var decoder_memory_invalid_args_smoke = getenv("MINIAUDIO_DECODER_MEMORY_INVALID_ARGS_SMOKE")
+    if decoder_memory_invalid_args_smoke != "":
+        print("Running decoder memory invalid-args smoke")
+        run_decoder_memory_invalid_args_smoke()
 
     var encoder_write_frames_input = getenv("MINIAUDIO_ENCODER_WRITE_FRAMES_INPUT")
     var encoder_write_frames_output = getenv("MINIAUDIO_ENCODER_WRITE_FRAMES_OUTPUT")
@@ -220,3 +252,53 @@ def main() raises:
     if biquad_invalid_q_smoke != "":
         print("Running biquad invalid q smoke")
         run_biquad_invalid_q_smoke()
+
+    var resampler_linear_smoke = getenv("MINIAUDIO_RESAMPLER_LINEAR_SMOKE")
+    if resampler_linear_smoke != "":
+        print("Running resampler linear smoke")
+        run_resampler_linear_smoke()
+
+    var resampler_invalid_rate_smoke = getenv("MINIAUDIO_RESAMPLER_INVALID_RATE_SMOKE")
+    if resampler_invalid_rate_smoke != "":
+        print("Running resampler invalid-rate smoke")
+        run_resampler_invalid_rate_smoke()
+
+    var resampler_expected_count_smoke = getenv("MINIAUDIO_RESAMPLER_EXPECTED_COUNT_SMOKE")
+    if resampler_expected_count_smoke != "":
+        print("Running resampler expected-count smoke")
+        run_resampler_expected_count_smoke()
+
+    var channel_converter_stereo_mono_smoke = getenv("MINIAUDIO_CHANNEL_CONVERTER_STEREO_MONO_SMOKE")
+    if channel_converter_stereo_mono_smoke != "":
+        print("Running channel converter stereo-to-mono smoke")
+        run_channel_converter_stereo_to_mono_smoke()
+
+    var channel_converter_invalid_channels_smoke = getenv("MINIAUDIO_CHANNEL_CONVERTER_INVALID_CHANNELS_SMOKE")
+    if channel_converter_invalid_channels_smoke != "":
+        print("Running channel converter invalid-channels smoke")
+        run_channel_converter_invalid_channels_smoke()
+
+    var channel_converter_init_mode_smoke = getenv("MINIAUDIO_CHANNEL_CONVERTER_INIT_MODE_SMOKE")
+    if channel_converter_init_mode_smoke != "":
+        print("Running channel converter init-mode smoke")
+        run_channel_converter_init_mode_smoke()
+
+    var pcm_rb_smoke = getenv("MINIAUDIO_PCM_RB_SMOKE")
+    if pcm_rb_smoke != "":
+        print("Running pcm ring buffer smoke")
+        run_pcm_rb_smoke()
+
+    var pcm_rb_overflow_smoke = getenv("MINIAUDIO_PCM_RB_OVERFLOW_SMOKE")
+    if pcm_rb_overflow_smoke != "":
+        print("Running pcm ring buffer overflow smoke")
+        run_pcm_rb_overflow_smoke()
+
+    var pcm_rb_invalid_args_smoke = getenv("MINIAUDIO_PCM_RB_INVALID_ARGS_SMOKE")
+    if pcm_rb_invalid_args_smoke != "":
+        print("Running pcm ring buffer invalid-args smoke")
+        run_pcm_rb_invalid_args_smoke()
+
+    var pcm_rb_handle_smoke = getenv("MINIAUDIO_PCM_RB_HANDLE_SMOKE")
+    if pcm_rb_handle_smoke != "":
+        print("Running pcm ring buffer handle smoke")
+        run_pcm_rb_handle_smoke()

@@ -9,6 +9,11 @@ comptime MMJ_DEVICE_KIND_DUPLEX = Int(3)
 comptime MMJ_DEVICE_KIND_DUPLEX_LOOPBACK = Int(4)
 comptime MMJ_DEVICE_CALLBACK_MODE_SILENCE = Int(0)
 comptime MMJ_DEVICE_CALLBACK_MODE_LOOPBACK = Int(1)
+comptime MMJ_SAMPLE_FORMAT_U8 = Int(1)
+comptime MMJ_SAMPLE_FORMAT_S16 = Int(2)
+comptime MMJ_SAMPLE_FORMAT_S24 = Int(3)
+comptime MMJ_SAMPLE_FORMAT_S32 = Int(4)
+comptime MMJ_SAMPLE_FORMAT_F32 = Int(5)
 
 
 def is_device_control_skip_code(code: Int) -> Bool:
@@ -174,6 +179,246 @@ def run_device_config_smoke() raises:
     _ = bridge.device_uninit(device)
     bridge.device_destroy(device)
     print("device config smoke ok (unified init + config getters)")
+
+
+def try_device_playback_format_init(
+    bridge: MiniAudioCtypes,
+    sample_format: Int,
+    format_name: String,
+) raises -> Bool:
+    var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
+    var device = bridge.device_create()
+    if device == null_ptr:
+        raise Error("device_create failed")
+
+    var init_result = bridge.device_init_playback_format(device, 48000, 2, sample_format)
+    if init_result != 0:
+        bridge.device_destroy(device)
+        if is_device_control_skip_code(init_result):
+            print("device format init skipped:", format_name, result_name(init_result), "(", init_result, ")")
+            return False
+
+        print("device format init unavailable:", format_name, result_name(init_result), "(", init_result, ")")
+        return False
+
+    var sample_rate = bridge.device_get_sample_rate(device)
+    var channels = bridge.device_get_channels(device)
+    _ = bridge.device_uninit(device)
+    bridge.device_destroy(device)
+
+    if sample_rate != 48000:
+        raise Error("device format init sample rate mismatch for " + format_name + ": " + String(sample_rate))
+
+    if channels != 2:
+        raise Error("device format init channels mismatch for " + format_name + ": " + String(channels))
+
+    print("device format init ok:", format_name)
+    return True
+
+
+def try_device_capture_format_init(
+    bridge: MiniAudioCtypes,
+    sample_format: Int,
+    format_name: String,
+) raises -> Bool:
+    var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
+    var device = bridge.device_create()
+    if device == null_ptr:
+        raise Error("device_create failed")
+
+    var init_result = bridge.device_init_capture_format(device, 48000, 2, sample_format)
+    if init_result != 0:
+        bridge.device_destroy(device)
+        if is_device_control_skip_code(init_result):
+            print("device capture format init skipped:", format_name, result_name(init_result), "(", init_result, ")")
+            return False
+
+        print("device capture format init unavailable:", format_name, result_name(init_result), "(", init_result, ")")
+        return False
+
+    var sample_rate = bridge.device_get_sample_rate(device)
+    var channels = bridge.device_get_channels(device)
+    _ = bridge.device_uninit(device)
+    bridge.device_destroy(device)
+
+    if sample_rate != 48000:
+        raise Error("device capture format init sample rate mismatch for " + format_name + ": " + String(sample_rate))
+
+    if channels != 2:
+        raise Error("device capture format init channels mismatch for " + format_name + ": " + String(channels))
+
+    print("device capture format init ok:", format_name)
+    return True
+
+
+def try_device_duplex_format_init(
+    bridge: MiniAudioCtypes,
+    sample_format: Int,
+    format_name: String,
+) raises -> Bool:
+    var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
+    var device = bridge.device_create()
+    if device == null_ptr:
+        raise Error("device_create failed")
+
+    var init_result = bridge.device_init_duplex_format(device, 48000, 2, sample_format)
+    if init_result != 0:
+        bridge.device_destroy(device)
+        if is_device_control_skip_code(init_result):
+            print("device duplex format init skipped:", format_name, result_name(init_result), "(", init_result, ")")
+            return False
+
+        print("device duplex format init unavailable:", format_name, result_name(init_result), "(", init_result, ")")
+        return False
+
+    var sample_rate = bridge.device_get_sample_rate(device)
+    var channels = bridge.device_get_channels(device)
+    _ = bridge.device_uninit(device)
+    bridge.device_destroy(device)
+
+    if sample_rate != 48000:
+        raise Error("device duplex format init sample rate mismatch for " + format_name + ": " + String(sample_rate))
+
+    if channels != 2:
+        raise Error("device duplex format init channels mismatch for " + format_name + ": " + String(channels))
+
+    print("device duplex format init ok:", format_name)
+    return True
+
+
+def try_device_duplex_loopback_format_init(
+    bridge: MiniAudioCtypes,
+    sample_format: Int,
+    format_name: String,
+) raises -> Bool:
+    var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
+    var device = bridge.device_create()
+    if device == null_ptr:
+        raise Error("device_create failed")
+
+    var init_result = bridge.device_init_duplex_loopback_format(device, 48000, 2, sample_format)
+    if init_result != 0:
+        bridge.device_destroy(device)
+        if is_device_control_skip_code(init_result):
+            print("device duplex loopback format init skipped:", format_name, result_name(init_result), "(", init_result, ")")
+            return False
+
+        print("device duplex loopback format init unavailable:", format_name, result_name(init_result), "(", init_result, ")")
+        return False
+
+    var sample_rate = bridge.device_get_sample_rate(device)
+    var channels = bridge.device_get_channels(device)
+    _ = bridge.device_uninit(device)
+    bridge.device_destroy(device)
+
+    if sample_rate != 48000:
+        raise Error("device duplex loopback format init sample rate mismatch for " + format_name + ": " + String(sample_rate))
+
+    if channels != 2:
+        raise Error("device duplex loopback format init channels mismatch for " + format_name + ": " + String(channels))
+
+    print("device duplex loopback format init ok:", format_name)
+    return True
+
+
+def run_device_format_matrix_smoke() raises:
+    var bridge = MiniAudioCtypes("./build/libminiaudio_mojo.so")
+    var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
+    var device = bridge.device_create()
+    var success_count = Int(0)
+
+    if device == null_ptr:
+        raise Error("device_create failed")
+
+    var invalid_playback_result = bridge.device_init_playback_format(device, 48000, 2, 999)
+    bridge.device_destroy(device)
+    if invalid_playback_result != MA_INVALID_ARGS:
+        raise Error(
+            "device_init_playback_format invalid format expected MA_INVALID_ARGS, got: "
+            + format_result_error(bridge, "", invalid_playback_result)
+        )
+
+    device = bridge.device_create()
+    if device == null_ptr:
+        raise Error("device_create failed")
+    var invalid_capture_result = bridge.device_init_capture_format(device, 48000, 2, 999)
+    bridge.device_destroy(device)
+    if invalid_capture_result != MA_INVALID_ARGS:
+        raise Error(
+            "device_init_capture_format invalid format expected MA_INVALID_ARGS, got: "
+            + format_result_error(bridge, "", invalid_capture_result)
+        )
+
+    device = bridge.device_create()
+    if device == null_ptr:
+        raise Error("device_create failed")
+    var invalid_duplex_result = bridge.device_init_duplex_format(device, 48000, 2, 999)
+    bridge.device_destroy(device)
+    if invalid_duplex_result != MA_INVALID_ARGS:
+        raise Error(
+            "device_init_duplex_format invalid format expected MA_INVALID_ARGS, got: "
+            + format_result_error(bridge, "", invalid_duplex_result)
+        )
+
+    device = bridge.device_create()
+    if device == null_ptr:
+        raise Error("device_create failed")
+    var invalid_duplex_loopback_result = bridge.device_init_duplex_loopback_format(device, 48000, 2, 999)
+    bridge.device_destroy(device)
+    if invalid_duplex_loopback_result != MA_INVALID_ARGS:
+        raise Error(
+            "device_init_duplex_loopback_format invalid format expected MA_INVALID_ARGS, got: "
+            + format_result_error(bridge, "", invalid_duplex_loopback_result)
+        )
+
+    if try_device_playback_format_init(bridge, MMJ_SAMPLE_FORMAT_F32, "playback_f32"):
+        success_count += 1
+    if try_device_playback_format_init(bridge, MMJ_SAMPLE_FORMAT_S16, "playback_s16"):
+        success_count += 1
+    if try_device_playback_format_init(bridge, MMJ_SAMPLE_FORMAT_S32, "playback_s32"):
+        success_count += 1
+    if try_device_playback_format_init(bridge, MMJ_SAMPLE_FORMAT_U8, "playback_u8"):
+        success_count += 1
+    if try_device_playback_format_init(bridge, MMJ_SAMPLE_FORMAT_S24, "playback_s24"):
+        success_count += 1
+
+    if try_device_capture_format_init(bridge, MMJ_SAMPLE_FORMAT_F32, "capture_f32"):
+        success_count += 1
+    if try_device_capture_format_init(bridge, MMJ_SAMPLE_FORMAT_S16, "capture_s16"):
+        success_count += 1
+    if try_device_capture_format_init(bridge, MMJ_SAMPLE_FORMAT_S32, "capture_s32"):
+        success_count += 1
+    if try_device_capture_format_init(bridge, MMJ_SAMPLE_FORMAT_U8, "capture_u8"):
+        success_count += 1
+    if try_device_capture_format_init(bridge, MMJ_SAMPLE_FORMAT_S24, "capture_s24"):
+        success_count += 1
+
+    if try_device_duplex_format_init(bridge, MMJ_SAMPLE_FORMAT_F32, "duplex_f32"):
+        success_count += 1
+    if try_device_duplex_format_init(bridge, MMJ_SAMPLE_FORMAT_S16, "duplex_s16"):
+        success_count += 1
+    if try_device_duplex_format_init(bridge, MMJ_SAMPLE_FORMAT_S32, "duplex_s32"):
+        success_count += 1
+    if try_device_duplex_format_init(bridge, MMJ_SAMPLE_FORMAT_U8, "duplex_u8"):
+        success_count += 1
+    if try_device_duplex_format_init(bridge, MMJ_SAMPLE_FORMAT_S24, "duplex_s24"):
+        success_count += 1
+
+    if try_device_duplex_loopback_format_init(bridge, MMJ_SAMPLE_FORMAT_F32, "duplex_loopback_f32"):
+        success_count += 1
+    if try_device_duplex_loopback_format_init(bridge, MMJ_SAMPLE_FORMAT_S16, "duplex_loopback_s16"):
+        success_count += 1
+    if try_device_duplex_loopback_format_init(bridge, MMJ_SAMPLE_FORMAT_S32, "duplex_loopback_s32"):
+        success_count += 1
+    if try_device_duplex_loopback_format_init(bridge, MMJ_SAMPLE_FORMAT_U8, "duplex_loopback_u8"):
+        success_count += 1
+    if try_device_duplex_loopback_format_init(bridge, MMJ_SAMPLE_FORMAT_S24, "duplex_loopback_s24"):
+        success_count += 1
+
+    if success_count <= 0:
+        raise Error("device format matrix smoke found no supported formats")
+
+    print("device format matrix smoke ok (success_count:", success_count, ")")
 
 
 def run_device_callback_smoke() raises:
