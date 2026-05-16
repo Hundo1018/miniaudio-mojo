@@ -426,6 +426,218 @@ struct MiniAudioCtypes:
     def sound_destroy(self, sound_handle: OpaquePointer[MutExternalOrigin]):
         self._lib.call["mmj_sound_destroy", NoneType](sound_handle)
 
+    def node_attach_output_bus(
+        self,
+        node_handle: OpaquePointer[MutExternalOrigin],
+        output_bus_index: UInt32,
+        other_node_handle: OpaquePointer[MutExternalOrigin],
+        other_node_input_bus_index: UInt32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_node_attach_output_bus", Int32](
+                node_handle,
+                output_bus_index,
+                other_node_handle,
+                other_node_input_bus_index,
+            )
+        )
+
+    def node_detach_output_bus(
+        self,
+        node_handle: OpaquePointer[MutExternalOrigin],
+        output_bus_index: UInt32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_node_detach_output_bus", Int32](
+                node_handle,
+                output_bus_index,
+            )
+        )
+
+    def node_get_output_bus_count(
+        self,
+        node_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_node_get_output_bus_count", Int32](node_handle)
+        )
+
+    def node_set_output_bus_volume(
+        self,
+        node_handle: OpaquePointer[MutExternalOrigin],
+        output_bus_index: UInt32,
+        volume: Float32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_node_set_output_bus_volume", Int32](
+                node_handle,
+                output_bus_index,
+                volume,
+            )
+        )
+
+    def node_get_output_bus_volume(
+        self,
+        node_handle: OpaquePointer[MutExternalOrigin],
+        output_bus_index: UInt32,
+    ) -> Float32:
+        return self._lib.call["mmj_node_get_output_bus_volume", Float32](
+            node_handle,
+            output_bus_index,
+        )
+
+    def lpf_node_create(self) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_lpf_node_create", OpaquePointer[MutExternalOrigin]]()
+
+    def lpf_node_init(
+        self,
+        lpf_node_handle: OpaquePointer[MutExternalOrigin],
+        engine_handle: OpaquePointer[MutExternalOrigin],
+        channels: UInt32,
+        sample_rate: UInt32,
+        cutoff_hz: Float32,
+        order: UInt32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_lpf_node_init", Int32](
+                lpf_node_handle,
+                engine_handle,
+                channels,
+                sample_rate,
+                cutoff_hz,
+                order,
+            )
+        )
+
+    def lpf_node_set_cutoff(
+        self,
+        lpf_node_handle: OpaquePointer[MutExternalOrigin],
+        cutoff_hz: Float32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_lpf_node_set_cutoff", Int32](
+                lpf_node_handle,
+                cutoff_hz,
+            )
+        )
+
+    def lpf_node_get_cutoff(
+        self,
+        lpf_node_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Float32:
+        return self._lib.call["mmj_lpf_node_get_cutoff", Float32](lpf_node_handle)
+
+    def lpf_node_get_node(
+        self,
+        lpf_node_handle: OpaquePointer[MutExternalOrigin],
+    ) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_lpf_node_get_node", OpaquePointer[MutExternalOrigin]](
+            lpf_node_handle
+        )
+
+    def lpf_node_uninit(
+        self,
+        lpf_node_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(self._lib.call["mmj_lpf_node_uninit", Int32](lpf_node_handle))
+
+    def lpf_node_destroy(self, lpf_node_handle: OpaquePointer[MutExternalOrigin]):
+        self._lib.call["mmj_lpf_node_destroy", NoneType](lpf_node_handle)
+
+    def delay_node_create(self) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_delay_node_create", OpaquePointer[MutExternalOrigin]]()
+
+    def delay_node_init(
+        self,
+        delay_node_handle: OpaquePointer[MutExternalOrigin],
+        engine_handle: OpaquePointer[MutExternalOrigin],
+        channels: UInt32,
+        sample_rate: UInt32,
+        delay_frames: UInt32,
+        decay: Float32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_delay_node_init", Int32](
+                delay_node_handle,
+                engine_handle,
+                channels,
+                sample_rate,
+                delay_frames,
+                decay,
+            )
+        )
+
+    def delay_node_set_wet(
+        self,
+        delay_node_handle: OpaquePointer[MutExternalOrigin],
+        wet: Float32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_delay_node_set_wet", Int32](
+                delay_node_handle,
+                wet,
+            )
+        )
+
+    def delay_node_get_wet(
+        self,
+        delay_node_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Float32:
+        return self._lib.call["mmj_delay_node_get_wet", Float32](delay_node_handle)
+
+    def delay_node_set_dry(
+        self,
+        delay_node_handle: OpaquePointer[MutExternalOrigin],
+        dry: Float32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_delay_node_set_dry", Int32](
+                delay_node_handle,
+                dry,
+            )
+        )
+
+    def delay_node_get_dry(
+        self,
+        delay_node_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Float32:
+        return self._lib.call["mmj_delay_node_get_dry", Float32](delay_node_handle)
+
+    def delay_node_set_decay(
+        self,
+        delay_node_handle: OpaquePointer[MutExternalOrigin],
+        decay: Float32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_delay_node_set_decay", Int32](
+                delay_node_handle,
+                decay,
+            )
+        )
+
+    def delay_node_get_decay(
+        self,
+        delay_node_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Float32:
+        return self._lib.call["mmj_delay_node_get_decay", Float32](delay_node_handle)
+
+    def delay_node_get_node(
+        self,
+        delay_node_handle: OpaquePointer[MutExternalOrigin],
+    ) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_delay_node_get_node", OpaquePointer[MutExternalOrigin]](
+            delay_node_handle
+        )
+
+    def delay_node_uninit(
+        self,
+        delay_node_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(self._lib.call["mmj_delay_node_uninit", Int32](delay_node_handle))
+
+    def delay_node_destroy(self, delay_node_handle: OpaquePointer[MutExternalOrigin]):
+        self._lib.call["mmj_delay_node_destroy", NoneType](delay_node_handle)
+
     def resource_manager_create(self) -> OpaquePointer[MutExternalOrigin]:
         return self._lib.call["mmj_resource_manager_create", OpaquePointer[MutExternalOrigin]]()
 
