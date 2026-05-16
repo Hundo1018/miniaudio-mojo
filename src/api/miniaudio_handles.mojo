@@ -170,6 +170,29 @@ struct MiniAudioSoundHandle:
             raise Error(format_result_error(bridge, "sound init from file failed", result))
         self.initialized = True
 
+    def init_from_file_in_group(
+        mut self,
+        bridge: MiniAudioCtypes,
+        engine: MiniAudioEngineHandle,
+        sound_group_raw: OpaquePointer[MutExternalOrigin],
+        file_path: String,
+    ) raises:
+        var result = bridge.sound_init_from_file_in_group(
+            self.raw,
+            engine.raw,
+            sound_group_raw,
+            file_path,
+        )
+        if result != 0:
+            raise Error(
+                format_result_error(
+                    bridge,
+                    "sound init from file in group failed",
+                    result,
+                )
+            )
+        self.initialized = True
+
     def start(self, bridge: MiniAudioCtypes) raises:
         var result = bridge.sound_start(self.raw)
         if result != 0:
@@ -309,6 +332,424 @@ struct MiniAudioSoundHandle:
             self.initialized = False
 
         bridge.sound_destroy(self.raw)
+        self.raw = miniaudio_null_handle()
+
+
+struct MiniAudioSoundGroupHandle:
+    var raw: OpaquePointer[MutExternalOrigin]
+    var initialized: Bool
+
+    def __init__(out self, bridge: MiniAudioCtypes) raises:
+        self.raw = bridge.sound_group_create()
+        self.initialized = False
+        if self.raw == miniaudio_null_handle():
+            raise Error("sound_group_create failed")
+
+    def init_default(
+        mut self,
+        bridge: MiniAudioCtypes,
+        engine: MiniAudioEngineHandle,
+    ) raises:
+        var result = bridge.sound_group_init_default(self.raw, engine.raw)
+        if result != 0:
+            raise Error(format_result_error(bridge, "sound group init failed", result))
+        self.initialized = True
+
+    def init_with_parent(
+        mut self,
+        bridge: MiniAudioCtypes,
+        engine: MiniAudioEngineHandle,
+        parent_group_raw: OpaquePointer[MutExternalOrigin],
+    ) raises:
+        var result = bridge.sound_group_init_with_parent(
+            self.raw,
+            engine.raw,
+            parent_group_raw,
+        )
+        if result != 0:
+            raise Error(
+                format_result_error(
+                    bridge,
+                    "sound group init with parent failed",
+                    result,
+                )
+            )
+        self.initialized = True
+
+    def start(self, bridge: MiniAudioCtypes) raises:
+        var result = bridge.sound_group_start(self.raw)
+        if result != 0:
+            raise Error(format_result_error(bridge, "sound group start failed", result))
+
+    def stop(self, bridge: MiniAudioCtypes) raises:
+        var result = bridge.sound_group_stop(self.raw)
+        if result != 0:
+            raise Error(format_result_error(bridge, "sound group stop failed", result))
+
+    def set_volume_f32(self, bridge: MiniAudioCtypes, volume: Float32) raises:
+        var result = bridge.sound_group_set_volume_f32(self.raw, volume)
+        if result != 0:
+            raise Error(
+                format_result_error(
+                    bridge,
+                    "sound group set volume failed",
+                    result,
+                )
+            )
+
+    def get_volume_f32(self, bridge: MiniAudioCtypes) raises -> Float32:
+        var volume = bridge.sound_group_get_volume_f32(self.raw)
+        if volume < 0.0:
+            raise Error("sound group get volume failed")
+        return volume
+
+    def set_pan_f32(self, bridge: MiniAudioCtypes, pan: Float32) raises:
+        var result = bridge.sound_group_set_pan_f32(self.raw, pan)
+        if result != 0:
+            raise Error(format_result_error(bridge, "sound group set pan failed", result))
+
+    def get_pan_f32(self, bridge: MiniAudioCtypes) raises -> Float32:
+        var pan = bridge.sound_group_get_pan_f32(self.raw)
+        if pan < -1.0001:
+            raise Error("sound group get pan failed")
+        return pan
+
+    def set_pitch_f32(self, bridge: MiniAudioCtypes, pitch: Float32) raises:
+        var result = bridge.sound_group_set_pitch_f32(self.raw, pitch)
+        if result != 0:
+            raise Error(format_result_error(bridge, "sound group set pitch failed", result))
+
+    def get_pitch_f32(self, bridge: MiniAudioCtypes) raises -> Float32:
+        var pitch = bridge.sound_group_get_pitch_f32(self.raw)
+        if pitch < 0.0:
+            raise Error("sound group get pitch failed")
+        return pitch
+
+    def set_spatialization_enabled(
+        self,
+        bridge: MiniAudioCtypes,
+        is_enabled: Bool,
+    ) raises:
+        var result = bridge.sound_group_set_spatialization_enabled(self.raw, is_enabled)
+        if result != 0:
+            raise Error(
+                format_result_error(
+                    bridge,
+                    "sound group set spatialization failed",
+                    result,
+                )
+            )
+
+    def is_spatialization_enabled(self, bridge: MiniAudioCtypes) raises -> Bool:
+        var enabled = bridge.sound_group_is_spatialization_enabled(self.raw)
+        if enabled < 0:
+            raise Error("sound group spatialization state unavailable")
+        return enabled != 0
+
+    def set_position(
+        self,
+        bridge: MiniAudioCtypes,
+        x: Float32,
+        y: Float32,
+        z: Float32,
+    ) raises:
+        var result = bridge.sound_group_set_position(self.raw, x, y, z)
+        if result != 0:
+            raise Error(
+                format_result_error(
+                    bridge,
+                    "sound group set position failed",
+                    result,
+                )
+            )
+
+    def set_direction(
+        self,
+        bridge: MiniAudioCtypes,
+        x: Float32,
+        y: Float32,
+        z: Float32,
+    ) raises:
+        var result = bridge.sound_group_set_direction(self.raw, x, y, z)
+        if result != 0:
+            raise Error(
+                format_result_error(
+                    bridge,
+                    "sound group set direction failed",
+                    result,
+                )
+            )
+
+    def set_velocity(
+        self,
+        bridge: MiniAudioCtypes,
+        x: Float32,
+        y: Float32,
+        z: Float32,
+    ) raises:
+        var result = bridge.sound_group_set_velocity(self.raw, x, y, z)
+        if result != 0:
+            raise Error(
+                format_result_error(
+                    bridge,
+                    "sound group set velocity failed",
+                    result,
+                )
+            )
+
+    def set_rolloff(self, bridge: MiniAudioCtypes, rolloff: Float32) raises:
+        var result = bridge.sound_group_set_rolloff(self.raw, rolloff)
+        if result != 0:
+            raise Error(format_result_error(bridge, "sound group set rolloff failed", result))
+
+    def get_rolloff(self, bridge: MiniAudioCtypes) raises -> Float32:
+        var rolloff = bridge.sound_group_get_rolloff(self.raw)
+        if rolloff < 0.0:
+            raise Error("sound group get rolloff failed")
+        return rolloff
+
+    def set_min_distance(
+        self,
+        bridge: MiniAudioCtypes,
+        min_distance: Float32,
+    ) raises:
+        var result = bridge.sound_group_set_min_distance(self.raw, min_distance)
+        if result != 0:
+            raise Error(
+                format_result_error(
+                    bridge,
+                    "sound group set min distance failed",
+                    result,
+                )
+            )
+
+    def get_min_distance(self, bridge: MiniAudioCtypes) raises -> Float32:
+        var min_distance = bridge.sound_group_get_min_distance(self.raw)
+        if min_distance < 0.0:
+            raise Error("sound group get min distance failed")
+        return min_distance
+
+    def set_max_distance(
+        self,
+        bridge: MiniAudioCtypes,
+        max_distance: Float32,
+    ) raises:
+        var result = bridge.sound_group_set_max_distance(self.raw, max_distance)
+        if result != 0:
+            raise Error(
+                format_result_error(
+                    bridge,
+                    "sound group set max distance failed",
+                    result,
+                )
+            )
+
+    def get_max_distance(self, bridge: MiniAudioCtypes) raises -> Float32:
+        var max_distance = bridge.sound_group_get_max_distance(self.raw)
+        if max_distance < 0.0:
+            raise Error("sound group get max distance failed")
+        return max_distance
+
+    def set_attenuation_model(
+        self,
+        bridge: MiniAudioCtypes,
+        attenuation_model: Int,
+    ) raises:
+        var result = bridge.sound_group_set_attenuation_model(self.raw, attenuation_model)
+        if result != 0:
+            raise Error(
+                format_result_error(
+                    bridge,
+                    "sound group set attenuation model failed",
+                    result,
+                )
+            )
+
+    def get_attenuation_model(self, bridge: MiniAudioCtypes) raises -> Int:
+        var attenuation_model = bridge.sound_group_get_attenuation_model(self.raw)
+        if attenuation_model < 0:
+            raise Error("sound group get attenuation model failed")
+        return attenuation_model
+
+    def set_positioning(
+        self,
+        bridge: MiniAudioCtypes,
+        positioning: Int,
+    ) raises:
+        var result = bridge.sound_group_set_positioning(self.raw, positioning)
+        if result != 0:
+            raise Error(
+                format_result_error(
+                    bridge,
+                    "sound group set positioning failed",
+                    result,
+                )
+            )
+
+    def get_positioning(self, bridge: MiniAudioCtypes) raises -> Int:
+        var positioning = bridge.sound_group_get_positioning(self.raw)
+        if positioning < 0:
+            raise Error("sound group get positioning failed")
+        return positioning
+
+    def set_pinned_listener_index(
+        self,
+        bridge: MiniAudioCtypes,
+        listener_index: UInt32,
+    ) raises:
+        var result = bridge.sound_group_set_pinned_listener_index(self.raw, listener_index)
+        if result != 0:
+            raise Error(
+                format_result_error(
+                    bridge,
+                    "sound group set pinned listener failed",
+                    result,
+                )
+            )
+
+    def get_pinned_listener_index(self, bridge: MiniAudioCtypes) raises -> Int:
+        var listener_index = bridge.sound_group_get_pinned_listener_index(self.raw)
+        if listener_index < 0:
+            raise Error("sound group get pinned listener failed")
+        return listener_index
+
+    def set_cone(
+        self,
+        bridge: MiniAudioCtypes,
+        inner_angle: Float32,
+        outer_angle: Float32,
+        outer_gain: Float32,
+    ) raises:
+        var result = bridge.sound_group_set_cone(self.raw, inner_angle, outer_angle, outer_gain)
+        if result != 0:
+            raise Error(format_result_error(bridge, "sound group set cone failed", result))
+
+    def get_cone_inner_angle(self, bridge: MiniAudioCtypes) raises -> Float32:
+        var inner_angle = bridge.sound_group_get_cone_inner_angle(self.raw)
+        if inner_angle < 0.0:
+            raise Error("sound group get cone inner angle failed")
+        return inner_angle
+
+    def get_cone_outer_angle(self, bridge: MiniAudioCtypes) raises -> Float32:
+        var outer_angle = bridge.sound_group_get_cone_outer_angle(self.raw)
+        if outer_angle < 0.0:
+            raise Error("sound group get cone outer angle failed")
+        return outer_angle
+
+    def get_cone_outer_gain(self, bridge: MiniAudioCtypes) raises -> Float32:
+        var outer_gain = bridge.sound_group_get_cone_outer_gain(self.raw)
+        if outer_gain < 0.0:
+            raise Error("sound group get cone outer gain failed")
+        return outer_gain
+
+    def set_doppler_factor(
+        self,
+        bridge: MiniAudioCtypes,
+        doppler_factor: Float32,
+    ) raises:
+        var result = bridge.sound_group_set_doppler_factor(self.raw, doppler_factor)
+        if result != 0:
+            raise Error(
+                format_result_error(
+                    bridge,
+                    "sound group set doppler factor failed",
+                    result,
+                )
+            )
+
+    def get_doppler_factor(self, bridge: MiniAudioCtypes) raises -> Float32:
+        var doppler_factor = bridge.sound_group_get_doppler_factor(self.raw)
+        if doppler_factor < 0.0:
+            raise Error("sound group get doppler factor failed")
+        return doppler_factor
+
+    def set_directional_attenuation_factor(
+        self,
+        bridge: MiniAudioCtypes,
+        directional_attenuation_factor: Float32,
+    ) raises:
+        var result = bridge.sound_group_set_directional_attenuation_factor(
+            self.raw,
+            directional_attenuation_factor,
+        )
+        if result != 0:
+            raise Error(
+                format_result_error(
+                    bridge,
+                    "sound group set directional attenuation failed",
+                    result,
+                )
+            )
+
+    def get_directional_attenuation_factor(self, bridge: MiniAudioCtypes) raises -> Float32:
+        var directional = bridge.sound_group_get_directional_attenuation_factor(self.raw)
+        if directional < 0.0:
+            raise Error("sound group get directional attenuation failed")
+        return directional
+
+    def set_fade_in_pcm_frames(
+        self,
+        bridge: MiniAudioCtypes,
+        vol_beg: Float32,
+        vol_end: Float32,
+        length_in_frames: UInt64,
+    ) raises:
+        var result = bridge.sound_group_set_fade_in_pcm_frames(self.raw, vol_beg, vol_end, length_in_frames)
+        if result != 0:
+            raise Error(format_result_error(bridge, "sound group set_fade_in_pcm_frames failed", result))
+
+    def set_fade_in_milliseconds(
+        self,
+        bridge: MiniAudioCtypes,
+        vol_beg: Float32,
+        vol_end: Float32,
+        length_in_ms: UInt64,
+    ) raises:
+        var result = bridge.sound_group_set_fade_in_milliseconds(self.raw, vol_beg, vol_end, length_in_ms)
+        if result != 0:
+            raise Error(format_result_error(bridge, "sound group set_fade_in_milliseconds failed", result))
+
+    def get_current_fade_volume(self, bridge: MiniAudioCtypes) raises -> Float32:
+        var vol = bridge.sound_group_get_current_fade_volume(self.raw)
+        if vol < -1.0001:
+            raise Error("sound group get_current_fade_volume failed: invalid handle")
+        return vol
+
+    def set_start_time_in_pcm_frames(self, bridge: MiniAudioCtypes, time: UInt64) raises:
+        var result = bridge.sound_group_set_start_time_in_pcm_frames(self.raw, time)
+        if result != 0:
+            raise Error(format_result_error(bridge, "sound group set_start_time_in_pcm_frames failed", result))
+
+    def set_start_time_in_milliseconds(self, bridge: MiniAudioCtypes, time_ms: UInt64) raises:
+        var result = bridge.sound_group_set_start_time_in_milliseconds(self.raw, time_ms)
+        if result != 0:
+            raise Error(format_result_error(bridge, "sound group set_start_time_in_milliseconds failed", result))
+
+    def set_stop_time_in_pcm_frames(self, bridge: MiniAudioCtypes, time: UInt64) raises:
+        var result = bridge.sound_group_set_stop_time_in_pcm_frames(self.raw, time)
+        if result != 0:
+            raise Error(format_result_error(bridge, "sound group set_stop_time_in_pcm_frames failed", result))
+
+    def set_stop_time_in_milliseconds(self, bridge: MiniAudioCtypes, time_ms: UInt64) raises:
+        var result = bridge.sound_group_set_stop_time_in_milliseconds(self.raw, time_ms)
+        if result != 0:
+            raise Error(format_result_error(bridge, "sound group set_stop_time_in_milliseconds failed", result))
+
+    def get_time_in_pcm_frames(self, bridge: MiniAudioCtypes) raises -> Int64:
+        var t = bridge.sound_group_get_time_in_pcm_frames(self.raw)
+        if t < 0:
+            raise Error("sound group get_time_in_pcm_frames failed: invalid handle")
+        return t
+
+    def close(mut self, bridge: MiniAudioCtypes):
+        if self.raw == miniaudio_null_handle():
+            return
+
+        if self.initialized:
+            _ = bridge.sound_group_uninit(self.raw)
+            self.initialized = False
+
+        bridge.sound_group_destroy(self.raw)
         self.raw = miniaudio_null_handle()
 
 
@@ -680,6 +1121,112 @@ struct MiniAudioResourceDataSourceHandle:
                 )
             )
         return length
+
+    def seek_to_pcm_frame(self, bridge: MiniAudioCtypes, frame_index: UInt64) raises:
+        var result = bridge.resource_data_source_seek_to_pcm_frame(self.raw, frame_index)
+        if result != 0:
+            raise Error(format_result_error(bridge, "resource data source seek_to_pcm_frame failed", result))
+
+    def seek_pcm_frames(self, bridge: MiniAudioCtypes, frame_count: UInt64) raises:
+        var result = bridge.resource_data_source_seek_pcm_frames(self.raw, frame_count)
+        if result != 0:
+            raise Error(format_result_error(bridge, "resource data source seek_pcm_frames failed", result))
+
+    def get_cursor_in_pcm_frames(self, bridge: MiniAudioCtypes) raises -> Int64:
+        var cursor = bridge.resource_data_source_get_cursor_in_pcm_frames(self.raw)
+        if cursor < 0:
+            raise Error("resource data source get_cursor_in_pcm_frames failed")
+        return cursor
+
+    def get_cursor_in_seconds(self, bridge: MiniAudioCtypes) raises -> Float32:
+        var cursor = bridge.resource_data_source_get_cursor_in_seconds(self.raw)
+        if cursor < -1.0:
+            raise Error("resource data source get_cursor_in_seconds failed")
+        return cursor
+
+    def get_length_in_seconds(self, bridge: MiniAudioCtypes) raises -> Float32:
+        var length = bridge.resource_data_source_get_length_in_seconds(self.raw)
+        if length < -1.0:
+            raise Error("resource data source get_length_in_seconds failed")
+        return length
+
+    def get_format(self, bridge: MiniAudioCtypes) raises -> Int:
+        var fmt = bridge.resource_data_source_get_format(self.raw)
+        if fmt < 0:
+            raise Error(format_result_error(bridge, "resource data source get_format failed", fmt))
+        return fmt
+
+    def get_channels(self, bridge: MiniAudioCtypes) raises -> Int:
+        var ch = bridge.resource_data_source_get_channels(self.raw)
+        if ch < 0:
+            raise Error(format_result_error(bridge, "resource data source get_channels failed", ch))
+        return ch
+
+    def get_sample_rate(self, bridge: MiniAudioCtypes) raises -> Int:
+        var sr = bridge.resource_data_source_get_sample_rate(self.raw)
+        if sr < 0:
+            raise Error(format_result_error(bridge, "resource data source get_sample_rate failed", sr))
+        return sr
+
+    def set_looping(self, bridge: MiniAudioCtypes, is_looping: Bool) raises:
+        var result = bridge.resource_data_source_set_looping(self.raw, Int32(1 if is_looping else 0))
+        if result != 0:
+            raise Error(format_result_error(bridge, "resource data source set_looping failed", result))
+
+    def is_looping(self, bridge: MiniAudioCtypes) raises -> Bool:
+        var result = bridge.resource_data_source_is_looping(self.raw)
+        if result < 0:
+            raise Error("resource data source is_looping failed: invalid handle")
+        return result != 0
+
+    def set_range_in_pcm_frames(self, bridge: MiniAudioCtypes, range_beg: UInt64, range_end: UInt64) raises:
+        var result = bridge.resource_data_source_set_range_in_pcm_frames(self.raw, range_beg, range_end)
+        if result != 0:
+            raise Error(format_result_error(bridge, "resource data source set_range_in_pcm_frames failed", result))
+
+    def get_range_beg_in_pcm_frames(self, bridge: MiniAudioCtypes) raises -> Int64:
+        var beg = bridge.resource_data_source_get_range_beg_in_pcm_frames(self.raw)
+        if beg < 0:
+            raise Error("resource data source get_range_beg_in_pcm_frames failed")
+        return beg
+
+    def get_range_end_in_pcm_frames(self, bridge: MiniAudioCtypes) raises -> Int64:
+        var end = bridge.resource_data_source_get_range_end_in_pcm_frames(self.raw)
+        if end < 0:
+            raise Error("resource data source get_range_end_in_pcm_frames failed")
+        return end
+
+    def set_loop_point_in_pcm_frames(
+        mut self,
+        bridge: MiniAudioCtypes,
+        loop_beg: UInt64,
+        loop_end: UInt64,
+    ) raises:
+        var result = bridge.resource_data_source_set_loop_point_in_pcm_frames(self.raw, loop_beg, loop_end)
+        if result != 0:
+            raise Error(format_result_error(bridge, "resource data source set_loop_point_in_pcm_frames failed", result))
+
+    def get_loop_point_beg_in_pcm_frames(self, bridge: MiniAudioCtypes) raises -> Int64:
+        var beg = bridge.resource_data_source_get_loop_point_beg_in_pcm_frames(self.raw)
+        if beg < 0:
+            raise Error("resource data source get_loop_point_beg_in_pcm_frames failed")
+        return beg
+
+    def get_loop_point_end_in_pcm_frames(self, bridge: MiniAudioCtypes) raises -> Int64:
+        var end = bridge.resource_data_source_get_loop_point_end_in_pcm_frames(self.raw)
+        if end < 0:
+            raise Error("resource data source get_loop_point_end_in_pcm_frames failed")
+        return end
+
+    def seek_to_second(mut self, bridge: MiniAudioCtypes, seconds: Float32) raises:
+        var result = bridge.resource_data_source_seek_to_second(self.raw, seconds)
+        if result != 0:
+            raise Error(format_result_error(bridge, "resource data source seek_to_second failed", result))
+
+    def seek_seconds(mut self, bridge: MiniAudioCtypes, seconds: Float32) raises:
+        var result = bridge.resource_data_source_seek_seconds(self.raw, seconds)
+        if result != 0:
+            raise Error(format_result_error(bridge, "resource data source seek_seconds failed", result))
 
     def close(mut self, bridge: MiniAudioCtypes):
         if self.raw == miniaudio_null_handle():
@@ -1232,6 +1779,240 @@ struct MiniAudioBiquadNodeHandle:
             self.initialized = False
 
         bridge.biquad_node_destroy(self.raw)
+        self.raw = miniaudio_null_handle()
+
+
+struct MiniAudioNotchNodeHandle:
+    var raw: OpaquePointer[MutExternalOrigin]
+    var initialized: Bool
+
+    def __init__(out self, bridge: MiniAudioCtypes) raises:
+        self.raw = bridge.notch_node_create()
+        self.initialized = False
+        if self.raw == miniaudio_null_handle():
+            raise Error("notch_node_create failed")
+
+    def init(
+        mut self,
+        bridge: MiniAudioCtypes,
+        engine: MiniAudioEngineHandle,
+        channels: UInt32,
+        sample_rate: UInt32,
+        q: Float64,
+        frequency: Float64,
+    ) raises:
+        if q <= 0.0:
+            raise Error("notch node: q must be positive")
+        if frequency <= 0.0:
+            raise Error("notch node: frequency must be positive")
+        var result = bridge.notch_node_init(self.raw, engine.raw, channels, sample_rate, q, frequency)
+        if result != 0:
+            raise Error(format_result_error(bridge, "notch node init failed", result))
+        self.initialized = True
+
+    def reinit(
+        mut self,
+        bridge: MiniAudioCtypes,
+        sample_rate: UInt32,
+        q: Float64,
+        frequency: Float64,
+    ) raises:
+        if not self.initialized:
+            raise Error("notch node not initialized")
+        var result = bridge.notch_node_reinit(self.raw, sample_rate, q, frequency)
+        if result != 0:
+            raise Error(format_result_error(bridge, "notch node reinit failed", result))
+
+    def get_node(self, bridge: MiniAudioCtypes) raises -> OpaquePointer[MutExternalOrigin]:
+        var node = bridge.notch_node_get_node(self.raw)
+        if node == miniaudio_null_handle():
+            raise Error("notch node not available")
+        return node
+
+    def close(mut self, bridge: MiniAudioCtypes):
+        if self.raw == miniaudio_null_handle():
+            return
+        if self.initialized:
+            _ = bridge.notch_node_uninit(self.raw)
+            self.initialized = False
+        bridge.notch_node_destroy(self.raw)
+        self.raw = miniaudio_null_handle()
+
+
+struct MiniAudioPeakNodeHandle:
+    var raw: OpaquePointer[MutExternalOrigin]
+    var initialized: Bool
+
+    def __init__(out self, bridge: MiniAudioCtypes) raises:
+        self.raw = bridge.peak_node_create()
+        self.initialized = False
+        if self.raw == miniaudio_null_handle():
+            raise Error("peak_node_create failed")
+
+    def init(
+        mut self,
+        bridge: MiniAudioCtypes,
+        engine: MiniAudioEngineHandle,
+        channels: UInt32,
+        sample_rate: UInt32,
+        gain_db: Float64,
+        q: Float64,
+        frequency: Float64,
+    ) raises:
+        if q <= 0.0:
+            raise Error("peak node: q must be positive")
+        if frequency <= 0.0:
+            raise Error("peak node: frequency must be positive")
+        var result = bridge.peak_node_init(self.raw, engine.raw, channels, sample_rate, gain_db, q, frequency)
+        if result != 0:
+            raise Error(format_result_error(bridge, "peak node init failed", result))
+        self.initialized = True
+
+    def reinit(
+        mut self,
+        bridge: MiniAudioCtypes,
+        sample_rate: UInt32,
+        gain_db: Float64,
+        q: Float64,
+        frequency: Float64,
+    ) raises:
+        if not self.initialized:
+            raise Error("peak node not initialized")
+        var result = bridge.peak_node_reinit(self.raw, sample_rate, gain_db, q, frequency)
+        if result != 0:
+            raise Error(format_result_error(bridge, "peak node reinit failed", result))
+
+    def get_node(self, bridge: MiniAudioCtypes) raises -> OpaquePointer[MutExternalOrigin]:
+        var node = bridge.peak_node_get_node(self.raw)
+        if node == miniaudio_null_handle():
+            raise Error("peak node not available")
+        return node
+
+    def close(mut self, bridge: MiniAudioCtypes):
+        if self.raw == miniaudio_null_handle():
+            return
+        if self.initialized:
+            _ = bridge.peak_node_uninit(self.raw)
+            self.initialized = False
+        bridge.peak_node_destroy(self.raw)
+        self.raw = miniaudio_null_handle()
+
+
+struct MiniAudioLoshelfNodeHandle:
+    var raw: OpaquePointer[MutExternalOrigin]
+    var initialized: Bool
+
+    def __init__(out self, bridge: MiniAudioCtypes) raises:
+        self.raw = bridge.loshelf_node_create()
+        self.initialized = False
+        if self.raw == miniaudio_null_handle():
+            raise Error("loshelf_node_create failed")
+
+    def init(
+        mut self,
+        bridge: MiniAudioCtypes,
+        engine: MiniAudioEngineHandle,
+        channels: UInt32,
+        sample_rate: UInt32,
+        gain_db: Float64,
+        q: Float64,
+        frequency: Float64,
+    ) raises:
+        if q <= 0.0:
+            raise Error("loshelf node: q must be positive")
+        if frequency <= 0.0:
+            raise Error("loshelf node: frequency must be positive")
+        var result = bridge.loshelf_node_init(self.raw, engine.raw, channels, sample_rate, gain_db, q, frequency)
+        if result != 0:
+            raise Error(format_result_error(bridge, "loshelf node init failed", result))
+        self.initialized = True
+
+    def reinit(
+        mut self,
+        bridge: MiniAudioCtypes,
+        sample_rate: UInt32,
+        gain_db: Float64,
+        q: Float64,
+        frequency: Float64,
+    ) raises:
+        if not self.initialized:
+            raise Error("loshelf node not initialized")
+        var result = bridge.loshelf_node_reinit(self.raw, sample_rate, gain_db, q, frequency)
+        if result != 0:
+            raise Error(format_result_error(bridge, "loshelf node reinit failed", result))
+
+    def get_node(self, bridge: MiniAudioCtypes) raises -> OpaquePointer[MutExternalOrigin]:
+        var node = bridge.loshelf_node_get_node(self.raw)
+        if node == miniaudio_null_handle():
+            raise Error("loshelf node not available")
+        return node
+
+    def close(mut self, bridge: MiniAudioCtypes):
+        if self.raw == miniaudio_null_handle():
+            return
+        if self.initialized:
+            _ = bridge.loshelf_node_uninit(self.raw)
+            self.initialized = False
+        bridge.loshelf_node_destroy(self.raw)
+        self.raw = miniaudio_null_handle()
+
+
+struct MiniAudioHishelfNodeHandle:
+    var raw: OpaquePointer[MutExternalOrigin]
+    var initialized: Bool
+
+    def __init__(out self, bridge: MiniAudioCtypes) raises:
+        self.raw = bridge.hishelf_node_create()
+        self.initialized = False
+        if self.raw == miniaudio_null_handle():
+            raise Error("hishelf_node_create failed")
+
+    def init(
+        mut self,
+        bridge: MiniAudioCtypes,
+        engine: MiniAudioEngineHandle,
+        channels: UInt32,
+        sample_rate: UInt32,
+        gain_db: Float64,
+        q: Float64,
+        frequency: Float64,
+    ) raises:
+        if q <= 0.0:
+            raise Error("hishelf node: q must be positive")
+        if frequency <= 0.0:
+            raise Error("hishelf node: frequency must be positive")
+        var result = bridge.hishelf_node_init(self.raw, engine.raw, channels, sample_rate, gain_db, q, frequency)
+        if result != 0:
+            raise Error(format_result_error(bridge, "hishelf node init failed", result))
+        self.initialized = True
+
+    def reinit(
+        mut self,
+        bridge: MiniAudioCtypes,
+        sample_rate: UInt32,
+        gain_db: Float64,
+        q: Float64,
+        frequency: Float64,
+    ) raises:
+        if not self.initialized:
+            raise Error("hishelf node not initialized")
+        var result = bridge.hishelf_node_reinit(self.raw, sample_rate, gain_db, q, frequency)
+        if result != 0:
+            raise Error(format_result_error(bridge, "hishelf node reinit failed", result))
+
+    def get_node(self, bridge: MiniAudioCtypes) raises -> OpaquePointer[MutExternalOrigin]:
+        var node = bridge.hishelf_node_get_node(self.raw)
+        if node == miniaudio_null_handle():
+            raise Error("hishelf node not available")
+        return node
+
+    def close(mut self, bridge: MiniAudioCtypes):
+        if self.raw == miniaudio_null_handle():
+            return
+        if self.initialized:
+            _ = bridge.hishelf_node_uninit(self.raw)
+            self.initialized = False
+        bridge.hishelf_node_destroy(self.raw)
         self.raw = miniaudio_null_handle()
 
 

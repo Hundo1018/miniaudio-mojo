@@ -107,6 +107,11 @@ typedef struct mmj_sound_handle {
     int initialized;
 } mmj_sound_handle;
 
+typedef struct mmj_sound_group_handle {
+    ma_sound_group sound_group;
+    int initialized;
+} mmj_sound_group_handle;
+
 typedef struct mmj_lpf_node_handle {
     ma_lpf_node node;
     uint32_t channels;
@@ -146,6 +151,30 @@ typedef struct mmj_biquad_node_handle {
     float b0, b1, b2, a0, a1, a2;
     int initialized;
 } mmj_biquad_node_handle;
+
+typedef struct mmj_notch_node_handle {
+    ma_notch_node node;
+    int initialized;
+    uint32_t channels;
+} mmj_notch_node_handle;
+
+typedef struct mmj_peak_node_handle {
+    ma_peak_node node;
+    int initialized;
+    uint32_t channels;
+} mmj_peak_node_handle;
+
+typedef struct mmj_loshelf_node_handle {
+    ma_loshelf_node node;
+    int initialized;
+    uint32_t channels;
+} mmj_loshelf_node_handle;
+
+typedef struct mmj_hishelf_node_handle {
+    ma_hishelf_node node;
+    int initialized;
+    uint32_t channels;
+} mmj_hishelf_node_handle;
 
 typedef struct mmj_resource_manager_handle {
     ma_resource_manager resource_manager;
@@ -1269,6 +1298,48 @@ int mmj_sound_init_from_file(
     return result;
 }
 
+int mmj_sound_init_from_file_in_group(
+    void* sound_handle,
+    void* engine_handle,
+    void* sound_group_handle,
+    const char* file_path
+) {
+    mmj_sound_handle* sound = (mmj_sound_handle*)sound_handle;
+    mmj_engine_handle* engine = (mmj_engine_handle*)engine_handle;
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+    ma_result result;
+
+    if (
+        sound == NULL
+        || engine == NULL
+        || !engine->initialized
+        || group == NULL
+        || !group->initialized
+        || file_path == NULL
+    ) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (sound->initialized) {
+        ma_sound_uninit(&sound->sound);
+        sound->initialized = 0;
+    }
+
+    result = ma_sound_init_from_file(
+        &engine->engine,
+        file_path,
+        0,
+        &group->sound_group,
+        NULL,
+        &sound->sound
+    );
+    if (result == MA_SUCCESS) {
+        sound->initialized = 1;
+    }
+
+    return result;
+}
+
 int mmj_sound_start(void* sound_handle) {
     mmj_sound_handle* handle = (mmj_sound_handle*)sound_handle;
 
@@ -1447,6 +1518,576 @@ void* mmj_sound_get_node(void* sound_handle) {
     }
 
     return (void*)&handle->sound.engineNode.baseNode;
+}
+
+void* mmj_sound_group_create(void) {
+    mmj_sound_group_handle* handle = (mmj_sound_group_handle*)calloc(1, sizeof(mmj_sound_group_handle));
+    return handle;
+}
+
+int mmj_sound_group_init_default(void* sound_group_handle, void* engine_handle) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+    mmj_engine_handle* engine = (mmj_engine_handle*)engine_handle;
+    ma_result result;
+
+    if (group == NULL || engine == NULL || !engine->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (group->initialized) {
+        return MA_SUCCESS;
+    }
+
+    result = ma_sound_group_init(&engine->engine, 0, NULL, &group->sound_group);
+    if (result == MA_SUCCESS) {
+        group->initialized = 1;
+    }
+
+    return result;
+}
+
+int mmj_sound_group_init_with_parent(
+    void* sound_group_handle,
+    void* engine_handle,
+    void* parent_group_handle
+) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+    mmj_engine_handle* engine = (mmj_engine_handle*)engine_handle;
+    mmj_sound_group_handle* parent_group = (mmj_sound_group_handle*)parent_group_handle;
+    ma_result result;
+
+    if (
+        group == NULL
+        || engine == NULL
+        || !engine->initialized
+        || parent_group == NULL
+        || !parent_group->initialized
+    ) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (group->initialized) {
+        return MA_SUCCESS;
+    }
+
+    result = ma_sound_group_init(
+        &engine->engine,
+        0,
+        &parent_group->sound_group,
+        &group->sound_group
+    );
+    if (result == MA_SUCCESS) {
+        group->initialized = 1;
+    }
+
+    return result;
+}
+
+int mmj_sound_group_start(void* sound_group_handle) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+
+    if (group == NULL || !group->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    return ma_sound_group_start(&group->sound_group);
+}
+
+int mmj_sound_group_stop(void* sound_group_handle) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+
+    if (group == NULL || !group->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    return ma_sound_group_stop(&group->sound_group);
+}
+
+int mmj_sound_group_set_volume_f32(void* sound_group_handle, float volume) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+
+    if (group == NULL || !group->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    ma_sound_group_set_volume(&group->sound_group, volume);
+    return MA_SUCCESS;
+}
+
+float mmj_sound_group_get_volume_f32(void* sound_group_handle) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+
+    if (group == NULL || !group->initialized) {
+        return -1.0f;
+    }
+
+    return ma_sound_group_get_volume(&group->sound_group);
+}
+
+int mmj_sound_group_set_pan_f32(void* sound_group_handle, float pan) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+
+    if (group == NULL || !group->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    ma_sound_group_set_pan(&group->sound_group, pan);
+    return MA_SUCCESS;
+}
+
+float mmj_sound_group_get_pan_f32(void* sound_group_handle) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+
+    if (group == NULL || !group->initialized) {
+        return -1.0f;
+    }
+
+    return ma_sound_group_get_pan(&group->sound_group);
+}
+
+int mmj_sound_group_set_pitch_f32(void* sound_group_handle, float pitch) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+
+    if (group == NULL || !group->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    ma_sound_group_set_pitch(&group->sound_group, pitch);
+    return MA_SUCCESS;
+}
+
+float mmj_sound_group_get_pitch_f32(void* sound_group_handle) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+
+    if (group == NULL || !group->initialized) {
+        return -1.0f;
+    }
+
+    return ma_sound_group_get_pitch(&group->sound_group);
+}
+
+int mmj_sound_group_set_spatialization_enabled(void* sound_group_handle, int is_enabled) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+
+    if (group == NULL || !group->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    ma_sound_group_set_spatialization_enabled(
+        &group->sound_group,
+        is_enabled ? MA_TRUE : MA_FALSE
+    );
+    return MA_SUCCESS;
+}
+
+int mmj_sound_group_is_spatialization_enabled(void* sound_group_handle) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+
+    if (group == NULL || !group->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    return ma_sound_group_is_spatialization_enabled(&group->sound_group) == MA_TRUE ? 1 : 0;
+}
+
+int mmj_sound_group_set_position(
+    void* sound_group_handle,
+    float x,
+    float y,
+    float z
+) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+
+    if (group == NULL || !group->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    ma_sound_group_set_position(&group->sound_group, x, y, z);
+    return MA_SUCCESS;
+}
+
+int mmj_sound_group_set_direction(
+    void* sound_group_handle,
+    float x,
+    float y,
+    float z
+) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+
+    if (group == NULL || !group->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    ma_sound_group_set_direction(&group->sound_group, x, y, z);
+    return MA_SUCCESS;
+}
+
+int mmj_sound_group_set_velocity(
+    void* sound_group_handle,
+    float x,
+    float y,
+    float z
+) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+
+    if (group == NULL || !group->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    ma_sound_group_set_velocity(&group->sound_group, x, y, z);
+    return MA_SUCCESS;
+}
+
+int mmj_sound_group_set_rolloff(void* sound_group_handle, float rolloff) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+
+    if (group == NULL || !group->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    ma_sound_group_set_rolloff(&group->sound_group, rolloff);
+    return MA_SUCCESS;
+}
+
+float mmj_sound_group_get_rolloff(void* sound_group_handle) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+
+    if (group == NULL || !group->initialized) {
+        return -1.0f;
+    }
+
+    return ma_sound_group_get_rolloff(&group->sound_group);
+}
+
+int mmj_sound_group_set_min_distance(void* sound_group_handle, float min_distance) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+
+    if (group == NULL || !group->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    ma_sound_group_set_min_distance(&group->sound_group, min_distance);
+    return MA_SUCCESS;
+}
+
+float mmj_sound_group_get_min_distance(void* sound_group_handle) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+
+    if (group == NULL || !group->initialized) {
+        return -1.0f;
+    }
+
+    return ma_sound_group_get_min_distance(&group->sound_group);
+}
+
+int mmj_sound_group_set_max_distance(void* sound_group_handle, float max_distance) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+
+    if (group == NULL || !group->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    ma_sound_group_set_max_distance(&group->sound_group, max_distance);
+    return MA_SUCCESS;
+}
+
+float mmj_sound_group_get_max_distance(void* sound_group_handle) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+
+    if (group == NULL || !group->initialized) {
+        return -1.0f;
+    }
+
+    return ma_sound_group_get_max_distance(&group->sound_group);
+}
+
+int mmj_sound_group_set_attenuation_model(void* sound_group_handle, int attenuation_model) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+
+    if (group == NULL || !group->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (attenuation_model < 0 || attenuation_model > 3) {
+        return MA_INVALID_ARGS;
+    }
+
+    ma_sound_group_set_attenuation_model(
+        &group->sound_group,
+        (ma_attenuation_model)attenuation_model
+    );
+    return MA_SUCCESS;
+}
+
+int mmj_sound_group_get_attenuation_model(void* sound_group_handle) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+
+    if (group == NULL || !group->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    return (int)ma_sound_group_get_attenuation_model(&group->sound_group);
+}
+
+int mmj_sound_group_set_positioning(void* sound_group_handle, int positioning) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+
+    if (group == NULL || !group->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (positioning < 0 || positioning > 1) {
+        return MA_INVALID_ARGS;
+    }
+
+    ma_sound_group_set_positioning(&group->sound_group, (ma_positioning)positioning);
+    return MA_SUCCESS;
+}
+
+int mmj_sound_group_get_positioning(void* sound_group_handle) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+
+    if (group == NULL || !group->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    return (int)ma_sound_group_get_positioning(&group->sound_group);
+}
+
+int mmj_sound_group_set_pinned_listener_index(void* sound_group_handle, uint32_t listener_index) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+
+    if (group == NULL || !group->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    ma_sound_group_set_pinned_listener_index(&group->sound_group, (ma_uint32)listener_index);
+    return MA_SUCCESS;
+}
+
+int mmj_sound_group_get_pinned_listener_index(void* sound_group_handle) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+
+    if (group == NULL || !group->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    return (int)ma_sound_group_get_pinned_listener_index(&group->sound_group);
+}
+
+int mmj_sound_group_set_cone(
+    void* sound_group_handle,
+    float inner_angle,
+    float outer_angle,
+    float outer_gain
+) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+
+    if (group == NULL || !group->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (inner_angle < 0.0f || outer_angle < 0.0f || outer_angle < inner_angle || outer_gain < 0.0f) {
+        return MA_INVALID_ARGS;
+    }
+
+    ma_sound_group_set_cone(&group->sound_group, inner_angle, outer_angle, outer_gain);
+    return MA_SUCCESS;
+}
+
+float mmj_sound_group_get_cone_inner_angle(void* sound_group_handle) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+    float inner_angle = 0.0f;
+    float outer_angle = 0.0f;
+    float outer_gain = 0.0f;
+
+    if (group == NULL || !group->initialized) {
+        return -1.0f;
+    }
+
+    ma_sound_group_get_cone(&group->sound_group, &inner_angle, &outer_angle, &outer_gain);
+    return inner_angle;
+}
+
+float mmj_sound_group_get_cone_outer_angle(void* sound_group_handle) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+    float inner_angle = 0.0f;
+    float outer_angle = 0.0f;
+    float outer_gain = 0.0f;
+
+    if (group == NULL || !group->initialized) {
+        return -1.0f;
+    }
+
+    ma_sound_group_get_cone(&group->sound_group, &inner_angle, &outer_angle, &outer_gain);
+    return outer_angle;
+}
+
+float mmj_sound_group_get_cone_outer_gain(void* sound_group_handle) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+    float inner_angle = 0.0f;
+    float outer_angle = 0.0f;
+    float outer_gain = 0.0f;
+
+    if (group == NULL || !group->initialized) {
+        return -1.0f;
+    }
+
+    ma_sound_group_get_cone(&group->sound_group, &inner_angle, &outer_angle, &outer_gain);
+    return outer_gain;
+}
+
+int mmj_sound_group_set_doppler_factor(void* sound_group_handle, float doppler_factor) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+
+    if (group == NULL || !group->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (doppler_factor < 0.0f) {
+        return MA_INVALID_ARGS;
+    }
+
+    ma_sound_group_set_doppler_factor(&group->sound_group, doppler_factor);
+    return MA_SUCCESS;
+}
+
+float mmj_sound_group_get_doppler_factor(void* sound_group_handle) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+
+    if (group == NULL || !group->initialized) {
+        return -1.0f;
+    }
+
+    return ma_sound_group_get_doppler_factor(&group->sound_group);
+}
+
+int mmj_sound_group_set_directional_attenuation_factor(
+    void* sound_group_handle,
+    float directional_attenuation_factor
+) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+
+    if (group == NULL || !group->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (directional_attenuation_factor < 0.0f) {
+        return MA_INVALID_ARGS;
+    }
+
+    ma_sound_group_set_directional_attenuation_factor(
+        &group->sound_group,
+        directional_attenuation_factor
+    );
+    return MA_SUCCESS;
+}
+
+float mmj_sound_group_get_directional_attenuation_factor(void* sound_group_handle) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+
+    if (group == NULL || !group->initialized) {
+        return -1.0f;
+    }
+
+    return ma_sound_group_get_directional_attenuation_factor(&group->sound_group);
+}
+
+int mmj_sound_group_uninit(void* sound_group_handle) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+
+    if (group == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (!group->initialized) {
+        return MA_SUCCESS;
+    }
+
+    ma_sound_group_uninit(&group->sound_group);
+    group->initialized = 0;
+    return MA_SUCCESS;
+}
+
+void mmj_sound_group_destroy(void* sound_group_handle) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+
+    if (group == NULL) {
+        return;
+    }
+
+    if (group->initialized) {
+        ma_sound_group_uninit(&group->sound_group);
+        group->initialized = 0;
+    }
+
+    free(group);
+}
+
+/* --- sound group timing / fade --- */
+
+int mmj_sound_group_set_fade_in_pcm_frames(
+    void* sound_group_handle,
+    float vol_beg,
+    float vol_end,
+    uint64_t length_in_frames
+) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+    if (group == NULL || !group->initialized) return MA_INVALID_ARGS;
+    ma_sound_group_set_fade_in_pcm_frames(&group->sound_group, vol_beg, vol_end, (ma_uint64)length_in_frames);
+    return MA_SUCCESS;
+}
+
+int mmj_sound_group_set_fade_in_milliseconds(
+    void* sound_group_handle,
+    float vol_beg,
+    float vol_end,
+    uint64_t length_in_ms
+) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+    if (group == NULL || !group->initialized) return MA_INVALID_ARGS;
+    ma_sound_group_set_fade_in_milliseconds(&group->sound_group, vol_beg, vol_end, (ma_uint64)length_in_ms);
+    return MA_SUCCESS;
+}
+
+float mmj_sound_group_get_current_fade_volume(void* sound_group_handle) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+    if (group == NULL || !group->initialized) return -2.0f; /* MA_INVALID_ARGS sentinel */
+    return ma_sound_group_get_current_fade_volume(&group->sound_group);
+}
+
+int mmj_sound_group_set_start_time_in_pcm_frames(void* sound_group_handle, uint64_t absolute_global_time_in_frames) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+    if (group == NULL || !group->initialized) return MA_INVALID_ARGS;
+    ma_sound_group_set_start_time_in_pcm_frames(&group->sound_group, (ma_uint64)absolute_global_time_in_frames);
+    return MA_SUCCESS;
+}
+
+int mmj_sound_group_set_start_time_in_milliseconds(void* sound_group_handle, uint64_t absolute_global_time_in_ms) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+    if (group == NULL || !group->initialized) return MA_INVALID_ARGS;
+    ma_sound_group_set_start_time_in_milliseconds(&group->sound_group, (ma_uint64)absolute_global_time_in_ms);
+    return MA_SUCCESS;
+}
+
+int mmj_sound_group_set_stop_time_in_pcm_frames(void* sound_group_handle, uint64_t absolute_global_time_in_frames) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+    if (group == NULL || !group->initialized) return MA_INVALID_ARGS;
+    ma_sound_group_set_stop_time_in_pcm_frames(&group->sound_group, (ma_uint64)absolute_global_time_in_frames);
+    return MA_SUCCESS;
+}
+
+int mmj_sound_group_set_stop_time_in_milliseconds(void* sound_group_handle, uint64_t absolute_global_time_in_ms) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+    if (group == NULL || !group->initialized) return MA_INVALID_ARGS;
+    ma_sound_group_set_stop_time_in_milliseconds(&group->sound_group, (ma_uint64)absolute_global_time_in_ms);
+    return MA_SUCCESS;
+}
+
+int64_t mmj_sound_group_get_time_in_pcm_frames(void* sound_group_handle) {
+    mmj_sound_group_handle* group = (mmj_sound_group_handle*)sound_group_handle;
+    if (group == NULL || !group->initialized) return (int64_t)MA_INVALID_ARGS;
+    return (int64_t)ma_sound_group_get_time_in_pcm_frames(&group->sound_group);
 }
 
 int mmj_node_attach_output_bus(
@@ -2267,6 +2908,138 @@ void mmj_resource_data_source_destroy(void* data_source_handle) {
 
 uint32_t mmj_resource_data_source_flag_async(void) {
     return (uint32_t)MA_RESOURCE_MANAGER_DATA_SOURCE_FLAG_ASYNC;
+}
+
+/* --- resource data source extended operations --- */
+
+int mmj_resource_data_source_seek_to_pcm_frame(void* data_source_handle, uint64_t frame_index) {
+    mmj_resource_data_source_handle* handle = (mmj_resource_data_source_handle*)data_source_handle;
+    if (handle == NULL || !handle->initialized) return MA_INVALID_ARGS;
+    return (int)ma_data_source_seek_to_pcm_frame(&handle->data_source, (ma_uint64)frame_index);
+}
+
+int mmj_resource_data_source_seek_pcm_frames(void* data_source_handle, uint64_t frame_count) {
+    mmj_resource_data_source_handle* handle = (mmj_resource_data_source_handle*)data_source_handle;
+    if (handle == NULL || !handle->initialized) return MA_INVALID_ARGS;
+    return (int)ma_data_source_seek_pcm_frames(&handle->data_source, (ma_uint64)frame_count, NULL);
+}
+
+int64_t mmj_resource_data_source_get_cursor_in_pcm_frames(void* data_source_handle) {
+    mmj_resource_data_source_handle* handle = (mmj_resource_data_source_handle*)data_source_handle;
+    if (handle == NULL || !handle->initialized) return (int64_t)MA_INVALID_ARGS;
+    ma_uint64 cursor = 0;
+    ma_result result = ma_data_source_get_cursor_in_pcm_frames(&handle->data_source, &cursor);
+    if (result != MA_SUCCESS) return (int64_t)result;
+    return (int64_t)cursor;
+}
+
+float mmj_resource_data_source_get_cursor_in_seconds(void* data_source_handle) {
+    mmj_resource_data_source_handle* handle = (mmj_resource_data_source_handle*)data_source_handle;
+    if (handle == NULL || !handle->initialized) return -2.0f;
+    float cursor = 0.0f;
+    if (ma_data_source_get_cursor_in_seconds(&handle->data_source, &cursor) != MA_SUCCESS) return -2.0f;
+    return cursor;
+}
+
+float mmj_resource_data_source_get_length_in_seconds(void* data_source_handle) {
+    mmj_resource_data_source_handle* handle = (mmj_resource_data_source_handle*)data_source_handle;
+    if (handle == NULL || !handle->initialized) return -2.0f;
+    float length = 0.0f;
+    if (ma_data_source_get_length_in_seconds(&handle->data_source, &length) != MA_SUCCESS) return -2.0f;
+    return length;
+}
+
+int mmj_resource_data_source_get_format(void* data_source_handle) {
+    mmj_resource_data_source_handle* handle = (mmj_resource_data_source_handle*)data_source_handle;
+    if (handle == NULL || !handle->initialized) return MA_INVALID_ARGS;
+    ma_format fmt = ma_format_unknown;
+    if (ma_data_source_get_data_format(&handle->data_source, &fmt, NULL, NULL, NULL, 0) != MA_SUCCESS) return MA_INVALID_ARGS;
+    return (int)fmt;
+}
+
+int mmj_resource_data_source_get_channels(void* data_source_handle) {
+    mmj_resource_data_source_handle* handle = (mmj_resource_data_source_handle*)data_source_handle;
+    if (handle == NULL || !handle->initialized) return MA_INVALID_ARGS;
+    ma_uint32 channels = 0;
+    if (ma_data_source_get_data_format(&handle->data_source, NULL, &channels, NULL, NULL, 0) != MA_SUCCESS) return MA_INVALID_ARGS;
+    return (int)channels;
+}
+
+int mmj_resource_data_source_get_sample_rate(void* data_source_handle) {
+    mmj_resource_data_source_handle* handle = (mmj_resource_data_source_handle*)data_source_handle;
+    if (handle == NULL || !handle->initialized) return MA_INVALID_ARGS;
+    ma_uint32 sample_rate = 0;
+    if (ma_data_source_get_data_format(&handle->data_source, NULL, NULL, &sample_rate, NULL, 0) != MA_SUCCESS) return MA_INVALID_ARGS;
+    return (int)sample_rate;
+}
+
+int mmj_resource_data_source_set_looping(void* data_source_handle, int is_looping) {
+    mmj_resource_data_source_handle* handle = (mmj_resource_data_source_handle*)data_source_handle;
+    if (handle == NULL || !handle->initialized) return MA_INVALID_ARGS;
+    return (int)ma_data_source_set_looping(&handle->data_source, (ma_bool32)is_looping);
+}
+
+int mmj_resource_data_source_is_looping(void* data_source_handle) {
+    mmj_resource_data_source_handle* handle = (mmj_resource_data_source_handle*)data_source_handle;
+    if (handle == NULL || !handle->initialized) return MA_INVALID_ARGS;
+    return (int)ma_data_source_is_looping(&handle->data_source);
+}
+
+int mmj_resource_data_source_set_range_in_pcm_frames(void* data_source_handle, uint64_t range_beg, uint64_t range_end) {
+    mmj_resource_data_source_handle* handle = (mmj_resource_data_source_handle*)data_source_handle;
+    if (handle == NULL || !handle->initialized) return MA_INVALID_ARGS;
+    return (int)ma_data_source_set_range_in_pcm_frames(&handle->data_source, (ma_uint64)range_beg, (ma_uint64)range_end);
+}
+
+int64_t mmj_resource_data_source_get_range_beg_in_pcm_frames(void* data_source_handle) {
+    mmj_resource_data_source_handle* handle = (mmj_resource_data_source_handle*)data_source_handle;
+    if (handle == NULL || !handle->initialized) return (int64_t)MA_INVALID_ARGS;
+    ma_uint64 beg = 0, end = 0;
+    ma_data_source_get_range_in_pcm_frames(&handle->data_source, &beg, &end);
+    return (int64_t)beg;
+}
+
+int64_t mmj_resource_data_source_get_range_end_in_pcm_frames(void* data_source_handle) {
+    mmj_resource_data_source_handle* handle = (mmj_resource_data_source_handle*)data_source_handle;
+    if (handle == NULL || !handle->initialized) return (int64_t)MA_INVALID_ARGS;
+    ma_uint64 beg = 0, end = 0;
+    ma_data_source_get_range_in_pcm_frames(&handle->data_source, &beg, &end);
+    return (int64_t)end;
+}
+
+int mmj_resource_data_source_set_loop_point_in_pcm_frames(void* data_source_handle, uint64_t loop_beg, uint64_t loop_end) {
+    mmj_resource_data_source_handle* handle = (mmj_resource_data_source_handle*)data_source_handle;
+    if (handle == NULL || !handle->initialized) return MA_INVALID_ARGS;
+    return (int)ma_data_source_set_loop_point_in_pcm_frames(&handle->data_source, (ma_uint64)loop_beg, (ma_uint64)loop_end);
+}
+
+int64_t mmj_resource_data_source_get_loop_point_beg_in_pcm_frames(void* data_source_handle) {
+    mmj_resource_data_source_handle* handle = (mmj_resource_data_source_handle*)data_source_handle;
+    if (handle == NULL || !handle->initialized) return (int64_t)MA_INVALID_ARGS;
+    ma_uint64 beg = 0, end = 0;
+    ma_data_source_get_loop_point_in_pcm_frames(&handle->data_source, &beg, &end);
+    return (int64_t)beg;
+}
+
+int64_t mmj_resource_data_source_get_loop_point_end_in_pcm_frames(void* data_source_handle) {
+    mmj_resource_data_source_handle* handle = (mmj_resource_data_source_handle*)data_source_handle;
+    if (handle == NULL || !handle->initialized) return (int64_t)MA_INVALID_ARGS;
+    ma_uint64 beg = 0, end = 0;
+    ma_data_source_get_loop_point_in_pcm_frames(&handle->data_source, &beg, &end);
+    return (int64_t)end;
+}
+
+int mmj_resource_data_source_seek_to_second(void* data_source_handle, float seconds) {
+    mmj_resource_data_source_handle* handle = (mmj_resource_data_source_handle*)data_source_handle;
+    if (handle == NULL || !handle->initialized) return MA_INVALID_ARGS;
+    return (int)ma_data_source_seek_to_second(&handle->data_source, (float)seconds);
+}
+
+int mmj_resource_data_source_seek_seconds(void* data_source_handle, float seconds) {
+    mmj_resource_data_source_handle* handle = (mmj_resource_data_source_handle*)data_source_handle;
+    if (handle == NULL || !handle->initialized) return MA_INVALID_ARGS;
+    float seconds_seeked = 0.0f;
+    return (int)ma_data_source_seek_seconds(&handle->data_source, (float)seconds, &seconds_seeked);
 }
 
 int mmj_device_init_playback_format(
@@ -4694,4 +5467,200 @@ void mmj_biquad_node_destroy(void* biquad_node_handle) {
     }
 
     free(biquad);
+}
+
+/* ============================================================
+ * notch node
+ * ============================================================ */
+
+void* mmj_notch_node_create(void) {
+    return calloc(1, sizeof(mmj_notch_node_handle));
+}
+
+int mmj_notch_node_init(void* handle, void* engine_handle, uint32_t channels, uint32_t sample_rate, double q, double frequency) {
+    mmj_notch_node_handle* h = (mmj_notch_node_handle*)handle;
+    mmj_engine_handle* eng = (mmj_engine_handle*)engine_handle;
+    if (h == NULL || eng == NULL || !eng->initialized || channels == 0 || sample_rate == 0) return MA_INVALID_ARGS;
+    if (q <= 0.0 || frequency <= 0.0) return MA_INVALID_ARGS;
+    if (h->initialized) { ma_notch_node_uninit(&h->node, NULL); h->initialized = 0; }
+    ma_notch_node_config cfg = ma_notch_node_config_init(channels, sample_rate, q, frequency);
+    ma_result r = ma_notch_node_init(ma_engine_get_node_graph(&eng->engine), &cfg, NULL, &h->node);
+    if (r == MA_SUCCESS) { h->initialized = 1; h->channels = channels; }
+    return (int)r;
+}
+
+int mmj_notch_node_reinit(void* handle, uint32_t sample_rate, double q, double frequency) {
+    mmj_notch_node_handle* h = (mmj_notch_node_handle*)handle;
+    if (h == NULL || !h->initialized) return MA_INVALID_ARGS;
+    if (q <= 0.0 || frequency <= 0.0 || sample_rate == 0) return MA_INVALID_ARGS;
+    ma_notch_config cfg = ma_notch2_config_init(ma_format_f32, h->channels, sample_rate, q, frequency);
+    return (int)ma_notch_node_reinit(&cfg, &h->node);
+}
+
+void* mmj_notch_node_get_node(void* handle) {
+    mmj_notch_node_handle* h = (mmj_notch_node_handle*)handle;
+    if (h == NULL || !h->initialized) return NULL;
+    return (void*)&h->node;
+}
+
+int mmj_notch_node_uninit(void* handle) {
+    mmj_notch_node_handle* h = (mmj_notch_node_handle*)handle;
+    if (h == NULL || !h->initialized) return MA_INVALID_ARGS;
+    ma_notch_node_uninit(&h->node, NULL);
+    h->initialized = 0;
+    return MA_SUCCESS;
+}
+
+void mmj_notch_node_destroy(void* handle) {
+    mmj_notch_node_handle* h = (mmj_notch_node_handle*)handle;
+    if (h == NULL) return;
+    if (h->initialized) { ma_notch_node_uninit(&h->node, NULL); }
+    free(h);
+}
+
+/* ============================================================
+ * peak node
+ * ============================================================ */
+
+void* mmj_peak_node_create(void) {
+    return calloc(1, sizeof(mmj_peak_node_handle));
+}
+
+int mmj_peak_node_init(void* handle, void* engine_handle, uint32_t channels, uint32_t sample_rate, double gain_db, double q, double frequency) {
+    mmj_peak_node_handle* h = (mmj_peak_node_handle*)handle;
+    mmj_engine_handle* eng = (mmj_engine_handle*)engine_handle;
+    if (h == NULL || eng == NULL || !eng->initialized || channels == 0 || sample_rate == 0) return MA_INVALID_ARGS;
+    if (q <= 0.0 || frequency <= 0.0) return MA_INVALID_ARGS;
+    if (h->initialized) { ma_peak_node_uninit(&h->node, NULL); h->initialized = 0; }
+    ma_peak_node_config cfg = ma_peak_node_config_init(channels, sample_rate, gain_db, q, frequency);
+    ma_result r = ma_peak_node_init(ma_engine_get_node_graph(&eng->engine), &cfg, NULL, &h->node);
+    if (r == MA_SUCCESS) { h->initialized = 1; h->channels = channels; }
+    return (int)r;
+}
+
+int mmj_peak_node_reinit(void* handle, uint32_t sample_rate, double gain_db, double q, double frequency) {
+    mmj_peak_node_handle* h = (mmj_peak_node_handle*)handle;
+    if (h == NULL || !h->initialized) return MA_INVALID_ARGS;
+    if (q <= 0.0 || frequency <= 0.0 || sample_rate == 0) return MA_INVALID_ARGS;
+    ma_peak_config cfg = ma_peak2_config_init(ma_format_f32, h->channels, sample_rate, gain_db, q, frequency);
+    return (int)ma_peak_node_reinit(&cfg, &h->node);
+}
+
+void* mmj_peak_node_get_node(void* handle) {
+    mmj_peak_node_handle* h = (mmj_peak_node_handle*)handle;
+    if (h == NULL || !h->initialized) return NULL;
+    return (void*)&h->node;
+}
+
+int mmj_peak_node_uninit(void* handle) {
+    mmj_peak_node_handle* h = (mmj_peak_node_handle*)handle;
+    if (h == NULL || !h->initialized) return MA_INVALID_ARGS;
+    ma_peak_node_uninit(&h->node, NULL);
+    h->initialized = 0;
+    return MA_SUCCESS;
+}
+
+void mmj_peak_node_destroy(void* handle) {
+    mmj_peak_node_handle* h = (mmj_peak_node_handle*)handle;
+    if (h == NULL) return;
+    if (h->initialized) { ma_peak_node_uninit(&h->node, NULL); }
+    free(h);
+}
+
+/* ============================================================
+ * loshelf node
+ * ============================================================ */
+
+void* mmj_loshelf_node_create(void) {
+    return calloc(1, sizeof(mmj_loshelf_node_handle));
+}
+
+int mmj_loshelf_node_init(void* handle, void* engine_handle, uint32_t channels, uint32_t sample_rate, double gain_db, double q, double frequency) {
+    mmj_loshelf_node_handle* h = (mmj_loshelf_node_handle*)handle;
+    mmj_engine_handle* eng = (mmj_engine_handle*)engine_handle;
+    if (h == NULL || eng == NULL || !eng->initialized || channels == 0 || sample_rate == 0) return MA_INVALID_ARGS;
+    if (q <= 0.0 || frequency <= 0.0) return MA_INVALID_ARGS;
+    if (h->initialized) { ma_loshelf_node_uninit(&h->node, NULL); h->initialized = 0; }
+    ma_loshelf_node_config cfg = ma_loshelf_node_config_init(channels, sample_rate, gain_db, q, frequency);
+    ma_result r = ma_loshelf_node_init(ma_engine_get_node_graph(&eng->engine), &cfg, NULL, &h->node);
+    if (r == MA_SUCCESS) { h->initialized = 1; h->channels = channels; }
+    return (int)r;
+}
+
+int mmj_loshelf_node_reinit(void* handle, uint32_t sample_rate, double gain_db, double q, double frequency) {
+    mmj_loshelf_node_handle* h = (mmj_loshelf_node_handle*)handle;
+    if (h == NULL || !h->initialized) return MA_INVALID_ARGS;
+    if (q <= 0.0 || frequency <= 0.0 || sample_rate == 0) return MA_INVALID_ARGS;
+    ma_loshelf_config cfg = ma_loshelf2_config_init(ma_format_f32, h->channels, sample_rate, gain_db, q, frequency);
+    return (int)ma_loshelf_node_reinit(&cfg, &h->node);
+}
+
+void* mmj_loshelf_node_get_node(void* handle) {
+    mmj_loshelf_node_handle* h = (mmj_loshelf_node_handle*)handle;
+    if (h == NULL || !h->initialized) return NULL;
+    return (void*)&h->node;
+}
+
+int mmj_loshelf_node_uninit(void* handle) {
+    mmj_loshelf_node_handle* h = (mmj_loshelf_node_handle*)handle;
+    if (h == NULL || !h->initialized) return MA_INVALID_ARGS;
+    ma_loshelf_node_uninit(&h->node, NULL);
+    h->initialized = 0;
+    return MA_SUCCESS;
+}
+
+void mmj_loshelf_node_destroy(void* handle) {
+    mmj_loshelf_node_handle* h = (mmj_loshelf_node_handle*)handle;
+    if (h == NULL) return;
+    if (h->initialized) { ma_loshelf_node_uninit(&h->node, NULL); }
+    free(h);
+}
+
+/* ============================================================
+ * hishelf node
+ * ============================================================ */
+
+void* mmj_hishelf_node_create(void) {
+    return calloc(1, sizeof(mmj_hishelf_node_handle));
+}
+
+int mmj_hishelf_node_init(void* handle, void* engine_handle, uint32_t channels, uint32_t sample_rate, double gain_db, double q, double frequency) {
+    mmj_hishelf_node_handle* h = (mmj_hishelf_node_handle*)handle;
+    mmj_engine_handle* eng = (mmj_engine_handle*)engine_handle;
+    if (h == NULL || eng == NULL || !eng->initialized || channels == 0 || sample_rate == 0) return MA_INVALID_ARGS;
+    if (q <= 0.0 || frequency <= 0.0) return MA_INVALID_ARGS;
+    if (h->initialized) { ma_hishelf_node_uninit(&h->node, NULL); h->initialized = 0; }
+    ma_hishelf_node_config cfg = ma_hishelf_node_config_init(channels, sample_rate, gain_db, q, frequency);
+    ma_result r = ma_hishelf_node_init(ma_engine_get_node_graph(&eng->engine), &cfg, NULL, &h->node);
+    if (r == MA_SUCCESS) { h->initialized = 1; h->channels = channels; }
+    return (int)r;
+}
+
+int mmj_hishelf_node_reinit(void* handle, uint32_t sample_rate, double gain_db, double q, double frequency) {
+    mmj_hishelf_node_handle* h = (mmj_hishelf_node_handle*)handle;
+    if (h == NULL || !h->initialized) return MA_INVALID_ARGS;
+    if (q <= 0.0 || frequency <= 0.0 || sample_rate == 0) return MA_INVALID_ARGS;
+    ma_hishelf_config cfg = ma_hishelf2_config_init(ma_format_f32, h->channels, sample_rate, gain_db, q, frequency);
+    return (int)ma_hishelf_node_reinit(&cfg, &h->node);
+}
+
+void* mmj_hishelf_node_get_node(void* handle) {
+    mmj_hishelf_node_handle* h = (mmj_hishelf_node_handle*)handle;
+    if (h == NULL || !h->initialized) return NULL;
+    return (void*)&h->node;
+}
+
+int mmj_hishelf_node_uninit(void* handle) {
+    mmj_hishelf_node_handle* h = (mmj_hishelf_node_handle*)handle;
+    if (h == NULL || !h->initialized) return MA_INVALID_ARGS;
+    ma_hishelf_node_uninit(&h->node, NULL);
+    h->initialized = 0;
+    return MA_SUCCESS;
+}
+
+void mmj_hishelf_node_destroy(void* handle) {
+    mmj_hishelf_node_handle* h = (mmj_hishelf_node_handle*)handle;
+    if (h == NULL) return;
+    if (h->initialized) { ma_hishelf_node_uninit(&h->node, NULL); }
+    free(h);
 }

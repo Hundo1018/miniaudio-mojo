@@ -103,6 +103,12 @@ int mmj_sound_init_from_file(
     void* engine_handle,
     const char* file_path
 );
+int mmj_sound_init_from_file_in_group(
+    void* sound_handle,
+    void* engine_handle,
+    void* sound_group_handle,
+    const char* file_path
+);
 int mmj_sound_start(void* sound_handle);
 int mmj_sound_stop(void* sound_handle);
 int mmj_sound_pause(void* sound_handle);
@@ -125,6 +131,92 @@ int mmj_sound_is_finished(void* sound_handle);
 void* mmj_sound_get_node(void* sound_handle);
 int mmj_sound_uninit(void* sound_handle);
 void mmj_sound_destroy(void* sound_handle);
+
+void* mmj_sound_group_create(void);
+int mmj_sound_group_init_default(void* sound_group_handle, void* engine_handle);
+int mmj_sound_group_init_with_parent(
+    void* sound_group_handle,
+    void* engine_handle,
+    void* parent_group_handle
+);
+int mmj_sound_group_start(void* sound_group_handle);
+int mmj_sound_group_stop(void* sound_group_handle);
+int mmj_sound_group_set_volume_f32(void* sound_group_handle, float volume);
+float mmj_sound_group_get_volume_f32(void* sound_group_handle);
+int mmj_sound_group_set_pan_f32(void* sound_group_handle, float pan);
+float mmj_sound_group_get_pan_f32(void* sound_group_handle);
+int mmj_sound_group_set_pitch_f32(void* sound_group_handle, float pitch);
+float mmj_sound_group_get_pitch_f32(void* sound_group_handle);
+int mmj_sound_group_set_spatialization_enabled(void* sound_group_handle, int is_enabled);
+int mmj_sound_group_is_spatialization_enabled(void* sound_group_handle);
+int mmj_sound_group_set_position(
+    void* sound_group_handle,
+    float x,
+    float y,
+    float z
+);
+int mmj_sound_group_set_direction(
+    void* sound_group_handle,
+    float x,
+    float y,
+    float z
+);
+int mmj_sound_group_set_velocity(
+    void* sound_group_handle,
+    float x,
+    float y,
+    float z
+);
+int mmj_sound_group_set_rolloff(void* sound_group_handle, float rolloff);
+float mmj_sound_group_get_rolloff(void* sound_group_handle);
+int mmj_sound_group_set_min_distance(void* sound_group_handle, float min_distance);
+float mmj_sound_group_get_min_distance(void* sound_group_handle);
+int mmj_sound_group_set_max_distance(void* sound_group_handle, float max_distance);
+float mmj_sound_group_get_max_distance(void* sound_group_handle);
+int mmj_sound_group_set_attenuation_model(void* sound_group_handle, int attenuation_model);
+int mmj_sound_group_get_attenuation_model(void* sound_group_handle);
+int mmj_sound_group_set_positioning(void* sound_group_handle, int positioning);
+int mmj_sound_group_get_positioning(void* sound_group_handle);
+int mmj_sound_group_set_pinned_listener_index(void* sound_group_handle, uint32_t listener_index);
+int mmj_sound_group_get_pinned_listener_index(void* sound_group_handle);
+int mmj_sound_group_set_cone(
+    void* sound_group_handle,
+    float inner_angle,
+    float outer_angle,
+    float outer_gain
+);
+float mmj_sound_group_get_cone_inner_angle(void* sound_group_handle);
+float mmj_sound_group_get_cone_outer_angle(void* sound_group_handle);
+float mmj_sound_group_get_cone_outer_gain(void* sound_group_handle);
+int mmj_sound_group_set_doppler_factor(void* sound_group_handle, float doppler_factor);
+float mmj_sound_group_get_doppler_factor(void* sound_group_handle);
+int mmj_sound_group_set_directional_attenuation_factor(
+    void* sound_group_handle,
+    float directional_attenuation_factor
+);
+float mmj_sound_group_get_directional_attenuation_factor(void* sound_group_handle);
+int mmj_sound_group_uninit(void* sound_group_handle);
+void mmj_sound_group_destroy(void* sound_group_handle);
+
+/* sound group timing / fade */
+int mmj_sound_group_set_fade_in_pcm_frames(
+    void* sound_group_handle,
+    float vol_beg,
+    float vol_end,
+    uint64_t length_in_frames
+);
+int mmj_sound_group_set_fade_in_milliseconds(
+    void* sound_group_handle,
+    float vol_beg,
+    float vol_end,
+    uint64_t length_in_ms
+);
+float mmj_sound_group_get_current_fade_volume(void* sound_group_handle);
+int mmj_sound_group_set_start_time_in_pcm_frames(void* sound_group_handle, uint64_t absolute_global_time_in_frames);
+int mmj_sound_group_set_start_time_in_milliseconds(void* sound_group_handle, uint64_t absolute_global_time_in_ms);
+int mmj_sound_group_set_stop_time_in_pcm_frames(void* sound_group_handle, uint64_t absolute_global_time_in_frames);
+int mmj_sound_group_set_stop_time_in_milliseconds(void* sound_group_handle, uint64_t absolute_global_time_in_ms);
+int64_t mmj_sound_group_get_time_in_pcm_frames(void* sound_group_handle);
 
 int mmj_node_attach_output_bus(
     void* node_handle,
@@ -220,6 +312,28 @@ int64_t mmj_resource_data_source_get_length_in_pcm_frames(void* data_source_hand
 int mmj_resource_data_source_uninit(void* data_source_handle);
 void mmj_resource_data_source_destroy(void* data_source_handle);
 uint32_t mmj_resource_data_source_flag_async(void);
+
+/* resource data source extended operations */
+int mmj_resource_data_source_seek_to_pcm_frame(void* data_source_handle, uint64_t frame_index);
+int mmj_resource_data_source_seek_pcm_frames(void* data_source_handle, uint64_t frame_count);
+int64_t mmj_resource_data_source_get_cursor_in_pcm_frames(void* data_source_handle);
+float mmj_resource_data_source_get_cursor_in_seconds(void* data_source_handle);
+float mmj_resource_data_source_get_length_in_seconds(void* data_source_handle);
+int mmj_resource_data_source_get_format(void* data_source_handle);
+int mmj_resource_data_source_get_channels(void* data_source_handle);
+int mmj_resource_data_source_get_sample_rate(void* data_source_handle);
+int mmj_resource_data_source_set_looping(void* data_source_handle, int is_looping);
+int mmj_resource_data_source_is_looping(void* data_source_handle);
+int mmj_resource_data_source_set_range_in_pcm_frames(void* data_source_handle, uint64_t range_beg, uint64_t range_end);
+int64_t mmj_resource_data_source_get_range_beg_in_pcm_frames(void* data_source_handle);
+int64_t mmj_resource_data_source_get_range_end_in_pcm_frames(void* data_source_handle);
+
+/* resource data source loop point + seek by seconds */
+int mmj_resource_data_source_set_loop_point_in_pcm_frames(void* data_source_handle, uint64_t loop_beg, uint64_t loop_end);
+int64_t mmj_resource_data_source_get_loop_point_beg_in_pcm_frames(void* data_source_handle);
+int64_t mmj_resource_data_source_get_loop_point_end_in_pcm_frames(void* data_source_handle);
+int mmj_resource_data_source_seek_to_second(void* data_source_handle, float seconds);
+int mmj_resource_data_source_seek_seconds(void* data_source_handle, float seconds);
 
 void* mmj_device_create(void);
 int mmj_device_init_playback_format(
@@ -539,6 +653,38 @@ int mmj_biquad_peaking_eq_coefficients(
 void* mmj_biquad_node_get_node(void* biquad_node_handle);
 int mmj_biquad_node_uninit(void* biquad_node_handle);
 void mmj_biquad_node_destroy(void* biquad_node_handle);
+
+/* --- notch node --- */
+void* mmj_notch_node_create(void);
+int mmj_notch_node_init(void* handle, void* engine_handle, uint32_t channels, uint32_t sample_rate, double q, double frequency);
+int mmj_notch_node_reinit(void* handle, uint32_t sample_rate, double q, double frequency);
+void* mmj_notch_node_get_node(void* handle);
+int mmj_notch_node_uninit(void* handle);
+void mmj_notch_node_destroy(void* handle);
+
+/* --- peak node --- */
+void* mmj_peak_node_create(void);
+int mmj_peak_node_init(void* handle, void* engine_handle, uint32_t channels, uint32_t sample_rate, double gain_db, double q, double frequency);
+int mmj_peak_node_reinit(void* handle, uint32_t sample_rate, double gain_db, double q, double frequency);
+void* mmj_peak_node_get_node(void* handle);
+int mmj_peak_node_uninit(void* handle);
+void mmj_peak_node_destroy(void* handle);
+
+/* --- loshelf node --- */
+void* mmj_loshelf_node_create(void);
+int mmj_loshelf_node_init(void* handle, void* engine_handle, uint32_t channels, uint32_t sample_rate, double gain_db, double q, double frequency);
+int mmj_loshelf_node_reinit(void* handle, uint32_t sample_rate, double gain_db, double q, double frequency);
+void* mmj_loshelf_node_get_node(void* handle);
+int mmj_loshelf_node_uninit(void* handle);
+void mmj_loshelf_node_destroy(void* handle);
+
+/* --- hishelf node --- */
+void* mmj_hishelf_node_create(void);
+int mmj_hishelf_node_init(void* handle, void* engine_handle, uint32_t channels, uint32_t sample_rate, double gain_db, double q, double frequency);
+int mmj_hishelf_node_reinit(void* handle, uint32_t sample_rate, double gain_db, double q, double frequency);
+void* mmj_hishelf_node_get_node(void* handle);
+int mmj_hishelf_node_uninit(void* handle);
+void mmj_hishelf_node_destroy(void* handle);
 
 #ifdef __cplusplus
 }

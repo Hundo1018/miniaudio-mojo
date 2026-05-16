@@ -304,6 +304,23 @@ struct MiniAudioCtypes:
             )
         )
 
+    def sound_init_from_file_in_group(
+        self,
+        sound_handle: OpaquePointer[MutExternalOrigin],
+        engine_handle: OpaquePointer[MutExternalOrigin],
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+        file_path: String,
+    ) -> Int:
+        var file_path_c = file_path + "\x00"
+        return Int(
+            self._lib.call["mmj_sound_init_from_file_in_group", Int32](
+                sound_handle,
+                engine_handle,
+                sound_group_handle,
+                file_path_c.as_bytes().unsafe_ptr(),
+            )
+        )
+
     def sound_start(self, sound_handle: OpaquePointer[MutExternalOrigin]) -> Int:
         return Int(
             self._lib.call["mmj_sound_start", Int32](sound_handle)
@@ -464,6 +481,491 @@ struct MiniAudioCtypes:
 
     def sound_destroy(self, sound_handle: OpaquePointer[MutExternalOrigin]):
         self._lib.call["mmj_sound_destroy", NoneType](sound_handle)
+
+    def sound_group_create(self) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_sound_group_create", OpaquePointer[MutExternalOrigin]]()
+
+    def sound_group_init_default(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+        engine_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_sound_group_init_default", Int32](
+                sound_group_handle,
+                engine_handle,
+            )
+        )
+
+    def sound_group_init_with_parent(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+        engine_handle: OpaquePointer[MutExternalOrigin],
+        parent_group_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_sound_group_init_with_parent", Int32](
+                sound_group_handle,
+                engine_handle,
+                parent_group_handle,
+            )
+        )
+
+    def sound_group_start(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_sound_group_start", Int32](sound_group_handle)
+        )
+
+    def sound_group_stop(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_sound_group_stop", Int32](sound_group_handle)
+        )
+
+    def sound_group_set_volume_f32(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+        volume: Float32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_sound_group_set_volume_f32", Int32](
+                sound_group_handle,
+                volume,
+            )
+        )
+
+    def sound_group_get_volume_f32(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Float32:
+        return self._lib.call["mmj_sound_group_get_volume_f32", Float32](
+            sound_group_handle
+        )
+
+    def sound_group_set_pan_f32(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+        pan: Float32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_sound_group_set_pan_f32", Int32](
+                sound_group_handle,
+                pan,
+            )
+        )
+
+    def sound_group_get_pan_f32(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Float32:
+        return self._lib.call["mmj_sound_group_get_pan_f32", Float32](
+            sound_group_handle
+        )
+
+    def sound_group_set_pitch_f32(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+        pitch: Float32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_sound_group_set_pitch_f32", Int32](
+                sound_group_handle,
+                pitch,
+            )
+        )
+
+    def sound_group_get_pitch_f32(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Float32:
+        return self._lib.call["mmj_sound_group_get_pitch_f32", Float32](
+            sound_group_handle
+        )
+
+    def sound_group_set_spatialization_enabled(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+        is_enabled: Bool,
+    ) -> Int:
+        var enabled_flag = Int32(0)
+        if is_enabled:
+            enabled_flag = Int32(1)
+
+        return Int(
+            self._lib.call["mmj_sound_group_set_spatialization_enabled", Int32](
+                sound_group_handle,
+                enabled_flag,
+            )
+        )
+
+    def sound_group_is_spatialization_enabled(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_sound_group_is_spatialization_enabled", Int32](
+                sound_group_handle
+            )
+        )
+
+    def sound_group_set_position(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+        x: Float32,
+        y: Float32,
+        z: Float32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_sound_group_set_position", Int32](
+                sound_group_handle,
+                x,
+                y,
+                z,
+            )
+        )
+
+    def sound_group_set_direction(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+        x: Float32,
+        y: Float32,
+        z: Float32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_sound_group_set_direction", Int32](
+                sound_group_handle,
+                x,
+                y,
+                z,
+            )
+        )
+
+    def sound_group_set_velocity(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+        x: Float32,
+        y: Float32,
+        z: Float32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_sound_group_set_velocity", Int32](
+                sound_group_handle,
+                x,
+                y,
+                z,
+            )
+        )
+
+    def sound_group_set_rolloff(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+        rolloff: Float32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_sound_group_set_rolloff", Int32](
+                sound_group_handle,
+                rolloff,
+            )
+        )
+
+    def sound_group_get_rolloff(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Float32:
+        return self._lib.call["mmj_sound_group_get_rolloff", Float32](
+            sound_group_handle
+        )
+
+    def sound_group_set_min_distance(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+        min_distance: Float32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_sound_group_set_min_distance", Int32](
+                sound_group_handle,
+                min_distance,
+            )
+        )
+
+    def sound_group_get_min_distance(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Float32:
+        return self._lib.call["mmj_sound_group_get_min_distance", Float32](
+            sound_group_handle
+        )
+
+    def sound_group_set_max_distance(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+        max_distance: Float32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_sound_group_set_max_distance", Int32](
+                sound_group_handle,
+                max_distance,
+            )
+        )
+
+    def sound_group_get_max_distance(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Float32:
+        return self._lib.call["mmj_sound_group_get_max_distance", Float32](
+            sound_group_handle
+        )
+
+    def sound_group_set_attenuation_model(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+        attenuation_model: Int,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_sound_group_set_attenuation_model", Int32](
+                sound_group_handle,
+                Int32(attenuation_model),
+            )
+        )
+
+    def sound_group_get_attenuation_model(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_sound_group_get_attenuation_model", Int32](
+                sound_group_handle
+            )
+        )
+
+    def sound_group_set_positioning(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+        positioning: Int,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_sound_group_set_positioning", Int32](
+                sound_group_handle,
+                Int32(positioning),
+            )
+        )
+
+    def sound_group_get_positioning(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_sound_group_get_positioning", Int32](
+                sound_group_handle
+            )
+        )
+
+    def sound_group_set_pinned_listener_index(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+        listener_index: UInt32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_sound_group_set_pinned_listener_index", Int32](
+                sound_group_handle,
+                listener_index,
+            )
+        )
+
+    def sound_group_get_pinned_listener_index(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_sound_group_get_pinned_listener_index", Int32](
+                sound_group_handle
+            )
+        )
+
+    def sound_group_set_cone(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+        inner_angle: Float32,
+        outer_angle: Float32,
+        outer_gain: Float32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_sound_group_set_cone", Int32](
+                sound_group_handle,
+                inner_angle,
+                outer_angle,
+                outer_gain,
+            )
+        )
+
+    def sound_group_get_cone_inner_angle(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Float32:
+        return self._lib.call["mmj_sound_group_get_cone_inner_angle", Float32](
+            sound_group_handle
+        )
+
+    def sound_group_get_cone_outer_angle(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Float32:
+        return self._lib.call["mmj_sound_group_get_cone_outer_angle", Float32](
+            sound_group_handle
+        )
+
+    def sound_group_get_cone_outer_gain(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Float32:
+        return self._lib.call["mmj_sound_group_get_cone_outer_gain", Float32](
+            sound_group_handle
+        )
+
+    def sound_group_set_doppler_factor(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+        doppler_factor: Float32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_sound_group_set_doppler_factor", Int32](
+                sound_group_handle,
+                doppler_factor,
+            )
+        )
+
+    def sound_group_get_doppler_factor(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Float32:
+        return self._lib.call["mmj_sound_group_get_doppler_factor", Float32](
+            sound_group_handle
+        )
+
+    def sound_group_set_directional_attenuation_factor(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+        directional_attenuation_factor: Float32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_sound_group_set_directional_attenuation_factor", Int32](
+                sound_group_handle,
+                directional_attenuation_factor,
+            )
+        )
+
+    def sound_group_get_directional_attenuation_factor(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Float32:
+        return self._lib.call["mmj_sound_group_get_directional_attenuation_factor", Float32](
+            sound_group_handle
+        )
+
+    def sound_group_uninit(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_sound_group_uninit", Int32](sound_group_handle)
+        )
+
+    def sound_group_destroy(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+    ):
+        self._lib.call["mmj_sound_group_destroy", NoneType](sound_group_handle)
+
+    def sound_group_set_fade_in_pcm_frames(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+        vol_beg: Float32,
+        vol_end: Float32,
+        length_in_frames: UInt64,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_sound_group_set_fade_in_pcm_frames", Int32](
+                sound_group_handle, vol_beg, vol_end, length_in_frames
+            )
+        )
+
+    def sound_group_set_fade_in_milliseconds(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+        vol_beg: Float32,
+        vol_end: Float32,
+        length_in_ms: UInt64,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_sound_group_set_fade_in_milliseconds", Int32](
+                sound_group_handle, vol_beg, vol_end, length_in_ms
+            )
+        )
+
+    def sound_group_get_current_fade_volume(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Float32:
+        return self._lib.call["mmj_sound_group_get_current_fade_volume", Float32](
+            sound_group_handle
+        )
+
+    def sound_group_set_start_time_in_pcm_frames(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+        absolute_global_time_in_frames: UInt64,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_sound_group_set_start_time_in_pcm_frames", Int32](
+                sound_group_handle, absolute_global_time_in_frames
+            )
+        )
+
+    def sound_group_set_start_time_in_milliseconds(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+        absolute_global_time_in_ms: UInt64,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_sound_group_set_start_time_in_milliseconds", Int32](
+                sound_group_handle, absolute_global_time_in_ms
+            )
+        )
+
+    def sound_group_set_stop_time_in_pcm_frames(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+        absolute_global_time_in_frames: UInt64,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_sound_group_set_stop_time_in_pcm_frames", Int32](
+                sound_group_handle, absolute_global_time_in_frames
+            )
+        )
+
+    def sound_group_set_stop_time_in_milliseconds(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+        absolute_global_time_in_ms: UInt64,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_sound_group_set_stop_time_in_milliseconds", Int32](
+                sound_group_handle, absolute_global_time_in_ms
+            )
+        )
+
+    def sound_group_get_time_in_pcm_frames(
+        self,
+        sound_group_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int64:
+        return self._lib.call["mmj_sound_group_get_time_in_pcm_frames", Int64](
+            sound_group_handle
+        )
 
     def node_attach_output_bus(
         self,
@@ -884,6 +1386,167 @@ struct MiniAudioCtypes:
 
     def resource_data_source_flag_async(self) -> UInt32:
         return self._lib.call["mmj_resource_data_source_flag_async", UInt32]()
+
+    def resource_data_source_seek_to_pcm_frame(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+        frame_index: UInt64,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_resource_data_source_seek_to_pcm_frame", Int32](
+                data_source_handle, frame_index
+            )
+        )
+
+    def resource_data_source_seek_pcm_frames(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+        frame_count: UInt64,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_resource_data_source_seek_pcm_frames", Int32](
+                data_source_handle, frame_count
+            )
+        )
+
+    def resource_data_source_get_cursor_in_pcm_frames(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int64:
+        return self._lib.call["mmj_resource_data_source_get_cursor_in_pcm_frames", Int64](
+            data_source_handle
+        )
+
+    def resource_data_source_get_cursor_in_seconds(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Float32:
+        return self._lib.call["mmj_resource_data_source_get_cursor_in_seconds", Float32](
+            data_source_handle
+        )
+
+    def resource_data_source_get_length_in_seconds(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Float32:
+        return self._lib.call["mmj_resource_data_source_get_length_in_seconds", Float32](
+            data_source_handle
+        )
+
+    def resource_data_source_get_format(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_resource_data_source_get_format", Int32](data_source_handle)
+        )
+
+    def resource_data_source_get_channels(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_resource_data_source_get_channels", Int32](data_source_handle)
+        )
+
+    def resource_data_source_get_sample_rate(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_resource_data_source_get_sample_rate", Int32](data_source_handle)
+        )
+
+    def resource_data_source_set_looping(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+        is_looping: Int32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_resource_data_source_set_looping", Int32](
+                data_source_handle, is_looping
+            )
+        )
+
+    def resource_data_source_is_looping(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_resource_data_source_is_looping", Int32](data_source_handle)
+        )
+
+    def resource_data_source_set_range_in_pcm_frames(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+        range_beg: UInt64,
+        range_end: UInt64,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_resource_data_source_set_range_in_pcm_frames", Int32](
+                data_source_handle, range_beg, range_end
+            )
+        )
+
+    def resource_data_source_get_range_beg_in_pcm_frames(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int64:
+        return self._lib.call["mmj_resource_data_source_get_range_beg_in_pcm_frames", Int64](
+            data_source_handle
+        )
+
+    def resource_data_source_get_range_end_in_pcm_frames(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int64:
+        return self._lib.call["mmj_resource_data_source_get_range_end_in_pcm_frames", Int64](
+            data_source_handle
+        )
+
+    def resource_data_source_set_loop_point_in_pcm_frames(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+        loop_beg: UInt64,
+        loop_end: UInt64,
+    ) -> Int:
+        return self._lib.call["mmj_resource_data_source_set_loop_point_in_pcm_frames", Int](
+            data_source_handle, loop_beg, loop_end
+        )
+
+    def resource_data_source_get_loop_point_beg_in_pcm_frames(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int64:
+        return self._lib.call["mmj_resource_data_source_get_loop_point_beg_in_pcm_frames", Int64](
+            data_source_handle
+        )
+
+    def resource_data_source_get_loop_point_end_in_pcm_frames(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int64:
+        return self._lib.call["mmj_resource_data_source_get_loop_point_end_in_pcm_frames", Int64](
+            data_source_handle
+        )
+
+    def resource_data_source_seek_to_second(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+        seconds: Float32,
+    ) -> Int:
+        return self._lib.call["mmj_resource_data_source_seek_to_second", Int](
+            data_source_handle, seconds
+        )
+
+    def resource_data_source_seek_seconds(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+        seconds: Float32,
+    ) -> Int:
+        return self._lib.call["mmj_resource_data_source_seek_seconds", Int](
+            data_source_handle, seconds
+        )
 
     def device_create(self) -> OpaquePointer[MutExternalOrigin]:
         return self._lib.call["mmj_device_create", OpaquePointer[MutExternalOrigin]]()
@@ -1693,6 +2356,168 @@ struct MiniAudioCtypes:
         self, biquad_node_handle: OpaquePointer[MutExternalOrigin]
     ) -> None:
         self._lib.call["mmj_biquad_node_destroy", NoneType](biquad_node_handle)
+
+    # --- notch node ---
+    def notch_node_create(self) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_notch_node_create", OpaquePointer[MutExternalOrigin]]()
+
+    def notch_node_init(
+        self,
+        handle: OpaquePointer[MutExternalOrigin],
+        engine_handle: OpaquePointer[MutExternalOrigin],
+        channels: UInt32,
+        sample_rate: UInt32,
+        q: Float64,
+        frequency: Float64,
+    ) -> Int:
+        return self._lib.call["mmj_notch_node_init", Int](
+            handle, engine_handle, channels, sample_rate, q, frequency
+        )
+
+    def notch_node_reinit(
+        self,
+        handle: OpaquePointer[MutExternalOrigin],
+        sample_rate: UInt32,
+        q: Float64,
+        frequency: Float64,
+    ) -> Int:
+        return self._lib.call["mmj_notch_node_reinit", Int](
+            handle, sample_rate, q, frequency
+        )
+
+    def notch_node_get_node(
+        self, handle: OpaquePointer[MutExternalOrigin]
+    ) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_notch_node_get_node", OpaquePointer[MutExternalOrigin]](handle)
+
+    def notch_node_uninit(self, handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return self._lib.call["mmj_notch_node_uninit", Int](handle)
+
+    def notch_node_destroy(self, handle: OpaquePointer[MutExternalOrigin]) -> None:
+        self._lib.call["mmj_notch_node_destroy", NoneType](handle)
+
+    # --- peak node ---
+    def peak_node_create(self) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_peak_node_create", OpaquePointer[MutExternalOrigin]]()
+
+    def peak_node_init(
+        self,
+        handle: OpaquePointer[MutExternalOrigin],
+        engine_handle: OpaquePointer[MutExternalOrigin],
+        channels: UInt32,
+        sample_rate: UInt32,
+        gain_db: Float64,
+        q: Float64,
+        frequency: Float64,
+    ) -> Int:
+        return self._lib.call["mmj_peak_node_init", Int](
+            handle, engine_handle, channels, sample_rate, gain_db, q, frequency
+        )
+
+    def peak_node_reinit(
+        self,
+        handle: OpaquePointer[MutExternalOrigin],
+        sample_rate: UInt32,
+        gain_db: Float64,
+        q: Float64,
+        frequency: Float64,
+    ) -> Int:
+        return self._lib.call["mmj_peak_node_reinit", Int](
+            handle, sample_rate, gain_db, q, frequency
+        )
+
+    def peak_node_get_node(
+        self, handle: OpaquePointer[MutExternalOrigin]
+    ) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_peak_node_get_node", OpaquePointer[MutExternalOrigin]](handle)
+
+    def peak_node_uninit(self, handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return self._lib.call["mmj_peak_node_uninit", Int](handle)
+
+    def peak_node_destroy(self, handle: OpaquePointer[MutExternalOrigin]) -> None:
+        self._lib.call["mmj_peak_node_destroy", NoneType](handle)
+
+    # --- loshelf node ---
+    def loshelf_node_create(self) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_loshelf_node_create", OpaquePointer[MutExternalOrigin]]()
+
+    def loshelf_node_init(
+        self,
+        handle: OpaquePointer[MutExternalOrigin],
+        engine_handle: OpaquePointer[MutExternalOrigin],
+        channels: UInt32,
+        sample_rate: UInt32,
+        gain_db: Float64,
+        q: Float64,
+        frequency: Float64,
+    ) -> Int:
+        return self._lib.call["mmj_loshelf_node_init", Int](
+            handle, engine_handle, channels, sample_rate, gain_db, q, frequency
+        )
+
+    def loshelf_node_reinit(
+        self,
+        handle: OpaquePointer[MutExternalOrigin],
+        sample_rate: UInt32,
+        gain_db: Float64,
+        q: Float64,
+        frequency: Float64,
+    ) -> Int:
+        return self._lib.call["mmj_loshelf_node_reinit", Int](
+            handle, sample_rate, gain_db, q, frequency
+        )
+
+    def loshelf_node_get_node(
+        self, handle: OpaquePointer[MutExternalOrigin]
+    ) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_loshelf_node_get_node", OpaquePointer[MutExternalOrigin]](handle)
+
+    def loshelf_node_uninit(self, handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return self._lib.call["mmj_loshelf_node_uninit", Int](handle)
+
+    def loshelf_node_destroy(self, handle: OpaquePointer[MutExternalOrigin]) -> None:
+        self._lib.call["mmj_loshelf_node_destroy", NoneType](handle)
+
+    # --- hishelf node ---
+    def hishelf_node_create(self) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_hishelf_node_create", OpaquePointer[MutExternalOrigin]]()
+
+    def hishelf_node_init(
+        self,
+        handle: OpaquePointer[MutExternalOrigin],
+        engine_handle: OpaquePointer[MutExternalOrigin],
+        channels: UInt32,
+        sample_rate: UInt32,
+        gain_db: Float64,
+        q: Float64,
+        frequency: Float64,
+    ) -> Int:
+        return self._lib.call["mmj_hishelf_node_init", Int](
+            handle, engine_handle, channels, sample_rate, gain_db, q, frequency
+        )
+
+    def hishelf_node_reinit(
+        self,
+        handle: OpaquePointer[MutExternalOrigin],
+        sample_rate: UInt32,
+        gain_db: Float64,
+        q: Float64,
+        frequency: Float64,
+    ) -> Int:
+        return self._lib.call["mmj_hishelf_node_reinit", Int](
+            handle, sample_rate, gain_db, q, frequency
+        )
+
+    def hishelf_node_get_node(
+        self, handle: OpaquePointer[MutExternalOrigin]
+    ) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_hishelf_node_get_node", OpaquePointer[MutExternalOrigin]](handle)
+
+    def hishelf_node_uninit(self, handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return self._lib.call["mmj_hishelf_node_uninit", Int](handle)
+
+    def hishelf_node_destroy(self, handle: OpaquePointer[MutExternalOrigin]) -> None:
+        self._lib.call["mmj_hishelf_node_destroy", NoneType](handle)
 
     def resampler_create(self) -> OpaquePointer[MutExternalOrigin]:
         return self._lib.call["mmj_resampler_create", OpaquePointer[MutExternalOrigin]]()

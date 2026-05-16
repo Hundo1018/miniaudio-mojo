@@ -12,9 +12,12 @@ from miniaudio_effects import run_hpf_node_smoke, run_lpf_node_smoke, run_reverb
 from miniaudio_logging import run_logging_invalid_state_smoke, run_logging_smoke
 from miniaudio_node import run_node_attach_detach_smoke, run_node_routing_scene_smoke
 from miniaudio_resource_manager import run_resource_manager_async_poll_smoke, run_resource_manager_smoke
+from miniaudio_data_source import run_data_source_extended_smoke, run_data_source_invalid_smoke, run_data_source_loop_point_smoke, run_data_source_range_smoke
+from miniaudio_eq_nodes import run_eq_nodes_invalid_smoke, run_hishelf_node_smoke, run_loshelf_node_smoke, run_notch_node_smoke, run_peak_node_smoke
 from miniaudio_ring_buffer import run_pcm_rb_handle_smoke, run_pcm_rb_invalid_args_smoke, run_pcm_rb_overflow_smoke, run_pcm_rb_smoke
 from miniaudio_resampler import run_channel_converter_init_mode_smoke, run_channel_converter_invalid_channels_smoke, run_channel_converter_stereo_to_mono_smoke, run_resampler_expected_count_smoke, run_resampler_invalid_rate_smoke, run_resampler_linear_smoke
 from miniaudio_sound import run_sound_control_smoke, run_sound_pause_smoke, run_sound_progress_smoke, run_sound_seek_smoke, run_sound_spatial_scene_smoke, run_sound_spatial_smoke
+from miniaudio_sound_group import run_sound_group_attenuation_boundary_smoke, run_sound_group_attenuation_controls_smoke, run_sound_group_control_smoke, run_sound_group_extended_controls_smoke, run_sound_group_fade_invalid_smoke, run_sound_group_fade_smoke, run_sound_group_invalid_state_smoke, run_sound_group_spatial_controls_smoke
 from std.os.env import getenv
 
 
@@ -182,6 +185,91 @@ def main() raises:
     if sound_pause_file != "":
         print("Running sound pause smoke for:", sound_pause_file)
         run_sound_pause_smoke(sound_pause_file)
+
+    var sound_group_file = getenv("MINIAUDIO_SOUND_GROUP_FILE")
+    if sound_group_file != "":
+        print("Running sound group control smoke for:", sound_group_file)
+        run_sound_group_control_smoke(sound_group_file)
+
+    var sound_group_extended_file = getenv("MINIAUDIO_SOUND_GROUP_EXTENDED_FILE")
+    if sound_group_extended_file != "":
+        print("Running sound group extended controls smoke for:", sound_group_extended_file)
+        run_sound_group_extended_controls_smoke(sound_group_extended_file)
+
+    var sound_group_invalid_smoke = getenv("MINIAUDIO_SOUND_GROUP_INVALID_SMOKE")
+    if sound_group_invalid_smoke != "":
+        print("Running sound group invalid-state smoke")
+        run_sound_group_invalid_state_smoke()
+
+    var sound_group_spatial_file = getenv("MINIAUDIO_SOUND_GROUP_SPATIAL_FILE")
+    if sound_group_spatial_file != "":
+        print("Running sound group spatial controls smoke for:", sound_group_spatial_file)
+        run_sound_group_spatial_controls_smoke(sound_group_spatial_file)
+
+    var sound_group_attenuation_file = getenv("MINIAUDIO_SOUND_GROUP_ATTENUATION_FILE")
+    if sound_group_attenuation_file != "":
+        print("Running sound group attenuation controls smoke for:", sound_group_attenuation_file)
+        run_sound_group_attenuation_controls_smoke(sound_group_attenuation_file)
+
+    var sound_group_attenuation_boundary_smoke = getenv("MINIAUDIO_SOUND_GROUP_ATTENUATION_BOUNDARY_SMOKE")
+    if sound_group_attenuation_boundary_smoke != "":
+        print("Running sound group attenuation boundary smoke")
+        run_sound_group_attenuation_boundary_smoke()
+
+    var sound_group_fade_file = getenv("MINIAUDIO_SOUND_GROUP_FADE_FILE")
+    if sound_group_fade_file != "":
+        print("Running sound group fade smoke for:", sound_group_fade_file)
+        run_sound_group_fade_smoke(sound_group_fade_file)
+
+    var sound_group_fade_invalid_smoke = getenv("MINIAUDIO_SOUND_GROUP_FADE_INVALID_SMOKE")
+    if sound_group_fade_invalid_smoke != "":
+        print("Running sound group fade invalid smoke")
+        run_sound_group_fade_invalid_smoke()
+
+    var data_source_extended_file = getenv("MINIAUDIO_DATA_SOURCE_EXTENDED_FILE")
+    if data_source_extended_file != "":
+        print("Running data source extended smoke for:", data_source_extended_file)
+        run_data_source_extended_smoke(data_source_extended_file)
+
+    var data_source_range_file = getenv("MINIAUDIO_DATA_SOURCE_RANGE_FILE")
+    if data_source_range_file != "":
+        print("Running data source range smoke for:", data_source_range_file)
+        run_data_source_range_smoke(data_source_range_file)
+
+    var data_source_invalid_smoke = getenv("MINIAUDIO_DATA_SOURCE_INVALID_SMOKE")
+    if data_source_invalid_smoke != "":
+        print("Running data source invalid smoke")
+        run_data_source_invalid_smoke()
+
+    var data_source_loop_point_file = getenv("MINIAUDIO_DATA_SOURCE_LOOP_POINT_FILE")
+    if data_source_loop_point_file != "":
+        print("Running data source loop point smoke for:", data_source_loop_point_file)
+        run_data_source_loop_point_smoke(data_source_loop_point_file)
+
+    var eq_nodes_notch_smoke = getenv("MINIAUDIO_NOTCH_NODE_SMOKE")
+    if eq_nodes_notch_smoke != "":
+        print("Running notch node smoke")
+        run_notch_node_smoke()
+
+    var eq_nodes_peak_smoke = getenv("MINIAUDIO_PEAK_NODE_SMOKE")
+    if eq_nodes_peak_smoke != "":
+        print("Running peak node smoke")
+        run_peak_node_smoke()
+
+    var eq_nodes_loshelf_smoke = getenv("MINIAUDIO_LOSHELF_NODE_SMOKE")
+    if eq_nodes_loshelf_smoke != "":
+        print("Running loshelf node smoke")
+        run_loshelf_node_smoke()
+
+    var eq_nodes_hishelf_smoke = getenv("MINIAUDIO_HISHELF_NODE_SMOKE")
+    if eq_nodes_hishelf_smoke != "":
+        print("Running hishelf node smoke")
+        run_hishelf_node_smoke()
+
+    var eq_nodes_invalid_smoke = getenv("MINIAUDIO_EQ_NODES_INVALID_SMOKE")
+    if eq_nodes_invalid_smoke != "":
+        print("Running EQ nodes invalid smoke")
+        run_eq_nodes_invalid_smoke()
 
     var spatial_scene_file = getenv("MINIAUDIO_SPATIAL_SCENE_FILE")
     if spatial_scene_file != "":
