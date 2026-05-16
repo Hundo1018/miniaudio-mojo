@@ -14,7 +14,7 @@ This document tracks miniaudio binding coverage in this repository.
 Estimated totals:
 
 - Upstream exported API (`MA_API`): large surface (roughly hundreds of functions).
-- Current shim exports (`mmj_*`): 72 public functions.
+- Current shim exports (`mmj_*`): 83 public functions.
 - Effective coverage mode: foundational I/O path coverage, not high-level feature parity.
 
 ## Module status
@@ -24,9 +24,11 @@ Estimated totals:
 | Context | implemented | create/init/uninit/destroy + device count/name |
 | Device lifecycle/control | implemented | init variants/start/stop/is_started/kind/rate/channels/volume |
 | Decoder | implemented | init file, read probe, read frames, seek, uninit |
+| Encoder | implemented (MVP) | init WAV file, write silence, write PCM frames (int64_t return), uninit |
 | Capture/duplex smoke paths | implemented | smoke helpers via shim |
-| Engine/Sound | partial | engine lifecycle + play_sound + sound object controls (init/start/stop/loop/volume) |
+| Engine/Sound | partial | engine lifecycle + play_sound + sound object controls (init/start/stop/pause/seek/loop/volume/cursor/time) |
 | Resource manager | partial | manager init/uninit + data source init/length + async result polling |
+| Logging | implemented (MVP) | log create/init/uninit + register/unregister counting callback + post info |
 | 3D audio controls | partial | listener controls + sound spatial controls + scenario sequence smoke |
 | Node graph routing | partial | endpoint lookup + sound node attach/detach + output bus volume control |
 | Effect chain (LPF/reverb/splitter) | partial | LPF node smoke + reverb-like LPF→delay chain smoke + splitter dry/wet branching smoke |

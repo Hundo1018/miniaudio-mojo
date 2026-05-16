@@ -40,6 +40,7 @@ Expected result: short sine playback and `playback ok`.
 | Capture/duplex smoke paths | implemented |
 | Engine/Sound high-level API | partial |
 | Resource manager | partial |
+| Logging (callback + post) | implemented (MVP) |
 | 3D listener/sound controls | partial |
 | Node graph/effects slices | partial |
 
@@ -100,6 +101,22 @@ For implementation tracking, see `docs/binding-coverage.md`.
 	```
 
 	This validates sound-side 3D controls (`spatialization`, `position`, `rolloff`, `min/max distance`).
+
+- Run sound seek smoke with an audio file:
+
+	```bash
+	MINIAUDIO_SOUND_SEEK_FILE=/absolute/path/to/sample.wav pixi run run-ffi
+	```
+
+	This validates seek-to-frame control and cursor observation via `mmj_sound_seek_to_pcm_frame`.
+
+- Run sound pause smoke with an audio file:
+
+	```bash
+	MINIAUDIO_SOUND_PAUSE_FILE=/absolute/path/to/sample.wav pixi run run-ffi
+	```
+
+	This validates pause behavior and repeated pause safety for sound control flow.
 
 - Run spatial scene sequence smoke:
 
@@ -165,19 +182,37 @@ For implementation tracking, see `docs/binding-coverage.md`.
 
 	This validates async init + terminal status wait (timeout-bound polling) + length query.
 
+- Run logging smoke:
+
+	```bash
+	MINIAUDIO_LOGGING_SMOKE=1 pixi run run-ffi
+	```
+
+	This validates log init, callback registration, info-level post, and callback invocation counting.
+
+- Run logging invalid-state smoke:
+
+	```bash
+	MINIAUDIO_LOGGING_INVALID_SMOKE=1 pixi run run-ffi
+	```
+
+	This validates a negative path by posting before `log_init` and expecting `MA_INVALID_ARGS`.
+
 - Run all current Mojo smoke paths:
 
 	```bash
 	pixi run run-all-smokes
 	```
 
-- Decoder smoke shortcut tasks:
+- Decoder/Encoder smoke shortcut tasks:
 
 	```bash
 	pixi run run-decoder-smoke-success
 	pixi run run-decoder-smoke-missing
 	pixi run run-decoder-read-smoke-success
 	pixi run run-decoder-read-smoke-missing
+	pixi run run-encoder-write-frames-smoke-success
+	pixi run run-encoder-write-frames-smoke-missing
 	pixi run run-playback-file-smoke-success
 	pixi run run-playback-file-smoke-missing
 	pixi run run-engine-play-smoke-success
@@ -187,6 +222,10 @@ For implementation tracking, see `docs/binding-coverage.md`.
 	pixi run run-sound-control-smoke-missing
 	pixi run run-sound-spatial-smoke-success
 	pixi run run-sound-spatial-smoke-missing
+	pixi run run-sound-seek-smoke-success
+	pixi run run-sound-seek-smoke-missing
+	pixi run run-sound-pause-smoke-success
+	pixi run run-sound-pause-smoke-missing
 	pixi run run-spatial-scene-smoke-success
 	pixi run run-spatial-scene-smoke-missing
 	pixi run run-node-attach-smoke-success
@@ -201,6 +240,8 @@ For implementation tracking, see `docs/binding-coverage.md`.
 	pixi run run-resource-manager-smoke-missing
 	pixi run run-resource-manager-async-smoke-success
 	pixi run run-resource-manager-async-smoke-missing
+	pixi run run-logging-smoke
+	pixi run run-logging-invalid-smoke
 	```
 
 - Run context lifecycle smoke:
