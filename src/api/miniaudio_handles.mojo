@@ -122,6 +122,12 @@ struct MiniAudioEngineHandle:
         if result != 0:
             raise Error(format_result_error(bridge, "engine listener set world up failed", result))
 
+    def get_endpoint_node(self, bridge: MiniAudioCtypes) raises -> OpaquePointer[MutExternalOrigin]:
+        var endpoint = bridge.engine_get_endpoint(self.raw)
+        if endpoint == miniaudio_null_handle():
+            raise Error("engine endpoint not available")
+        return endpoint
+
     def uninit(mut self, bridge: MiniAudioCtypes) raises:
         if not self.initialized:
             return
@@ -245,6 +251,12 @@ struct MiniAudioSoundHandle:
                 )
             )
 
+    def get_node(self, bridge: MiniAudioCtypes) raises -> OpaquePointer[MutExternalOrigin]:
+        var node = bridge.sound_get_node(self.raw)
+        if node == miniaudio_null_handle():
+            raise Error("sound node not available")
+        return node
+
     def close(mut self, bridge: MiniAudioCtypes):
         if self.raw == miniaudio_null_handle():
             return
@@ -254,6 +266,152 @@ struct MiniAudioSoundHandle:
             self.initialized = False
 
         bridge.sound_destroy(self.raw)
+        self.raw = miniaudio_null_handle()
+
+
+struct MiniAudioLpfNodeHandle:
+    var raw: OpaquePointer[MutExternalOrigin]
+    var initialized: Bool
+
+    def __init__(out self, bridge: MiniAudioCtypes) raises:
+        self.raw = bridge.lpf_node_create()
+        self.initialized = False
+        if self.raw == miniaudio_null_handle():
+            raise Error("lpf_node_create failed")
+
+    def init(
+        mut self,
+        bridge: MiniAudioCtypes,
+        engine: MiniAudioEngineHandle,
+        channels: UInt32,
+        sample_rate: UInt32,
+        cutoff_hz: Float32,
+        order: UInt32,
+    ) raises:
+        var result = bridge.lpf_node_init(
+            self.raw,
+            engine.raw,
+            channels,
+            sample_rate,
+            cutoff_hz,
+            order,
+        )
+        if result != 0:
+            raise Error(format_result_error(bridge, "lpf node init failed", result))
+        self.initialized = True
+
+    def set_cutoff(
+        self,
+        bridge: MiniAudioCtypes,
+        cutoff_hz: Float32,
+    ) raises:
+        var result = bridge.lpf_node_set_cutoff(self.raw, cutoff_hz)
+        if result != 0:
+            raise Error(format_result_error(bridge, "lpf node set cutoff failed", result))
+
+    def get_cutoff(self, bridge: MiniAudioCtypes) raises -> Float32:
+        var cutoff = bridge.lpf_node_get_cutoff(self.raw)
+        if cutoff < 0.0:
+            raise Error("lpf node get cutoff failed")
+        return cutoff
+
+    def get_node(self, bridge: MiniAudioCtypes) raises -> OpaquePointer[MutExternalOrigin]:
+        var node = bridge.lpf_node_get_node(self.raw)
+        if node == miniaudio_null_handle():
+            raise Error("lpf node not available")
+        return node
+
+    def close(mut self, bridge: MiniAudioCtypes):
+        if self.raw == miniaudio_null_handle():
+            return
+
+        if self.initialized:
+            _ = bridge.lpf_node_uninit(self.raw)
+            self.initialized = False
+
+        bridge.lpf_node_destroy(self.raw)
+        self.raw = miniaudio_null_handle()
+
+
+struct MiniAudioDelayNodeHandle:
+    var raw: OpaquePointer[MutExternalOrigin]
+    var initialized: Bool
+
+    def __init__(out self, bridge: MiniAudioCtypes) raises:
+        self.raw = bridge.delay_node_create()
+        self.initialized = False
+        if self.raw == miniaudio_null_handle():
+            raise Error("delay_node_create failed")
+
+    def init(
+        mut self,
+        bridge: MiniAudioCtypes,
+        engine: MiniAudioEngineHandle,
+        channels: UInt32,
+        sample_rate: UInt32,
+        delay_frames: UInt32,
+        decay: Float32,
+    ) raises:
+        var result = bridge.delay_node_init(
+            self.raw,
+            engine.raw,
+            channels,
+            sample_rate,
+            delay_frames,
+            decay,
+        )
+        if result != 0:
+            raise Error(format_result_error(bridge, "delay node init failed", result))
+        self.initialized = True
+
+    def set_wet(self, bridge: MiniAudioCtypes, wet: Float32) raises:
+        var result = bridge.delay_node_set_wet(self.raw, wet)
+        if result != 0:
+            raise Error(format_result_error(bridge, "delay node set wet failed", result))
+
+    def get_wet(self, bridge: MiniAudioCtypes) raises -> Float32:
+        var wet = bridge.delay_node_get_wet(self.raw)
+        if wet < 0.0:
+            raise Error("delay node get wet failed")
+        return wet
+
+    def set_dry(self, bridge: MiniAudioCtypes, dry: Float32) raises:
+        var result = bridge.delay_node_set_dry(self.raw, dry)
+        if result != 0:
+            raise Error(format_result_error(bridge, "delay node set dry failed", result))
+
+    def get_dry(self, bridge: MiniAudioCtypes) raises -> Float32:
+        var dry = bridge.delay_node_get_dry(self.raw)
+        if dry < 0.0:
+            raise Error("delay node get dry failed")
+        return dry
+
+    def set_decay(self, bridge: MiniAudioCtypes, decay: Float32) raises:
+        var result = bridge.delay_node_set_decay(self.raw, decay)
+        if result != 0:
+            raise Error(format_result_error(bridge, "delay node set decay failed", result))
+
+    def get_decay(self, bridge: MiniAudioCtypes) raises -> Float32:
+        var decay = bridge.delay_node_get_decay(self.raw)
+        if decay < 0.0:
+            raise Error("delay node get decay failed")
+        return decay
+
+    def get_node(self, bridge: MiniAudioCtypes) raises -> OpaquePointer[MutExternalOrigin]:
+        var node = bridge.delay_node_get_node(self.raw)
+        if node == miniaudio_null_handle():
+            raise Error("delay node not available")
+        return node
+
+    def close(mut self, bridge: MiniAudioCtypes):
+        if self.raw == miniaudio_null_handle():
+            return
+
+        if self.initialized:
+            _ = bridge.delay_node_uninit(self.raw)
+            self.initialized = False
+
+        bridge.delay_node_destroy(self.raw)
         self.raw = miniaudio_null_handle()
 
 
