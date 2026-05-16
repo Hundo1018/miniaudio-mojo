@@ -6,6 +6,8 @@ from miniaudio_device import run_device_config_smoke, run_device_control_smoke, 
 from miniaudio_devices import run_devices_smoke
 from miniaudio_duplex import run_duplex_control_smoke, run_duplex_smoke
 from miniaudio_engine import run_engine_listener_control_smoke, run_engine_play_sound_smoke
+from miniaudio_effects import run_lpf_node_smoke, run_reverb_like_chain_smoke
+from miniaudio_node import run_node_attach_detach_smoke, run_node_routing_scene_smoke
 from miniaudio_resource_manager import run_resource_manager_async_poll_smoke, run_resource_manager_smoke
 from miniaudio_sound import run_sound_control_smoke, run_sound_spatial_scene_smoke, run_sound_spatial_smoke
 from std.os.env import getenv
@@ -98,6 +100,26 @@ def main() raises:
     if spatial_scene_file != "":
         print("Running sound spatial scene smoke for:", spatial_scene_file)
         run_sound_spatial_scene_smoke(spatial_scene_file)
+
+    var node_attach_file = getenv("MINIAUDIO_NODE_ATTACH_FILE")
+    if node_attach_file != "":
+        print("Running node attach/detach smoke for:", node_attach_file)
+        run_node_attach_detach_smoke(node_attach_file)
+
+    var node_routing_file = getenv("MINIAUDIO_NODE_ROUTING_FILE")
+    if node_routing_file != "":
+        print("Running node routing scene smoke for:", node_routing_file)
+        run_node_routing_scene_smoke(node_routing_file)
+
+    var lpf_node_file = getenv("MINIAUDIO_LPF_NODE_FILE")
+    if lpf_node_file != "":
+        print("Running lpf node smoke for:", lpf_node_file)
+        run_lpf_node_smoke(lpf_node_file)
+
+    var reverb_like_chain_file = getenv("MINIAUDIO_REVERB_LIKE_CHAIN_FILE")
+    if reverb_like_chain_file != "":
+        print("Running reverb-like chain smoke for:", reverb_like_chain_file)
+        run_reverb_like_chain_smoke(reverb_like_chain_file)
 
     var resource_file = getenv("MINIAUDIO_RESOURCE_FILE")
     if resource_file != "":
