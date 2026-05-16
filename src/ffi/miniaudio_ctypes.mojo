@@ -278,6 +278,14 @@ struct MiniAudioCtypes:
     def engine_destroy(self, engine_handle: OpaquePointer[MutExternalOrigin]):
         self._lib.call["mmj_engine_destroy", NoneType](engine_handle)
 
+    def engine_get_endpoint(
+        self,
+        engine_handle: OpaquePointer[MutExternalOrigin],
+    ) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_engine_get_endpoint", OpaquePointer[MutExternalOrigin]](
+            engine_handle
+        )
+
     def sound_create(self) -> OpaquePointer[MutExternalOrigin]:
         return self._lib.call["mmj_sound_create", OpaquePointer[MutExternalOrigin]]()
 
@@ -400,6 +408,14 @@ struct MiniAudioCtypes:
                 sound_handle,
                 max_distance,
             )
+        )
+
+    def sound_get_node(
+        self,
+        sound_handle: OpaquePointer[MutExternalOrigin],
+    ) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_sound_get_node", OpaquePointer[MutExternalOrigin]](
+            sound_handle
         )
 
     def sound_uninit(self, sound_handle: OpaquePointer[MutExternalOrigin]) -> Int:

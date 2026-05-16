@@ -82,6 +82,7 @@ int mmj_engine_listener_set_world_up(
     float y,
     float z
 );
+void* mmj_engine_get_endpoint(void* engine_handle);
 void mmj_engine_destroy(void* engine_handle);
 
 void* mmj_sound_create(void);
@@ -104,8 +105,58 @@ int mmj_sound_set_position(
 int mmj_sound_set_rolloff(void* sound_handle, float rolloff);
 int mmj_sound_set_min_distance(void* sound_handle, float min_distance);
 int mmj_sound_set_max_distance(void* sound_handle, float max_distance);
+void* mmj_sound_get_node(void* sound_handle);
 int mmj_sound_uninit(void* sound_handle);
 void mmj_sound_destroy(void* sound_handle);
+
+int mmj_node_attach_output_bus(
+    void* node_handle,
+    uint32_t output_bus_index,
+    void* other_node_handle,
+    uint32_t other_node_input_bus_index
+);
+int mmj_node_detach_output_bus(void* node_handle, uint32_t output_bus_index);
+int mmj_node_get_output_bus_count(void* node_handle);
+int mmj_node_set_output_bus_volume(
+    void* node_handle,
+    uint32_t output_bus_index,
+    float volume
+);
+float mmj_node_get_output_bus_volume(void* node_handle, uint32_t output_bus_index);
+
+void* mmj_lpf_node_create(void);
+int mmj_lpf_node_init(
+    void* lpf_node_handle,
+    void* engine_handle,
+    uint32_t channels,
+    uint32_t sample_rate,
+    float cutoff_hz,
+    uint32_t order
+);
+int mmj_lpf_node_set_cutoff(void* lpf_node_handle, float cutoff_hz);
+float mmj_lpf_node_get_cutoff(void* lpf_node_handle);
+void* mmj_lpf_node_get_node(void* lpf_node_handle);
+int mmj_lpf_node_uninit(void* lpf_node_handle);
+void mmj_lpf_node_destroy(void* lpf_node_handle);
+
+void* mmj_delay_node_create(void);
+int mmj_delay_node_init(
+    void* delay_node_handle,
+    void* engine_handle,
+    uint32_t channels,
+    uint32_t sample_rate,
+    uint32_t delay_frames,
+    float decay
+);
+int mmj_delay_node_set_wet(void* delay_node_handle, float wet);
+float mmj_delay_node_get_wet(void* delay_node_handle);
+int mmj_delay_node_set_dry(void* delay_node_handle, float dry);
+float mmj_delay_node_get_dry(void* delay_node_handle);
+int mmj_delay_node_set_decay(void* delay_node_handle, float decay);
+float mmj_delay_node_get_decay(void* delay_node_handle);
+void* mmj_delay_node_get_node(void* delay_node_handle);
+int mmj_delay_node_uninit(void* delay_node_handle);
+void mmj_delay_node_destroy(void* delay_node_handle);
 
 void* mmj_resource_manager_create(void);
 int mmj_resource_manager_init_default(void* resource_manager_handle);

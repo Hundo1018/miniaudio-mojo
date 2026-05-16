@@ -71,6 +71,23 @@ typedef struct mmj_sound_handle {
     int initialized;
 } mmj_sound_handle;
 
+typedef struct mmj_lpf_node_handle {
+    ma_lpf_node node;
+    uint32_t channels;
+    uint32_t sample_rate;
+    uint32_t order;
+    float cutoff_hz;
+    int initialized;
+} mmj_lpf_node_handle;
+
+typedef struct mmj_delay_node_handle {
+    ma_delay_node node;
+    float decay;
+    float wet;
+    float dry;
+    int initialized;
+} mmj_delay_node_handle;
+
 typedef struct mmj_resource_manager_handle {
     ma_resource_manager resource_manager;
     int initialized;
@@ -891,6 +908,16 @@ int mmj_engine_listener_set_world_up(
 
     ma_engine_listener_set_world_up(&handle->engine, listener_index, x, y, z);
     return MA_SUCCESS;
+}
+
+void* mmj_engine_get_endpoint(void* engine_handle) {
+    mmj_engine_handle* handle = (mmj_engine_handle*)engine_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return NULL;
+    }
+
+    return (void*)ma_engine_get_endpoint(&handle->engine);
 }
 
 void mmj_engine_destroy(void* engine_handle) {
