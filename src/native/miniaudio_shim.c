@@ -121,6 +121,14 @@ typedef struct mmj_resource_data_source_handle {
     int initialized;
 } mmj_resource_data_source_handle;
 
+typedef struct mmj_log_handle {
+    ma_log log;
+    ma_log_callback callback;
+    uint64_t callback_count;
+    int initialized;
+    int callback_registered;
+} mmj_log_handle;
+
 typedef struct mmj_device_state {
     uint32_t channels;
     int mode;
@@ -331,6 +339,19 @@ static void mmj_duplex_callback(
     }
 }
 
+static void mmj_log_counter_callback(void* user_data, ma_uint32 level, const char* message) {
+    mmj_log_handle* handle = (mmj_log_handle*)user_data;
+
+    (void)level;
+    (void)message;
+
+    if (handle == NULL) {
+        return;
+    }
+
+    handle->callback_count += 1;
+}
+
 static void mmj_device_callback(
     ma_device* device,
     void* output,
@@ -439,6 +460,139 @@ const char* mmj_miniaudio_version(void) {
 
 const char* mmj_result_description(int result_code) {
     return ma_result_description((ma_result)result_code);
+}
+
+void* mmj_log_create(void) {
+    mmj_log_handle* handle = (mmj_log_handle*)calloc(1, sizeof(mmj_log_handle));
+    return handle;
+}
+
+int mmj_log_init(void* log_handle) {
+    mmj_log_handle* handle = (mmj_log_handle*)log_handle;
+    ma_result result;
+
+    if (handle == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (handle->initialized) {
+        return MA_SUCCESS;
+    }
+
+    result = ma_log_init(NULL, &handle->log);
+    if (result == MA_SUCCESS) {
+        handle->initialized = 1;
+        handle->callback_registered = 0;
+        handle->callback_count = 0;
+    }
+
+    return result;
+}
+
+int mmj_log_register_counting_callback(void* log_handle) {
+    mmj_log_handle* handle = (mmj_log_handle*)log_handle;
+    ma_result result;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (handle->callback_registered) {
+        return MA_SUCCESS;
+    }
+
+    handle->callback = ma_log_callback_init(mmj_log_counter_callback, handle);
+    result = ma_log_register_callback(&handle->log, handle->callback);
+    if (result == MA_SUCCESS) {
+        handle->callback_registered = 1;
+    }
+
+    return result;
+}
+
+int mmj_log_unregister_counting_callback(void* log_handle) {
+    mmj_log_handle* handle = (mmj_log_handle*)log_handle;
+    ma_result result;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (!handle->callback_registered) {
+        return MA_SUCCESS;
+    }
+
+    result = ma_log_unregister_callback(&handle->log, handle->callback);
+    if (result == MA_SUCCESS) {
+        handle->callback_registered = 0;
+    }
+
+    return result;
+}
+
+int mmj_log_post_info(void* log_handle, const char* message) {
+    mmj_log_handle* handle = (mmj_log_handle*)log_handle;
+
+    if (handle == NULL || !handle->initialized || message == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    return ma_log_post(&handle->log, MA_LOG_LEVEL_INFO, message);
+}
+
+int64_t mmj_log_get_callback_count(void* log_handle) {
+    mmj_log_handle* handle = (mmj_log_handle*)log_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return (int64_t)MA_INVALID_ARGS;
+    }
+
+    if (handle->callback_count > (uint64_t)INT64_MAX) {
+        return (int64_t)MA_OUT_OF_RANGE;
+    }
+
+    return (int64_t)handle->callback_count;
+}
+
+int mmj_log_uninit(void* log_handle) {
+    mmj_log_handle* handle = (mmj_log_handle*)log_handle;
+
+    if (handle == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (!handle->initialized) {
+        return MA_SUCCESS;
+    }
+
+    if (handle->callback_registered) {
+        (void)ma_log_unregister_callback(&handle->log, handle->callback);
+        handle->callback_registered = 0;
+    }
+
+    ma_log_uninit(&handle->log);
+    handle->initialized = 0;
+    return MA_SUCCESS;
+}
+
+void mmj_log_destroy(void* log_handle) {
+    mmj_log_handle* handle = (mmj_log_handle*)log_handle;
+
+    if (handle == NULL) {
+        return;
+    }
+
+    if (handle->initialized) {
+        if (handle->callback_registered) {
+            (void)ma_log_unregister_callback(&handle->log, handle->callback);
+            handle->callback_registered = 0;
+        }
+
+        ma_log_uninit(&handle->log);
+        handle->initialized = 0;
+    }
+
+    free(handle);
 }
 
 int mmj_play_sine_f32(
@@ -1057,6 +1211,27 @@ int mmj_sound_stop(void* sound_handle) {
     }
 
     return ma_sound_stop(&handle->sound);
+}
+
+int mmj_sound_pause(void* sound_handle) {
+    mmj_sound_handle* handle = (mmj_sound_handle*)sound_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    /* miniaudio does not expose an explicit pause API; stop preserves cursor state. */
+    return ma_sound_stop(&handle->sound);
+}
+
+int mmj_sound_seek_to_pcm_frame(void* sound_handle, uint64_t frame_index) {
+    mmj_sound_handle* handle = (mmj_sound_handle*)sound_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    return ma_sound_seek_to_pcm_frame(&handle->sound, (ma_uint64)frame_index);
 }
 
 int mmj_sound_set_looping(void* sound_handle, int is_looping) {
@@ -2698,6 +2873,40 @@ int mmj_encoder_write_silence_f32(void* encoder_handle, uint64_t frame_count) {
     }
 
     return MA_SUCCESS;
+}
+
+int64_t mmj_encoder_write_pcm_frames_f32(
+    void* encoder_handle,
+    const float* frames,
+    uint64_t frame_count
+) {
+    mmj_encoder_handle* handle = (mmj_encoder_handle*)encoder_handle;
+    ma_uint64 frames_written = 0;
+    ma_result result;
+
+    if (handle == NULL || !handle->initialized || frames == NULL) {
+        return (int64_t)MA_INVALID_ARGS;
+    }
+
+    if (frame_count == 0) {
+        return 0;
+    }
+
+    result = ma_encoder_write_pcm_frames(
+        &handle->encoder,
+        frames,
+        (ma_uint64)frame_count,
+        &frames_written
+    );
+    if (result != MA_SUCCESS) {
+        return (int64_t)result;
+    }
+
+    if (frames_written > (ma_uint64)INT64_MAX) {
+        return (int64_t)MA_OUT_OF_RANGE;
+    }
+
+    return (int64_t)frames_written;
 }
 
 int mmj_encoder_uninit(void* encoder_handle) {

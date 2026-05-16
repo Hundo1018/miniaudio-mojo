@@ -314,6 +314,23 @@ struct MiniAudioCtypes:
             self._lib.call["mmj_sound_stop", Int32](sound_handle)
         )
 
+    def sound_pause(self, sound_handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return Int(
+            self._lib.call["mmj_sound_pause", Int32](sound_handle)
+        )
+
+    def sound_seek_to_pcm_frame(
+        self,
+        sound_handle: OpaquePointer[MutExternalOrigin],
+        frame_index: UInt64,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_sound_seek_to_pcm_frame", Int32](
+                sound_handle,
+                frame_index,
+            )
+        )
+
     def sound_set_looping(
         self,
         sound_handle: OpaquePointer[MutExternalOrigin],
@@ -1207,6 +1224,20 @@ struct MiniAudioCtypes:
             )
         )
 
+    def encoder_write_pcm_frames_f32(
+        self,
+        encoder_handle: OpaquePointer[MutExternalOrigin],
+        frames: OpaquePointer[MutExternalOrigin],
+        frame_count: UInt64,
+    ) -> Int64:
+        return Int64(
+            self._lib.call["mmj_encoder_write_pcm_frames_f32", Int64](
+                encoder_handle,
+                frames,
+                frame_count,
+            )
+        )
+
     def encoder_uninit(
         self,
         encoder_handle: OpaquePointer[MutExternalOrigin],
@@ -1217,6 +1248,53 @@ struct MiniAudioCtypes:
 
     def encoder_destroy(self, encoder_handle: OpaquePointer[MutExternalOrigin]):
         self._lib.call["mmj_encoder_destroy", NoneType](encoder_handle)
+
+    def log_create(self) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_log_create", OpaquePointer[MutExternalOrigin]]()
+
+    def log_init(self, log_handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return Int(self._lib.call["mmj_log_init", Int32](log_handle))
+
+    def log_register_counting_callback(
+        self,
+        log_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_log_register_counting_callback", Int32](log_handle)
+        )
+
+    def log_unregister_counting_callback(
+        self,
+        log_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_log_unregister_counting_callback", Int32](log_handle)
+        )
+
+    def log_post_info(
+        self,
+        log_handle: OpaquePointer[MutExternalOrigin],
+        message: String,
+    ) -> Int:
+        var message_c = message + "\x00"
+        return Int(
+            self._lib.call["mmj_log_post_info", Int32](
+                log_handle,
+                message_c.as_bytes().unsafe_ptr(),
+            )
+        )
+
+    def log_get_callback_count(
+        self,
+        log_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int64:
+        return self._lib.call["mmj_log_get_callback_count", Int64](log_handle)
+
+    def log_uninit(self, log_handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return Int(self._lib.call["mmj_log_uninit", Int32](log_handle))
+
+    def log_destroy(self, log_handle: OpaquePointer[MutExternalOrigin]):
+        self._lib.call["mmj_log_destroy", NoneType](log_handle)
 
     # === Memory-based I/O methods ===
 

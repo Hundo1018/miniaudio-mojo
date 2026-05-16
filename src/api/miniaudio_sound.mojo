@@ -115,3 +115,48 @@ def run_sound_progress_smoke(file_path: String) raises:
     finally:
         sound.close(bridge)
         engine.close(bridge)
+
+
+def run_sound_seek_smoke(file_path: String) raises:
+    var bridge = MiniAudioCtypes("./build/libminiaudio_mojo.so")
+    var engine = MiniAudioEngineHandle(bridge)
+    var sound = MiniAudioSoundHandle(bridge)
+
+    try:
+        engine.init_default(bridge)
+        sound.init_from_file(bridge, engine, file_path)
+        sound.set_looping(bridge, False)
+
+        sound.seek_to_pcm_frame(bridge, UInt64(1200))
+        var cursor = sound.get_cursor_in_pcm_frames(bridge)
+        if cursor < 0:
+            raise Error("sound seek cursor must be non-negative")
+
+        sound.start(bridge)
+        sound.pause(bridge)
+    finally:
+        sound.close(bridge)
+        engine.close(bridge)
+
+    print("sound seek smoke ok")
+
+
+def run_sound_pause_smoke(file_path: String) raises:
+    var bridge = MiniAudioCtypes("./build/libminiaudio_mojo.so")
+    var engine = MiniAudioEngineHandle(bridge)
+    var sound = MiniAudioSoundHandle(bridge)
+
+    try:
+        engine.init_default(bridge)
+        sound.init_from_file(bridge, engine, file_path)
+        sound.set_looping(bridge, False)
+
+        sound.pause(bridge)
+        sound.start(bridge)
+        sound.pause(bridge)
+        sound.pause(bridge)
+    finally:
+        sound.close(bridge)
+        engine.close(bridge)
+
+    print("sound pause smoke ok")

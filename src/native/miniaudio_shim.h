@@ -105,6 +105,8 @@ int mmj_sound_init_from_file(
 );
 int mmj_sound_start(void* sound_handle);
 int mmj_sound_stop(void* sound_handle);
+int mmj_sound_pause(void* sound_handle);
+int mmj_sound_seek_to_pcm_frame(void* sound_handle, uint64_t frame_index);
 int mmj_sound_set_looping(void* sound_handle, int is_looping);
 int mmj_sound_set_volume_f32(void* sound_handle, float volume);
 int mmj_sound_set_spatialization_enabled(void* sound_handle, int is_enabled);
@@ -307,8 +309,23 @@ int mmj_encoder_init_wav_file_f32(
     uint32_t sample_rate
 );
 int mmj_encoder_write_silence_f32(void* encoder_handle, uint64_t frame_count);
+int64_t mmj_encoder_write_pcm_frames_f32(
+    void* encoder_handle,
+    const float* frames,
+    uint64_t frame_count
+);
 int mmj_encoder_uninit(void* encoder_handle);
 void mmj_encoder_destroy(void* encoder_handle);
+
+/* Logging primitives for smoke-level observability checks */
+void* mmj_log_create(void);
+int mmj_log_init(void* log_handle);
+int mmj_log_register_counting_callback(void* log_handle);
+int mmj_log_unregister_counting_callback(void* log_handle);
+int mmj_log_post_info(void* log_handle, const char* message);
+int64_t mmj_log_get_callback_count(void* log_handle);
+int mmj_log_uninit(void* log_handle);
+void mmj_log_destroy(void* log_handle);
 
 /* Memory-based I/O for playback and capture without files */
 void* mmj_playback_from_buffer_create(void);

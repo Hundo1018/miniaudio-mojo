@@ -180,6 +180,20 @@ struct MiniAudioSoundHandle:
         if result != 0:
             raise Error(format_result_error(bridge, "sound stop failed", result))
 
+    def pause(self, bridge: MiniAudioCtypes) raises:
+        var result = bridge.sound_pause(self.raw)
+        if result != 0:
+            raise Error(format_result_error(bridge, "sound pause failed", result))
+
+    def seek_to_pcm_frame(
+        self,
+        bridge: MiniAudioCtypes,
+        frame_index: UInt64,
+    ) raises:
+        var result = bridge.sound_seek_to_pcm_frame(self.raw, frame_index)
+        if result != 0:
+            raise Error(format_result_error(bridge, "sound seek failed", result))
+
     def set_looping(self, bridge: MiniAudioCtypes, is_looping: Bool) raises:
         var result = bridge.sound_set_looping(self.raw, is_looping)
         if result != 0:
@@ -968,4 +982,70 @@ struct MiniAudioDeviceHandle:
             self.initialized = False
 
         bridge.device_destroy(self.raw)
+
+
+struct MiniAudioEncoderHandle:
+    var raw: OpaquePointer[MutExternalOrigin]
+    var initialized: Bool
+    var channels: UInt32
+
+    def __init__(out self, bridge: MiniAudioCtypes) raises:
+        self.raw = bridge.encoder_create()
+        self.initialized = False
+        self.channels = 0
+        if self.raw == miniaudio_null_handle():
+            raise Error("encoder_create failed")
+
+    def init_wav_file_f32(
+        mut self,
+        bridge: MiniAudioCtypes,
+        output_path: String,
+        channels: UInt32,
+        sample_rate: UInt32,
+    ) raises:
+        var result = bridge.encoder_init_wav_file_f32(
+            self.raw,
+            output_path,
+            channels,
+            sample_rate,
+        )
+        if result != 0:
+            raise Error(format_result_error(bridge, "encoder init failed", result))
+        self.initialized = True
+        self.channels = channels
+
+    def write_silence_f32(
+        self,
+        bridge: MiniAudioCtypes,
+        frame_count: UInt64,
+    ) raises:
+        var result = bridge.encoder_write_silence_f32(self.raw, frame_count)
+        if result != 0:
+            raise Error(format_result_error(bridge, "encoder write silence failed", result))
+
+    def write_pcm_frames_f32(
+        self,
+        bridge: MiniAudioCtypes,
+        frames: OpaquePointer[MutExternalOrigin],
+        frame_count: UInt64,
+    ) raises -> UInt64:
+        var result = bridge.encoder_write_pcm_frames_f32(
+            self.raw,
+            frames,
+            frame_count,
+        )
+        if result < 0:
+            var error_code = Int(result)
+            raise Error(format_result_error(bridge, "encoder write frames failed", error_code))
+        return UInt64(result)
+
+    def close(mut self, bridge: MiniAudioCtypes):
+        if self.raw == miniaudio_null_handle():
+            return
+
+        if self.initialized:
+            _ = bridge.encoder_uninit(self.raw)
+            self.initialized = False
+
+        bridge.encoder_destroy(self.raw)
         self.raw = miniaudio_null_handle()
