@@ -84,3 +84,34 @@ def run_sound_spatial_scene_smoke(file_path: String) raises:
         engine.close(bridge)
 
     print("sound spatial scene ok")
+
+
+def run_sound_progress_smoke(file_path: String) raises:
+    var bridge = MiniAudioCtypes("./build/libminiaudio_mojo.so")
+    var engine = MiniAudioEngineHandle(bridge)
+    var sound = MiniAudioSoundHandle(bridge)
+
+    try:
+        engine.init_default(bridge)
+        sound.init_from_file(bridge, engine, file_path)
+        sound.set_looping(bridge, False)
+        sound.start(bridge)
+
+        var cursor = sound.get_cursor_in_pcm_frames(bridge)
+        var time_ms = sound.get_time_in_milliseconds(bridge)
+        var finished = sound.is_finished(bridge)
+
+        if cursor < 0:
+            raise Error("sound cursor must be non-negative")
+        if time_ms < 0:
+            raise Error("sound time must be non-negative")
+
+        sound.stop(bridge)
+
+        if finished:
+            print("sound progress ok (already at end)")
+        else:
+            print("sound progress ok (active playback state observed)")
+    finally:
+        sound.close(bridge)
+        engine.close(bridge)

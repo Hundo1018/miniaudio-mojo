@@ -14,7 +14,7 @@ This document tracks miniaudio binding coverage in this repository.
 Estimated totals:
 
 - Upstream exported API (`MA_API`): large surface (roughly hundreds of functions).
-- Current shim exports (`mmj_*`): 65 public functions.
+- Current shim exports (`mmj_*`): 72 public functions.
 - Effective coverage mode: foundational I/O path coverage, not high-level feature parity.
 
 ## Module status
@@ -29,7 +29,7 @@ Estimated totals:
 | Resource manager | partial | manager init/uninit + data source init/length + async result polling |
 | 3D audio controls | partial | listener controls + sound spatial controls + scenario sequence smoke |
 | Node graph routing | partial | endpoint lookup + sound node attach/detach + output bus volume control |
-| Effect chain (LPF/reverb slices) | partial | LPF node smoke + reverb-like LPF->delay chain smoke |
+| Effect chain (LPF/reverb/splitter) | partial | LPF node smoke + reverb-like LPF→delay chain smoke + splitter dry/wet branching smoke |
 
 ## Planned milestones
 

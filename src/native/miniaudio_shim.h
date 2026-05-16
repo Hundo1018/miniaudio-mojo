@@ -7,6 +7,18 @@
 extern "C" {
 #endif
 
+/* Callback function types for user-defined audio processing */
+typedef void (*mmj_device_data_callback)(
+    void* output,
+    const void* input,
+    uint32_t frame_count,
+    void* user_data
+);
+
+typedef void (*mmj_device_stop_callback)(
+    void* user_data
+);
+
 const char* mmj_miniaudio_version(void);
 const char* mmj_result_description(int result_code);
 int mmj_play_sine_f32(
@@ -105,6 +117,9 @@ int mmj_sound_set_position(
 int mmj_sound_set_rolloff(void* sound_handle, float rolloff);
 int mmj_sound_set_min_distance(void* sound_handle, float min_distance);
 int mmj_sound_set_max_distance(void* sound_handle, float max_distance);
+int64_t mmj_sound_get_cursor_in_pcm_frames(void* sound_handle);
+int64_t mmj_sound_get_time_in_milliseconds(void* sound_handle);
+int mmj_sound_is_finished(void* sound_handle);
 void* mmj_sound_get_node(void* sound_handle);
 int mmj_sound_uninit(void* sound_handle);
 void mmj_sound_destroy(void* sound_handle);
@@ -139,6 +154,21 @@ void* mmj_lpf_node_get_node(void* lpf_node_handle);
 int mmj_lpf_node_uninit(void* lpf_node_handle);
 void mmj_lpf_node_destroy(void* lpf_node_handle);
 
+void* mmj_hpf_node_create(void);
+int mmj_hpf_node_init(
+    void* hpf_node_handle,
+    void* engine_handle,
+    uint32_t channels,
+    uint32_t sample_rate,
+    float cutoff_hz,
+    uint32_t order
+);
+int mmj_hpf_node_set_cutoff(void* hpf_node_handle, float cutoff_hz);
+float mmj_hpf_node_get_cutoff(void* hpf_node_handle);
+void* mmj_hpf_node_get_node(void* hpf_node_handle);
+int mmj_hpf_node_uninit(void* hpf_node_handle);
+void mmj_hpf_node_destroy(void* hpf_node_handle);
+
 void* mmj_delay_node_create(void);
 int mmj_delay_node_init(
     void* delay_node_handle,
@@ -157,6 +187,14 @@ float mmj_delay_node_get_decay(void* delay_node_handle);
 void* mmj_delay_node_get_node(void* delay_node_handle);
 int mmj_delay_node_uninit(void* delay_node_handle);
 void mmj_delay_node_destroy(void* delay_node_handle);
+
+void* mmj_splitter_node_create(void);
+int mmj_splitter_node_init(void* splitter_node_handle, void* engine_handle, uint32_t channels);
+int mmj_splitter_node_set_output_bus_volume(void* splitter_node_handle, uint32_t bus_index, float volume);
+float mmj_splitter_node_get_output_bus_volume(void* splitter_node_handle, uint32_t bus_index);
+void* mmj_splitter_node_get_node(void* splitter_node_handle);
+int mmj_splitter_node_uninit(void* splitter_node_handle);
+void mmj_splitter_node_destroy(void* splitter_node_handle);
 
 void* mmj_resource_manager_create(void);
 int mmj_resource_manager_init_default(void* resource_manager_handle);
@@ -208,12 +246,36 @@ int mmj_device_init_f32(
     uint32_t sample_rate,
     uint32_t channels
 );
+int mmj_device_init_playback_f32_by_index(
+    void* device_handle,
+    void* context_handle,
+    uint32_t device_index,
+    uint32_t sample_rate,
+    uint32_t channels
+);
+int mmj_device_init_capture_f32_by_index(
+    void* device_handle,
+    void* context_handle,
+    uint32_t device_index,
+    uint32_t sample_rate,
+    uint32_t channels
+);
 int mmj_device_start(void* device_handle);
 int mmj_device_stop(void* device_handle);
 int mmj_device_is_started(void* device_handle);
 int mmj_device_get_kind(void* device_handle);
 int mmj_device_get_sample_rate(void* device_handle);
 int mmj_device_get_channels(void* device_handle);
+int mmj_device_set_callback_mode(void* device_handle, int mode);
+int mmj_device_get_callback_mode(void* device_handle);
+int64_t mmj_device_get_observed_frames(void* device_handle);
+int mmj_device_reset_observed_frames(void* device_handle);
+int mmj_device_wait_for_observed_frames(
+    void* device_handle,
+    uint64_t min_frames,
+    uint32_t timeout_ms,
+    uint32_t poll_interval_ms
+);
 int mmj_device_set_master_volume_f32(void* device_handle, float volume);
 int mmj_device_get_master_volume_milli(void* device_handle);
 int mmj_device_uninit(void* device_handle);
@@ -236,6 +298,64 @@ int64_t mmj_decoder_read_probe_f32(void* decoder_handle, uint64_t frame_count);
 int mmj_decoder_seek_to_pcm_frame(void* decoder_handle, uint64_t frame_index);
 int mmj_decoder_uninit(void* decoder_handle);
 void mmj_decoder_destroy(void* decoder_handle);
+
+void* mmj_encoder_create(void);
+int mmj_encoder_init_wav_file_f32(
+    void* encoder_handle,
+    const char* output_path,
+    uint32_t channels,
+    uint32_t sample_rate
+);
+int mmj_encoder_write_silence_f32(void* encoder_handle, uint64_t frame_count);
+int mmj_encoder_uninit(void* encoder_handle);
+void mmj_encoder_destroy(void* encoder_handle);
+
+/* Memory-based I/O for playback and capture without files */
+void* mmj_playback_from_buffer_create(void);
+int mmj_playback_from_buffer_init_f32(
+    void* playback_handle,
+    uint32_t sample_rate,
+    uint32_t channels,
+    float* buffer,
+    uint64_t buffer_frame_count
+);
+int mmj_playback_from_buffer_start(void* playback_handle);
+int mmj_playback_from_buffer_stop(void* playback_handle);
+int mmj_playback_from_buffer_is_finished(void* playback_handle);
+int64_t mmj_playback_from_buffer_get_position_in_frames(void* playback_handle);
+int mmj_playback_from_buffer_uninit(void* playback_handle);
+void mmj_playback_from_buffer_destroy(void* playback_handle);
+
+void* mmj_capture_to_buffer_create(void);
+int mmj_capture_to_buffer_init_f32(
+    void* capture_handle,
+    uint32_t sample_rate,
+    uint32_t channels,
+    float* buffer,
+    uint64_t buffer_frame_capacity
+);
+int mmj_capture_to_buffer_start(void* capture_handle);
+int mmj_capture_to_buffer_stop(void* capture_handle);
+int64_t mmj_capture_to_buffer_get_frames_captured(void* capture_handle);
+int mmj_capture_to_buffer_reset(void* capture_handle);
+int mmj_capture_to_buffer_uninit(void* capture_handle);
+void mmj_capture_to_buffer_destroy(void* capture_handle);
+
+/* User-defined callback registration for device I/O */
+int mmj_device_set_data_callback(
+    void* device_handle,
+    mmj_device_data_callback callback,
+    void* user_data
+);
+int mmj_device_set_stop_callback(
+    void* device_handle,
+    mmj_device_stop_callback callback,
+    void* user_data
+);
+int mmj_device_clear_callbacks(void* device_handle);
+
+/* Test helper for user callbacks */
+int mmj_device_test_callback_smoke(uint32_t duration_ms);
 
 #ifdef __cplusplus
 }

@@ -1,6 +1,15 @@
 from miniaudio_ctypes import MiniAudioCtypes
-from miniaudio_handles import MiniAudioContextHandle
+from miniaudio_errors import MA_ALREADY_IN_USE, MA_DOES_NOT_EXIST, MA_UNAVAILABLE
+from miniaudio_handles import MiniAudioContextHandle, MiniAudioDeviceHandle
 from miniaudio_result_utils import format_result_error
+
+
+def is_device_select_skip_code(code: Int) -> Bool:
+    return (
+        code == MA_DOES_NOT_EXIST
+        or code == MA_UNAVAILABLE
+        or code == MA_ALREADY_IN_USE
+    )
 
 
 def run_devices_smoke() raises:
@@ -49,3 +58,61 @@ def run_devices_smoke() raises:
 
     context.close(bridge)
     print("device smoke ok")
+
+
+def run_device_select_smoke() raises:
+    var bridge = MiniAudioCtypes("./build/libminiaudio_mojo.so")
+    var context = MiniAudioContextHandle(bridge)
+    var device = MiniAudioDeviceHandle(bridge)
+
+    try:
+        context.init_default(bridge)
+
+        var playback_count_probe = bridge.context_get_playback_device_count(context.raw)
+        if playback_count_probe < 0:
+            var code = Int(playback_count_probe)
+            raise Error(
+                format_result_error(
+                    bridge,
+                    "device select playback count failed",
+                    code,
+                )
+            )
+
+        if playback_count_probe == 0:
+            print("device select smoke skipped: no playback devices")
+            return
+
+        var init_result = bridge.device_init_playback_f32_by_index(
+            device.raw,
+            context.raw,
+            0,
+            48000,
+            2,
+        )
+        if init_result != 0:
+            if is_device_select_skip_code(init_result):
+                print(format_result_error(bridge, "device select smoke skipped", init_result))
+                return
+            raise Error(
+                format_result_error(
+                    bridge,
+                    "device init playback by index failed",
+                    init_result,
+                )
+            )
+
+        device.initialized = True
+
+        var sample_rate = device.get_sample_rate(bridge)
+        if sample_rate <= 0:
+            raise Error("device select smoke sample rate must be positive")
+
+        var channels = device.get_channels(bridge)
+        if channels <= 0:
+            raise Error("device select smoke channels must be positive")
+    finally:
+        device.close(bridge)
+        context.close(bridge)
+
+    print("device select smoke ok")

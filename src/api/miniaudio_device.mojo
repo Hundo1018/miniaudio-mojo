@@ -7,6 +7,8 @@ comptime MMJ_DEVICE_KIND_PLAYBACK = Int(1)
 comptime MMJ_DEVICE_KIND_CAPTURE = Int(2)
 comptime MMJ_DEVICE_KIND_DUPLEX = Int(3)
 comptime MMJ_DEVICE_KIND_DUPLEX_LOOPBACK = Int(4)
+comptime MMJ_DEVICE_CALLBACK_MODE_SILENCE = Int(0)
+comptime MMJ_DEVICE_CALLBACK_MODE_LOOPBACK = Int(1)
 
 
 def is_device_control_skip_code(code: Int) -> Bool:
@@ -172,3 +174,149 @@ def run_device_config_smoke() raises:
     _ = bridge.device_uninit(device)
     bridge.device_destroy(device)
     print("device config smoke ok (unified init + config getters)")
+
+
+def run_device_callback_smoke() raises:
+    var bridge = MiniAudioCtypes("./build/libminiaudio_mojo.so")
+    var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
+    var device = bridge.device_create()
+
+    if device == null_ptr:
+        raise Error("device_create failed")
+
+    var init_result = bridge.device_init_playback_f32(device, 48000, 2)
+    if init_result != 0:
+        bridge.device_destroy(device)
+        if is_device_control_skip_code(init_result):
+            print(format_result_error(bridge, "device callback smoke skipped", init_result))
+            return
+
+        raise Error(format_result_error(bridge, "device callback init failed", init_result))
+
+    var invalid_mode_result = bridge.device_set_callback_mode(device, 99)
+    if invalid_mode_result != MA_INVALID_ARGS:
+        _ = bridge.device_uninit(device)
+        bridge.device_destroy(device)
+        raise Error(
+            "device_set_callback_mode invalid expected MA_INVALID_ARGS, got: "
+            + format_result_error(bridge, "", invalid_mode_result)
+        )
+
+    var mode_result = bridge.device_set_callback_mode(device, MMJ_DEVICE_CALLBACK_MODE_SILENCE)
+    if mode_result != 0:
+        _ = bridge.device_uninit(device)
+        bridge.device_destroy(device)
+        raise Error(format_result_error(bridge, "device set callback mode failed", mode_result))
+
+    var mode = bridge.device_get_callback_mode(device)
+    if mode != MMJ_DEVICE_CALLBACK_MODE_SILENCE:
+        _ = bridge.device_uninit(device)
+        bridge.device_destroy(device)
+        raise Error("device callback mode mismatch after set: " + String(mode))
+
+    var reset_result = bridge.device_reset_observed_frames(device)
+    if reset_result != 0:
+        _ = bridge.device_uninit(device)
+        bridge.device_destroy(device)
+        raise Error(format_result_error(bridge, "device reset observed frames failed", reset_result))
+
+    var start_result = bridge.device_start(device)
+    if start_result != 0:
+        _ = bridge.device_uninit(device)
+        bridge.device_destroy(device)
+        if is_device_control_skip_code(start_result):
+            print(format_result_error(bridge, "device callback smoke skipped", start_result))
+            return
+        raise Error(format_result_error(bridge, "device callback start failed", start_result))
+
+    var wait_result = bridge.device_wait_for_observed_frames(device, 256, 1000, 10)
+    var stop_result = bridge.device_stop(device)
+    var observed_frames = bridge.device_get_observed_frames(device)
+    _ = bridge.device_uninit(device)
+    bridge.device_destroy(device)
+
+    if wait_result != 0:
+        raise Error(format_result_error(bridge, "device callback wait failed", wait_result))
+
+    if stop_result != 0:
+        raise Error(format_result_error(bridge, "device callback stop failed", stop_result))
+
+    if observed_frames <= 0:
+        raise Error("device callback smoke expected positive observed frames")
+
+    print("device callback smoke ok (restricted callback mode + observed frames)")
+
+
+def run_device_callback_longrun_smoke(duration_ms: UInt32 = 600000) raises:
+    if duration_ms == 0:
+        raise Error("device callback longrun duration must be > 0 ms")
+
+    var bridge = MiniAudioCtypes("./build/libminiaudio_mojo.so")
+    var device = MiniAudioDeviceHandle(bridge)
+    var batch_window_ms = UInt32(5000)
+    var remaining_ms = duration_ms
+    var elapsed_ms = UInt32(0)
+    var batch_index = UInt32(0)
+    var cumulative_observed = Int64(0)
+
+    try:
+        device.init_playback_f32(bridge, 48000, 2)
+        device.set_callback_mode(bridge, MMJ_DEVICE_CALLBACK_MODE_SILENCE)
+        device.start(bridge)
+
+        while remaining_ms > 0:
+            var current_batch_ms = batch_window_ms
+            if remaining_ms < batch_window_ms:
+                current_batch_ms = remaining_ms
+
+            device.reset_observed_frames(bridge)
+
+            var min_frames = UInt64(current_batch_ms) * UInt64(48)
+            if min_frames < 256:
+                min_frames = 256
+
+            var timeout_ms = current_batch_ms + UInt32(2000)
+            if timeout_ms < UInt32(1000):
+                timeout_ms = UInt32(1000)
+
+            device.wait_for_observed_frames(bridge, min_frames, timeout_ms, UInt32(10))
+
+            var observed = device.get_observed_frames(bridge)
+            if observed <= 0:
+                raise Error("device callback longrun expected positive observed frames per batch")
+
+            cumulative_observed += observed
+            elapsed_ms += current_batch_ms
+            remaining_ms -= current_batch_ms
+            batch_index += UInt32(1)
+
+            print(
+                "device callback longrun batch",
+                batch_index,
+                "elapsed_ms:",
+                elapsed_ms,
+                "observed_frames:",
+                observed,
+                "cumulative_frames:",
+                cumulative_observed,
+            )
+
+        device.stop(bridge)
+    except e:
+        device.close(bridge)
+        raise e^
+
+    device.close(bridge)
+    print("device callback longrun smoke ok")
+
+
+def run_device_user_callback_smoke(duration_ms: UInt32 = 500) raises:
+    """Test user-defined callback functionality"""
+    var bridge = MiniAudioCtypes("./build/libminiaudio_mojo.so")
+    
+    var result = bridge.device_test_callback_smoke(duration_ms)
+    
+    if result != 0:
+        raise Error(format_result_error(bridge, "device user callback smoke failed", result))
+    
+    print("device user callback smoke ok")

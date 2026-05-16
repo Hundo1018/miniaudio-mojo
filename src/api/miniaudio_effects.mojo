@@ -1,5 +1,5 @@
 from miniaudio_ctypes import MiniAudioCtypes
-from miniaudio_handles import MiniAudioDelayNodeHandle, MiniAudioEngineHandle, MiniAudioLpfNodeHandle, MiniAudioSoundHandle
+from miniaudio_handles import MiniAudioDelayNodeHandle, MiniAudioEngineHandle, MiniAudioHpfNodeHandle, MiniAudioLpfNodeHandle, MiniAudioSoundHandle, MiniAudioSplitterNodeHandle
 from miniaudio_result_utils import format_result_error
 
 
@@ -60,6 +60,46 @@ def run_lpf_node_smoke(file_path: String) raises:
     print("lpf node smoke ok")
 
 
+def run_hpf_node_smoke(file_path: String) raises:
+    var bridge = MiniAudioCtypes("./build/libminiaudio_mojo.so")
+    var engine = MiniAudioEngineHandle(bridge)
+    var sound = MiniAudioSoundHandle(bridge)
+    var hpf = MiniAudioHpfNodeHandle(bridge)
+
+    var sound_node = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
+    var hpf_node = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
+
+    try:
+        engine.init_default(bridge)
+        sound.init_from_file(bridge, engine, file_path)
+        sound.set_looping(bridge, True)
+        hpf.init(bridge, engine, 2, 48000, 120.0, 2)
+
+        sound_node = sound.get_node(bridge)
+        hpf_node = hpf.get_node(bridge)
+
+        _attach(bridge, sound_node, hpf_node)
+        _attach(bridge, hpf_node, engine.get_endpoint_node(bridge))
+
+        hpf.set_cutoff(bridge, 120.0)
+        hpf.set_cutoff(bridge, 240.0)
+        hpf.set_cutoff(bridge, 480.0)
+        hpf.set_cutoff(bridge, 960.0)
+
+        sound.start(bridge)
+        sound.stop(bridge)
+    finally:
+        if hpf_node != OpaquePointer[MutExternalOrigin](unsafe_from_address=0):
+            _detach_ignore(bridge, hpf_node)
+        if sound_node != OpaquePointer[MutExternalOrigin](unsafe_from_address=0):
+            _detach_ignore(bridge, sound_node)
+        hpf.close(bridge)
+        sound.close(bridge)
+        engine.close(bridge)
+
+    print("hpf node smoke ok")
+
+
 def run_reverb_like_chain_smoke(file_path: String) raises:
     var bridge = MiniAudioCtypes("./build/libminiaudio_mojo.so")
     var engine = MiniAudioEngineHandle(bridge)
@@ -108,3 +148,51 @@ def run_reverb_like_chain_smoke(file_path: String) raises:
         engine.close(bridge)
 
     print("reverb-like chain smoke ok")
+
+
+def run_splitter_dry_wet_smoke(file_path: String) raises:
+    var bridge = MiniAudioCtypes("./build/libminiaudio_mojo.so")
+    var engine = MiniAudioEngineHandle(bridge)
+    var sound = MiniAudioSoundHandle(bridge)
+    var lpf = MiniAudioLpfNodeHandle(bridge)
+    var splitter = MiniAudioSplitterNodeHandle(bridge)
+
+    var sound_node = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
+    var lpf_node = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
+    var splitter_node = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
+
+    try:
+        engine.init_default(bridge)
+        sound.init_from_file(bridge, engine, file_path)
+        sound.set_looping(bridge, True)
+        lpf.init(bridge, engine, 2, 48000, 2200.0, 2)
+        splitter.init(bridge, engine, 2)
+
+        sound_node = sound.get_node(bridge)
+        lpf_node = lpf.get_node(bridge)
+        splitter_node = splitter.get_node(bridge)
+
+        _attach(bridge, sound_node, lpf_node)
+        _attach(bridge, lpf_node, splitter_node)
+        _attach(bridge, splitter_node, engine.get_endpoint_node(bridge))
+
+        splitter.set_output_bus_volume(bridge, 0, 0.7)
+        splitter.set_output_bus_volume(bridge, 1, 0.3)
+        splitter.set_output_bus_volume(bridge, 0, 0.5)
+        splitter.set_output_bus_volume(bridge, 1, 0.5)
+
+        sound.start(bridge)
+        sound.stop(bridge)
+    finally:
+        if splitter_node != OpaquePointer[MutExternalOrigin](unsafe_from_address=0):
+            _detach_ignore(bridge, splitter_node)
+        if lpf_node != OpaquePointer[MutExternalOrigin](unsafe_from_address=0):
+            _detach_ignore(bridge, lpf_node)
+        if sound_node != OpaquePointer[MutExternalOrigin](unsafe_from_address=0):
+            _detach_ignore(bridge, sound_node)
+        splitter.close(bridge)
+        lpf.close(bridge)
+        sound.close(bridge)
+        engine.close(bridge)
+
+    print("splitter dry/wet smoke ok")

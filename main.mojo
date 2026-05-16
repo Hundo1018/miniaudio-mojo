@@ -1,15 +1,15 @@
 from miniaudio import run_playback_file_smoke, run_playback_smoke
-from miniaudio_capture import run_capture_file_smoke, run_capture_smoke
+from miniaudio_capture import run_capture_file_smoke, run_capture_smoke, run_encoder_wav_smoke
 from miniaudio_context import run_context_smoke
 from miniaudio_decoder import run_decoder_read_smoke, run_decoder_smoke
-from miniaudio_device import run_device_config_smoke, run_device_control_smoke, run_device_volume_smoke
-from miniaudio_devices import run_devices_smoke
+from miniaudio_device import run_device_callback_longrun_smoke, run_device_callback_smoke, run_device_config_smoke, run_device_control_smoke, run_device_volume_smoke, run_device_user_callback_smoke
+from miniaudio_devices import run_device_select_smoke, run_devices_smoke
 from miniaudio_duplex import run_duplex_control_smoke, run_duplex_smoke
 from miniaudio_engine import run_engine_listener_control_smoke, run_engine_play_sound_smoke
-from miniaudio_effects import run_lpf_node_smoke, run_reverb_like_chain_smoke
+from miniaudio_effects import run_hpf_node_smoke, run_lpf_node_smoke, run_reverb_like_chain_smoke, run_splitter_dry_wet_smoke
 from miniaudio_node import run_node_attach_detach_smoke, run_node_routing_scene_smoke
 from miniaudio_resource_manager import run_resource_manager_async_poll_smoke, run_resource_manager_smoke
-from miniaudio_sound import run_sound_control_smoke, run_sound_spatial_scene_smoke, run_sound_spatial_smoke
+from miniaudio_sound import run_sound_control_smoke, run_sound_progress_smoke, run_sound_spatial_scene_smoke, run_sound_spatial_smoke
 from std.os.env import getenv
 
 
@@ -31,6 +31,11 @@ def main() raises:
         print("Running capture file smoke for:", capture_file)
         run_capture_file_smoke(capture_file)
 
+    var encoder_wav_file = getenv("MINIAUDIO_ENCODER_WAV_FILE")
+    if encoder_wav_file != "":
+        print("Running encoder wav smoke for:", encoder_wav_file)
+        run_encoder_wav_smoke(encoder_wav_file)
+
     var duplex_smoke = getenv("MINIAUDIO_DUPLEX_SMOKE")
     if duplex_smoke != "":
         print("Running duplex smoke")
@@ -46,6 +51,11 @@ def main() raises:
         print("Running devices smoke")
         run_devices_smoke()
 
+    var device_select_smoke = getenv("MINIAUDIO_DEVICE_SELECT_SMOKE")
+    if device_select_smoke != "":
+        print("Running device select smoke")
+        run_device_select_smoke()
+
     var device_control_smoke = getenv("MINIAUDIO_DEVICE_CONTROL_SMOKE")
     if device_control_smoke != "":
         print("Running device control smoke")
@@ -60,6 +70,27 @@ def main() raises:
     if device_config_smoke != "":
         print("Running device config smoke")
         run_device_config_smoke()
+
+    var device_callback_smoke = getenv("MINIAUDIO_DEVICE_CALLBACK_SMOKE")
+    if device_callback_smoke != "":
+        print("Running device callback smoke")
+        run_device_callback_smoke()
+
+    var device_callback_longrun_smoke = getenv("MINIAUDIO_DEVICE_CALLBACK_LONGRUN_SMOKE")
+    if device_callback_longrun_smoke != "":
+        var longrun_ms_env = getenv("MINIAUDIO_DEVICE_CALLBACK_LONGRUN_MS")
+        var longrun_duration_ms = UInt32(600000)
+        if longrun_ms_env == "30000":
+            longrun_duration_ms = UInt32(30000)
+        elif longrun_ms_env == "60000":
+            longrun_duration_ms = UInt32(60000)
+        elif longrun_ms_env == "120000":
+            longrun_duration_ms = UInt32(120000)
+        elif longrun_ms_env == "600000":
+            longrun_duration_ms = UInt32(600000)
+
+        print("Running device callback longrun smoke for ms:", longrun_duration_ms)
+        run_device_callback_longrun_smoke(longrun_duration_ms)
 
     var decoder_file = getenv("MINIAUDIO_DECODER_FILE")
     if decoder_file != "":
@@ -96,6 +127,11 @@ def main() raises:
         print("Running sound spatial control smoke for:", sound_spatial_file)
         run_sound_spatial_smoke(sound_spatial_file)
 
+    var sound_progress_file = getenv("MINIAUDIO_SOUND_PROGRESS_FILE")
+    if sound_progress_file != "":
+        print("Running sound progress smoke for:", sound_progress_file)
+        run_sound_progress_smoke(sound_progress_file)
+
     var spatial_scene_file = getenv("MINIAUDIO_SPATIAL_SCENE_FILE")
     if spatial_scene_file != "":
         print("Running sound spatial scene smoke for:", spatial_scene_file)
@@ -116,10 +152,20 @@ def main() raises:
         print("Running lpf node smoke for:", lpf_node_file)
         run_lpf_node_smoke(lpf_node_file)
 
+    var hpf_node_file = getenv("MINIAUDIO_HPF_NODE_FILE")
+    if hpf_node_file != "":
+        print("Running hpf node smoke for:", hpf_node_file)
+        run_hpf_node_smoke(hpf_node_file)
+
     var reverb_like_chain_file = getenv("MINIAUDIO_REVERB_LIKE_CHAIN_FILE")
     if reverb_like_chain_file != "":
         print("Running reverb-like chain smoke for:", reverb_like_chain_file)
         run_reverb_like_chain_smoke(reverb_like_chain_file)
+
+    var splitter_file = getenv("MINIAUDIO_SPLITTER_FILE")
+    if splitter_file != "":
+        print("Running splitter dry/wet smoke for:", splitter_file)
+        run_splitter_dry_wet_smoke(splitter_file)
 
     var resource_file = getenv("MINIAUDIO_RESOURCE_FILE")
     if resource_file != "":
@@ -130,3 +176,8 @@ def main() raises:
     if resource_async_file != "":
         print("Running resource manager async poll smoke for:", resource_async_file)
         run_resource_manager_async_poll_smoke(resource_async_file)
+
+    var device_user_callback_smoke = getenv("MINIAUDIO_DEVICE_USER_CALLBACK_SMOKE")
+    if device_user_callback_smoke != "":
+        print("Running device user callback smoke")
+        run_device_user_callback_smoke()

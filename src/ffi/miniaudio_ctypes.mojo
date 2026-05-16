@@ -410,6 +410,28 @@ struct MiniAudioCtypes:
             )
         )
 
+    def sound_get_cursor_in_pcm_frames(
+        self,
+        sound_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int64:
+        return self._lib.call["mmj_sound_get_cursor_in_pcm_frames", Int64](
+            sound_handle
+        )
+
+    def sound_get_time_in_milliseconds(
+        self,
+        sound_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int64:
+        return self._lib.call["mmj_sound_get_time_in_milliseconds", Int64](
+            sound_handle
+        )
+
+    def sound_is_finished(
+        self,
+        sound_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Bool:
+        return self._lib.call["mmj_sound_is_finished", Int32](sound_handle) != 0
+
     def sound_get_node(
         self,
         sound_handle: OpaquePointer[MutExternalOrigin],
@@ -544,6 +566,64 @@ struct MiniAudioCtypes:
     def lpf_node_destroy(self, lpf_node_handle: OpaquePointer[MutExternalOrigin]):
         self._lib.call["mmj_lpf_node_destroy", NoneType](lpf_node_handle)
 
+    def hpf_node_create(self) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_hpf_node_create", OpaquePointer[MutExternalOrigin]]()
+
+    def hpf_node_init(
+        self,
+        hpf_node_handle: OpaquePointer[MutExternalOrigin],
+        engine_handle: OpaquePointer[MutExternalOrigin],
+        channels: UInt32,
+        sample_rate: UInt32,
+        cutoff_hz: Float32,
+        order: UInt32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_hpf_node_init", Int32](
+                hpf_node_handle,
+                engine_handle,
+                channels,
+                sample_rate,
+                cutoff_hz,
+                order,
+            )
+        )
+
+    def hpf_node_set_cutoff(
+        self,
+        hpf_node_handle: OpaquePointer[MutExternalOrigin],
+        cutoff_hz: Float32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_hpf_node_set_cutoff", Int32](
+                hpf_node_handle,
+                cutoff_hz,
+            )
+        )
+
+    def hpf_node_get_cutoff(
+        self,
+        hpf_node_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Float32:
+        return self._lib.call["mmj_hpf_node_get_cutoff", Float32](hpf_node_handle)
+
+    def hpf_node_get_node(
+        self,
+        hpf_node_handle: OpaquePointer[MutExternalOrigin],
+    ) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_hpf_node_get_node", OpaquePointer[MutExternalOrigin]](
+            hpf_node_handle
+        )
+
+    def hpf_node_uninit(
+        self,
+        hpf_node_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(self._lib.call["mmj_hpf_node_uninit", Int32](hpf_node_handle))
+
+    def hpf_node_destroy(self, hpf_node_handle: OpaquePointer[MutExternalOrigin]):
+        self._lib.call["mmj_hpf_node_destroy", NoneType](hpf_node_handle)
+
     def delay_node_create(self) -> OpaquePointer[MutExternalOrigin]:
         return self._lib.call["mmj_delay_node_create", OpaquePointer[MutExternalOrigin]]()
 
@@ -637,6 +717,64 @@ struct MiniAudioCtypes:
 
     def delay_node_destroy(self, delay_node_handle: OpaquePointer[MutExternalOrigin]):
         self._lib.call["mmj_delay_node_destroy", NoneType](delay_node_handle)
+
+    def splitter_node_create(self) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_splitter_node_create", OpaquePointer[MutExternalOrigin]]()
+
+    def splitter_node_init(
+        self,
+        splitter_node_handle: OpaquePointer[MutExternalOrigin],
+        engine_handle: OpaquePointer[MutExternalOrigin],
+        channels: UInt32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_splitter_node_init", Int32](
+                splitter_node_handle,
+                engine_handle,
+                channels,
+            )
+        )
+
+    def splitter_node_set_output_bus_volume(
+        self,
+        splitter_node_handle: OpaquePointer[MutExternalOrigin],
+        bus_index: UInt32,
+        volume: Float32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_splitter_node_set_output_bus_volume", Int32](
+                splitter_node_handle,
+                bus_index,
+                volume,
+            )
+        )
+
+    def splitter_node_get_output_bus_volume(
+        self,
+        splitter_node_handle: OpaquePointer[MutExternalOrigin],
+        bus_index: UInt32,
+    ) -> Float32:
+        return self._lib.call["mmj_splitter_node_get_output_bus_volume", Float32](
+            splitter_node_handle,
+            bus_index,
+        )
+
+    def splitter_node_get_node(
+        self,
+        splitter_node_handle: OpaquePointer[MutExternalOrigin],
+    ) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_splitter_node_get_node", OpaquePointer[MutExternalOrigin]](
+            splitter_node_handle
+        )
+
+    def splitter_node_uninit(
+        self,
+        splitter_node_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(self._lib.call["mmj_splitter_node_uninit", Int32](splitter_node_handle))
+
+    def splitter_node_destroy(self, splitter_node_handle: OpaquePointer[MutExternalOrigin]):
+        self._lib.call["mmj_splitter_node_destroy", NoneType](splitter_node_handle)
 
     def resource_manager_create(self) -> OpaquePointer[MutExternalOrigin]:
         return self._lib.call["mmj_resource_manager_create", OpaquePointer[MutExternalOrigin]]()
@@ -805,6 +943,42 @@ struct MiniAudioCtypes:
             )
         )
 
+    def device_init_playback_f32_by_index(
+        self,
+        device_handle: OpaquePointer[MutExternalOrigin],
+        context_handle: OpaquePointer[MutExternalOrigin],
+        device_index: UInt32,
+        sample_rate: UInt32,
+        channels: UInt32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_device_init_playback_f32_by_index", Int32](
+                device_handle,
+                context_handle,
+                device_index,
+                sample_rate,
+                channels,
+            )
+        )
+
+    def device_init_capture_f32_by_index(
+        self,
+        device_handle: OpaquePointer[MutExternalOrigin],
+        context_handle: OpaquePointer[MutExternalOrigin],
+        device_index: UInt32,
+        sample_rate: UInt32,
+        channels: UInt32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_device_init_capture_f32_by_index", Int32](
+                device_handle,
+                context_handle,
+                device_index,
+                sample_rate,
+                channels,
+            )
+        )
+
     def device_start(
         self,
         device_handle: OpaquePointer[MutExternalOrigin],
@@ -849,6 +1023,56 @@ struct MiniAudioCtypes:
     ) -> Int:
         return Int(
             self._lib.call["mmj_device_get_channels", Int32](device_handle)
+        )
+
+    def device_set_callback_mode(
+        self,
+        device_handle: OpaquePointer[MutExternalOrigin],
+        mode: Int,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_device_set_callback_mode", Int32](
+                device_handle,
+                Int32(mode),
+            )
+        )
+
+    def device_get_callback_mode(
+        self,
+        device_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_device_get_callback_mode", Int32](device_handle)
+        )
+
+    def device_get_observed_frames(
+        self,
+        device_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int64:
+        return self._lib.call["mmj_device_get_observed_frames", Int64](device_handle)
+
+    def device_reset_observed_frames(
+        self,
+        device_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_device_reset_observed_frames", Int32](device_handle)
+        )
+
+    def device_wait_for_observed_frames(
+        self,
+        device_handle: OpaquePointer[MutExternalOrigin],
+        min_frames: UInt64,
+        timeout_ms: UInt32,
+        poll_interval_ms: UInt32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_device_wait_for_observed_frames", Int32](
+                device_handle,
+                min_frames,
+                timeout_ms,
+                poll_interval_ms,
+            )
         )
 
     def device_set_master_volume_f32(
@@ -950,3 +1174,210 @@ struct MiniAudioCtypes:
 
     def decoder_destroy(self, decoder_handle: OpaquePointer[MutExternalOrigin]):
         self._lib.call["mmj_decoder_destroy", NoneType](decoder_handle)
+
+    def encoder_create(self) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_encoder_create", OpaquePointer[MutExternalOrigin]]()
+
+    def encoder_init_wav_file_f32(
+        self,
+        encoder_handle: OpaquePointer[MutExternalOrigin],
+        output_path: String,
+        channels: UInt32,
+        sample_rate: UInt32,
+    ) -> Int:
+        var output_path_c = output_path + "\x00"
+        return Int(
+            self._lib.call["mmj_encoder_init_wav_file_f32", Int32](
+                encoder_handle,
+                output_path_c.as_bytes().unsafe_ptr(),
+                channels,
+                sample_rate,
+            )
+        )
+
+    def encoder_write_silence_f32(
+        self,
+        encoder_handle: OpaquePointer[MutExternalOrigin],
+        frame_count: UInt64,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_encoder_write_silence_f32", Int32](
+                encoder_handle,
+                frame_count,
+            )
+        )
+
+    def encoder_uninit(
+        self,
+        encoder_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_encoder_uninit", Int32](encoder_handle)
+        )
+
+    def encoder_destroy(self, encoder_handle: OpaquePointer[MutExternalOrigin]):
+        self._lib.call["mmj_encoder_destroy", NoneType](encoder_handle)
+
+    # === Memory-based I/O methods ===
+
+    def playback_from_buffer_create(self) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_playback_from_buffer_create", OpaquePointer[MutExternalOrigin]]()
+
+    def playback_from_buffer_init_f32(
+        self,
+        playback_handle: OpaquePointer[MutExternalOrigin],
+        sample_rate: UInt32,
+        channels: UInt32,
+        buffer_ptr: UnsafePointer[Float32],
+        buffer_frame_count: UInt64,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_playback_from_buffer_init_f32", Int32](
+                playback_handle,
+                sample_rate,
+                channels,
+                buffer_ptr,
+                buffer_frame_count,
+            )
+        )
+
+    def playback_from_buffer_start(
+        self, playback_handle: OpaquePointer[MutExternalOrigin]
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_playback_from_buffer_start", Int32](playback_handle)
+        )
+
+    def playback_from_buffer_stop(
+        self, playback_handle: OpaquePointer[MutExternalOrigin]
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_playback_from_buffer_stop", Int32](playback_handle)
+        )
+
+    def playback_from_buffer_is_finished(
+        self, playback_handle: OpaquePointer[MutExternalOrigin]
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_playback_from_buffer_is_finished", Int32](playback_handle)
+        )
+
+    def playback_from_buffer_get_position_in_frames(
+        self, playback_handle: OpaquePointer[MutExternalOrigin]
+    ) -> Int64:
+        return self._lib.call["mmj_playback_from_buffer_get_position_in_frames", Int64](
+            playback_handle
+        )
+
+    def playback_from_buffer_uninit(
+        self, playback_handle: OpaquePointer[MutExternalOrigin]
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_playback_from_buffer_uninit", Int32](playback_handle)
+        )
+
+    def playback_from_buffer_destroy(
+        self, playback_handle: OpaquePointer[MutExternalOrigin]
+    ):
+        self._lib.call["mmj_playback_from_buffer_destroy", NoneType](playback_handle)
+
+    def capture_to_buffer_create(self) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_capture_to_buffer_create", OpaquePointer[MutExternalOrigin]]()
+
+    def capture_to_buffer_init_f32(
+        self,
+        capture_handle: OpaquePointer[MutExternalOrigin],
+        sample_rate: UInt32,
+        channels: UInt32,
+        buffer_ptr: UnsafePointer[Float32],
+        buffer_frame_capacity: UInt64,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_capture_to_buffer_init_f32", Int32](
+                capture_handle,
+                sample_rate,
+                channels,
+                buffer_ptr,
+                buffer_frame_capacity,
+            )
+        )
+
+    def capture_to_buffer_start(
+        self, capture_handle: OpaquePointer[MutExternalOrigin]
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_capture_to_buffer_start", Int32](capture_handle)
+        )
+
+    def capture_to_buffer_stop(
+        self, capture_handle: OpaquePointer[MutExternalOrigin]
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_capture_to_buffer_stop", Int32](capture_handle)
+        )
+
+    def capture_to_buffer_get_frames_captured(
+        self, capture_handle: OpaquePointer[MutExternalOrigin]
+    ) -> Int64:
+        return self._lib.call["mmj_capture_to_buffer_get_frames_captured", Int64](
+            capture_handle
+        )
+
+    def capture_to_buffer_reset(
+        self, capture_handle: OpaquePointer[MutExternalOrigin]
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_capture_to_buffer_reset", Int32](capture_handle)
+        )
+
+    def capture_to_buffer_uninit(
+        self, capture_handle: OpaquePointer[MutExternalOrigin]
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_capture_to_buffer_uninit", Int32](capture_handle)
+        )
+
+    def capture_to_buffer_destroy(
+        self, capture_handle: OpaquePointer[MutExternalOrigin]
+    ):
+        self._lib.call["mmj_capture_to_buffer_destroy", NoneType](capture_handle)
+
+    # User-defined callback registration methods
+    
+    def device_set_data_callback(
+        self,
+        device_handle: OpaquePointer[MutExternalOrigin],
+        callback: OpaquePointer[MutExternalOrigin],
+        user_data: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_device_set_data_callback", Int32](
+                device_handle, callback, user_data
+            )
+        )
+
+    def device_set_stop_callback(
+        self,
+        device_handle: OpaquePointer[MutExternalOrigin],
+        callback: OpaquePointer[MutExternalOrigin],
+        user_data: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_device_set_stop_callback", Int32](
+                device_handle, callback, user_data
+            )
+        )
+
+    def device_clear_callbacks(
+        self, device_handle: OpaquePointer[MutExternalOrigin]
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_device_clear_callbacks", Int32](device_handle)
+        )
+
+    # Test helper for user callbacks
+    
+    def device_test_callback_smoke(self, duration_ms: UInt32) -> Int:
+        return Int(
+            self._lib.call["mmj_device_test_callback_smoke", Int32](duration_ms)
+        )

@@ -141,6 +141,14 @@ For implementation tracking, see `docs/binding-coverage.md`.
 
 	This validates a reverb-like chain (sound -> LPF -> delay -> endpoint).
 
+- Run splitter (dry/wet) smoke:
+
+	```bash
+	MINIAUDIO_SPLITTER_FILE=/absolute/path/to/sample.wav pixi run run-ffi
+	```
+
+	This validates signal branching via splitter node (sound -> LPF -> splitter with dual outputs -> endpoint). Volume control is applied per-bus (bus 0 and bus 1) to demonstrate dry/wet mixing.
+
 - Run resource manager smoke with an audio file:
 
 	```bash

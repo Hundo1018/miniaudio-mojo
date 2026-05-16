@@ -251,6 +251,35 @@ struct MiniAudioSoundHandle:
                 )
             )
 
+    def get_cursor_in_pcm_frames(self, bridge: MiniAudioCtypes) raises -> Int64:
+        var cursor = bridge.sound_get_cursor_in_pcm_frames(self.raw)
+        if cursor < 0:
+            var error_code = Int(cursor)
+            raise Error(
+                format_result_error(
+                    bridge,
+                    "sound get cursor failed",
+                    error_code,
+                )
+            )
+        return cursor
+
+    def get_time_in_milliseconds(self, bridge: MiniAudioCtypes) raises -> Int64:
+        var time_ms = bridge.sound_get_time_in_milliseconds(self.raw)
+        if time_ms < 0:
+            var error_code = Int(time_ms)
+            raise Error(
+                format_result_error(
+                    bridge,
+                    "sound get time failed",
+                    error_code,
+                )
+            )
+        return time_ms
+
+    def is_finished(self, bridge: MiniAudioCtypes) -> Bool:
+        return bridge.sound_is_finished(self.raw)
+
     def get_node(self, bridge: MiniAudioCtypes) raises -> OpaquePointer[MutExternalOrigin]:
         var node = bridge.sound_get_node(self.raw)
         if node == miniaudio_null_handle():
@@ -333,6 +362,70 @@ struct MiniAudioLpfNodeHandle:
         self.raw = miniaudio_null_handle()
 
 
+struct MiniAudioHpfNodeHandle:
+    var raw: OpaquePointer[MutExternalOrigin]
+    var initialized: Bool
+
+    def __init__(out self, bridge: MiniAudioCtypes) raises:
+        self.raw = bridge.hpf_node_create()
+        self.initialized = False
+        if self.raw == miniaudio_null_handle():
+            raise Error("hpf_node_create failed")
+
+    def init(
+        mut self,
+        bridge: MiniAudioCtypes,
+        engine: MiniAudioEngineHandle,
+        channels: UInt32,
+        sample_rate: UInt32,
+        cutoff_hz: Float32,
+        order: UInt32,
+    ) raises:
+        var result = bridge.hpf_node_init(
+            self.raw,
+            engine.raw,
+            channels,
+            sample_rate,
+            cutoff_hz,
+            order,
+        )
+        if result != 0:
+            raise Error(format_result_error(bridge, "hpf node init failed", result))
+        self.initialized = True
+
+    def set_cutoff(
+        self,
+        bridge: MiniAudioCtypes,
+        cutoff_hz: Float32,
+    ) raises:
+        var result = bridge.hpf_node_set_cutoff(self.raw, cutoff_hz)
+        if result != 0:
+            raise Error(format_result_error(bridge, "hpf node set cutoff failed", result))
+
+    def get_cutoff(self, bridge: MiniAudioCtypes) raises -> Float32:
+        var cutoff = bridge.hpf_node_get_cutoff(self.raw)
+        if cutoff < 0.0:
+            raise Error("hpf node get cutoff failed")
+        return cutoff
+
+    def get_node(self, bridge: MiniAudioCtypes) raises -> OpaquePointer[MutExternalOrigin]:
+        var node = bridge.hpf_node_get_node(self.raw)
+        if node == miniaudio_null_handle():
+            raise Error("hpf node not available")
+        return node
+
+    def close(mut self, bridge: MiniAudioCtypes):
+        if self.raw == miniaudio_null_handle():
+            return
+
+        if self.initialized:
+            _ = bridge.hpf_node_uninit(self.raw)
+            self.initialized = False
+
+        bridge.hpf_node_destroy(self.raw)
+        self.raw = miniaudio_null_handle()
+
+
 struct MiniAudioDelayNodeHandle:
     var raw: OpaquePointer[MutExternalOrigin]
     var initialized: Bool
@@ -412,6 +505,69 @@ struct MiniAudioDelayNodeHandle:
             self.initialized = False
 
         bridge.delay_node_destroy(self.raw)
+        self.raw = miniaudio_null_handle()
+
+
+struct MiniAudioSplitterNodeHandle:
+    var raw: OpaquePointer[MutExternalOrigin]
+    var initialized: Bool
+
+    def __init__(out self, bridge: MiniAudioCtypes) raises:
+        self.raw = bridge.splitter_node_create()
+        self.initialized = False
+        if self.raw == miniaudio_null_handle():
+            raise Error("splitter_node_create failed")
+
+    def init(
+        mut self,
+        bridge: MiniAudioCtypes,
+        engine: MiniAudioEngineHandle,
+        channels: UInt32,
+    ) raises:
+        var result = bridge.splitter_node_init(
+            self.raw,
+            engine.raw,
+            channels,
+        )
+        if result != 0:
+            raise Error(format_result_error(bridge, "splitter node init failed", result))
+        self.initialized = True
+
+    def set_output_bus_volume(
+        self,
+        bridge: MiniAudioCtypes,
+        bus_index: UInt32,
+        volume: Float32,
+    ) raises:
+        var result = bridge.splitter_node_set_output_bus_volume(self.raw, bus_index, volume)
+        if result != 0:
+            raise Error(format_result_error(bridge, "splitter node set output bus volume failed", result))
+
+    def get_output_bus_volume(
+        self,
+        bridge: MiniAudioCtypes,
+        bus_index: UInt32,
+    ) raises -> Float32:
+        var volume = bridge.splitter_node_get_output_bus_volume(self.raw, bus_index)
+        if volume < 0.0:
+            raise Error("splitter node get output bus volume failed")
+        return volume
+
+    def get_node(self, bridge: MiniAudioCtypes) raises -> OpaquePointer[MutExternalOrigin]:
+        var node = bridge.splitter_node_get_node(self.raw)
+        if node == miniaudio_null_handle():
+            raise Error("splitter node not available")
+        return node
+
+    def close(mut self, bridge: MiniAudioCtypes):
+        if self.raw == miniaudio_null_handle():
+            return
+
+        if self.initialized:
+            _ = bridge.splitter_node_uninit(self.raw)
+            self.initialized = False
+
+        bridge.splitter_node_destroy(self.raw)
         self.raw = miniaudio_null_handle()
 
 
@@ -640,6 +796,31 @@ struct MiniAudioDeviceHandle:
             raise Error(format_result_error(bridge, "device init playback failed", result))
         self.initialized = True
 
+    def init_playback_f32_by_index(
+        mut self,
+        bridge: MiniAudioCtypes,
+        context: MiniAudioContextHandle,
+        device_index: UInt32,
+        sample_rate: UInt32,
+        channels: UInt32,
+    ) raises:
+        var result = bridge.device_init_playback_f32_by_index(
+            self.raw,
+            context.raw,
+            device_index,
+            sample_rate,
+            channels,
+        )
+        if result != 0:
+            raise Error(
+                format_result_error(
+                    bridge,
+                    "device init playback by index failed",
+                    result,
+                )
+            )
+        self.initialized = True
+
     def init_capture_f32(
         mut self,
         bridge: MiniAudioCtypes,
@@ -649,6 +830,31 @@ struct MiniAudioDeviceHandle:
         var result = bridge.device_init_capture_f32(self.raw, sample_rate, channels)
         if result != 0:
             raise Error(format_result_error(bridge, "device init capture failed", result))
+        self.initialized = True
+
+    def init_capture_f32_by_index(
+        mut self,
+        bridge: MiniAudioCtypes,
+        context: MiniAudioContextHandle,
+        device_index: UInt32,
+        sample_rate: UInt32,
+        channels: UInt32,
+    ) raises:
+        var result = bridge.device_init_capture_f32_by_index(
+            self.raw,
+            context.raw,
+            device_index,
+            sample_rate,
+            channels,
+        )
+        if result != 0:
+            raise Error(
+                format_result_error(
+                    bridge,
+                    "device init capture by index failed",
+                    result,
+                )
+            )
         self.initialized = True
 
     def init_duplex_f32(
@@ -713,6 +919,45 @@ struct MiniAudioDeviceHandle:
         if result < 0:
             raise Error(format_result_error(bridge, "device get channels failed", result))
         return result
+
+    def set_callback_mode(self, bridge: MiniAudioCtypes, mode: Int) raises:
+        var result = bridge.device_set_callback_mode(self.raw, mode)
+        if result != 0:
+            raise Error(format_result_error(bridge, "device set callback mode failed", result))
+
+    def get_callback_mode(self, bridge: MiniAudioCtypes) raises -> Int:
+        var result = bridge.device_get_callback_mode(self.raw)
+        if result < 0:
+            raise Error(format_result_error(bridge, "device get callback mode failed", result))
+        return result
+
+    def get_observed_frames(self, bridge: MiniAudioCtypes) raises -> Int64:
+        var frames = bridge.device_get_observed_frames(self.raw)
+        if frames < 0:
+            var code = Int(frames)
+            raise Error(format_result_error(bridge, "device get observed frames failed", code))
+        return frames
+
+    def reset_observed_frames(self, bridge: MiniAudioCtypes) raises:
+        var result = bridge.device_reset_observed_frames(self.raw)
+        if result != 0:
+            raise Error(format_result_error(bridge, "device reset observed frames failed", result))
+
+    def wait_for_observed_frames(
+        self,
+        bridge: MiniAudioCtypes,
+        min_frames: UInt64,
+        timeout_ms: UInt32,
+        poll_interval_ms: UInt32,
+    ) raises:
+        var result = bridge.device_wait_for_observed_frames(
+            self.raw,
+            min_frames,
+            timeout_ms,
+            poll_interval_ms,
+        )
+        if result != 0:
+            raise Error(format_result_error(bridge, "device wait observed frames failed", result))
 
     def close(mut self, bridge: MiniAudioCtypes):
         if self.raw == miniaudio_null_handle():
