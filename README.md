@@ -1,3 +1,4 @@
+| Biquad EQ (MVP - identity filter) | implemented (MVP) |
 # miniaudio-mojo
 
 Mojo-first bindings project for miniaudio.

@@ -14,8 +14,9 @@ This document tracks miniaudio binding coverage in this repository.
 Estimated totals:
 
 - Upstream exported API (`MA_API`): large surface (roughly hundreds of functions).
-- Current shim exports (`mmj_*`): 83 public functions.
+- Current shim exports (`mmj_*`): 90 public functions (Phase 2 adds 7 biquad functions).
 - Effective coverage mode: foundational I/O path coverage, not high-level feature parity.
+| Biquad EQ node (MVP) | implemented (MVP) | peaking EQ with identity filter coefficients + q parameter validation |
 
 ## Module status
 
