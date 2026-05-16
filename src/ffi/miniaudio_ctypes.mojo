@@ -1459,3 +1459,97 @@ struct MiniAudioCtypes:
         return Int(
             self._lib.call["mmj_device_test_callback_smoke", Int32](duration_ms)
         )
+
+    # Biquad EQ node FFI methods
+
+    def biquad_node_create(self) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_biquad_node_create", OpaquePointer[MutExternalOrigin]]()
+
+    def biquad_node_init(
+        self,
+        biquad_node_handle: OpaquePointer[MutExternalOrigin],
+        engine_handle: OpaquePointer[MutExternalOrigin],
+        channels: UInt32,
+        b0: Float32,
+        b1: Float32,
+        b2: Float32,
+        a0: Float32,
+        a1: Float32,
+        a2: Float32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_biquad_node_init", Int32](
+                biquad_node_handle,
+                engine_handle,
+                channels,
+                b0,
+                b1,
+                b2,
+                a0,
+                a1,
+                a2,
+            )
+        )
+
+    def biquad_node_reinit(
+        self,
+        biquad_node_handle: OpaquePointer[MutExternalOrigin],
+        b0: Float32,
+        b1: Float32,
+        b2: Float32,
+        a0: Float32,
+        a1: Float32,
+        a2: Float32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_biquad_node_reinit", Int32](
+                biquad_node_handle, b0, b1, b2, a0, a1, a2
+            )
+        )
+
+    def biquad_peaking_eq_coefficients(
+        self,
+        sample_rate: UInt32,
+        gain_db: Float64,
+        q: Float64,
+        frequency: Float64,
+        out_b0: OpaquePointer[MutExternalOrigin],
+        out_b1: OpaquePointer[MutExternalOrigin],
+        out_b2: OpaquePointer[MutExternalOrigin],
+        out_a0: OpaquePointer[MutExternalOrigin],
+        out_a1: OpaquePointer[MutExternalOrigin],
+        out_a2: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_biquad_peaking_eq_coefficients", Int32](
+                sample_rate,
+                gain_db,
+                q,
+                frequency,
+                out_b0,
+                out_b1,
+                out_b2,
+                out_a0,
+                out_a1,
+                out_a2,
+            )
+        )
+
+    def biquad_node_get_node(
+        self, biquad_node_handle: OpaquePointer[MutExternalOrigin]
+    ) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_biquad_node_get_node", OpaquePointer[MutExternalOrigin]](
+            biquad_node_handle
+        )
+
+    def biquad_node_uninit(
+        self, biquad_node_handle: OpaquePointer[MutExternalOrigin]
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_biquad_node_uninit", Int32](biquad_node_handle)
+        )
+
+    def biquad_node_destroy(
+        self, biquad_node_handle: OpaquePointer[MutExternalOrigin]
+    ) -> None:
+        self._lib.call["mmj_biquad_node_destroy", NoneType](biquad_node_handle)

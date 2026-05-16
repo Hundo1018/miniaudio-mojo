@@ -1,4 +1,5 @@
 from miniaudio import run_playback_file_smoke, run_playback_smoke
+from miniaudio_biquad import run_biquad_invalid_q_smoke, run_biquad_peaking_eq_smoke
 from miniaudio_capture import run_capture_file_smoke, run_capture_smoke, run_encoder_wav_smoke
 from miniaudio_context import run_context_smoke
 from miniaudio_decoder import run_decoder_read_smoke, run_decoder_smoke
@@ -209,3 +210,13 @@ def main() raises:
     if device_user_callback_smoke != "":
         print("Running device user callback smoke")
         run_device_user_callback_smoke()
+
+    var biquad_peaking_eq_smoke = getenv("MINIAUDIO_BIQUAD_PEAKING_EQ_SMOKE")
+    if biquad_peaking_eq_smoke != "":
+        print("Running biquad peaking EQ smoke")
+        run_biquad_peaking_eq_smoke()
+
+    var biquad_invalid_q_smoke = getenv("MINIAUDIO_BIQUAD_INVALID_Q_SMOKE")
+    if biquad_invalid_q_smoke != "":
+        print("Running biquad invalid q smoke")
+        run_biquad_invalid_q_smoke()

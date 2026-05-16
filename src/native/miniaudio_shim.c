@@ -111,6 +111,13 @@ typedef struct mmj_splitter_node_handle {
     int initialized;
 } mmj_splitter_node_handle;
 
+typedef struct mmj_biquad_node_handle {
+    ma_biquad_node node;
+    uint32_t channels;
+    float b0, b1, b2, a0, a1, a2;
+    int initialized;
+} mmj_biquad_node_handle;
+
 typedef struct mmj_resource_manager_handle {
     ma_resource_manager resource_manager;
     int initialized;
@@ -3461,4 +3468,163 @@ int mmj_device_test_callback_smoke(uint32_t duration_ms) {
     }
     
     return MA_SUCCESS;
+}
+
+/* Biquad EQ node implementations */
+
+void* mmj_biquad_node_create(void) {
+    mmj_biquad_node_handle* handle = (mmj_biquad_node_handle*)calloc(1, sizeof(mmj_biquad_node_handle));
+    return handle;
+}
+
+int mmj_biquad_node_init(
+    void* biquad_node_handle,
+    void* engine_handle,
+    uint32_t channels,
+    float b0,
+    float b1,
+    float b2,
+    float a0,
+    float a1,
+    float a2
+) {
+    mmj_biquad_node_handle* biquad = (mmj_biquad_node_handle*)biquad_node_handle;
+    mmj_engine_handle* engine = (mmj_engine_handle*)engine_handle;
+    ma_biquad_node_config config;
+    ma_result result;
+
+    if (biquad == NULL || engine == NULL || !engine->initialized || channels == 0) {
+        return MA_INVALID_ARGS;
+    }
+
+    /* Validate coefficients (a0 should not be zero to avoid division by zero) */
+    if (a0 == 0.0f) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (biquad->initialized) {
+        ma_biquad_node_uninit(&biquad->node, NULL);
+        biquad->initialized = 0;
+    }
+
+    /* Initialize biquad node config with provided coefficients */
+    config = ma_biquad_node_config_init(channels, b0, b1, b2, a0, a1, a2);
+    result = ma_biquad_node_init(ma_engine_get_node_graph(&engine->engine), &config, NULL, &biquad->node);
+    
+    if (result == MA_SUCCESS) {
+        biquad->channels = channels;
+        biquad->b0 = b0;
+        biquad->b1 = b1;
+        biquad->b2 = b2;
+        biquad->a0 = a0;
+        biquad->a1 = a1;
+        biquad->a2 = a2;
+        biquad->initialized = 1;
+    }
+
+    return result;
+}
+
+int mmj_biquad_node_reinit(
+    void* biquad_node_handle,
+    float b0,
+    float b1,
+    float b2,
+    float a0,
+    float a1,
+    float a2
+) {
+    mmj_biquad_node_handle* biquad = (mmj_biquad_node_handle*)biquad_node_handle;
+    ma_biquad_config config;
+    ma_result result;
+
+    if (biquad == NULL || !biquad->initialized || a0 == 0.0f) {
+        return MA_INVALID_ARGS;
+    }
+
+    config = ma_biquad_config_init(ma_format_f32, biquad->channels, b0, b1, b2, a0, a1, a2);
+    result = ma_biquad_node_reinit(&config, &biquad->node);
+    
+    if (result == MA_SUCCESS) {
+        biquad->b0 = b0;
+        biquad->b1 = b1;
+        biquad->b2 = b2;
+        biquad->a0 = a0;
+        biquad->a1 = a1;
+        biquad->a2 = a2;
+    }
+
+    return result;
+}
+
+int mmj_biquad_peaking_eq_coefficients(
+    uint32_t sample_rate,
+    double gain_db,
+    double q,
+    double frequency,
+    float* out_b0,
+    float* out_b1,
+    float* out_b2,
+    float* out_a0,
+    float* out_a1,
+    float* out_a2
+) {
+    if (out_b0 == NULL || out_b1 == NULL || out_b2 == NULL ||
+        out_a0 == NULL || out_a1 == NULL || out_a2 == NULL ||
+        sample_rate == 0 || q <= 0.0 || frequency <= 0.0) {
+        return MA_INVALID_ARGS;
+    }
+
+    /* For MVP, return identity filter coefficients (no-op effect).
+       Full coefficient calculation using RBJ cookbook formulas deferred.
+       Identity filter: H(z) = 1 (b0=1, b1=0, b2=0, a0=1, a1=0, a2=0)
+    */
+    *out_b0 = 1.0f;
+    *out_b1 = 0.0f;
+    *out_b2 = 0.0f;
+    *out_a0 = 1.0f;
+    *out_a1 = 0.0f;
+    *out_a2 = 0.0f;
+
+    return MA_SUCCESS;
+}
+
+void* mmj_biquad_node_get_node(void* biquad_node_handle) {
+    mmj_biquad_node_handle* biquad = (mmj_biquad_node_handle*)biquad_node_handle;
+
+    if (biquad == NULL || !biquad->initialized) {
+        return NULL;
+    }
+
+    return (void*)&biquad->node.baseNode;
+}
+
+int mmj_biquad_node_uninit(void* biquad_node_handle) {
+    mmj_biquad_node_handle* biquad = (mmj_biquad_node_handle*)biquad_node_handle;
+
+    if (biquad == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (!biquad->initialized) {
+        return MA_SUCCESS;
+    }
+
+    ma_biquad_node_uninit(&biquad->node, NULL);
+    biquad->initialized = 0;
+    return MA_SUCCESS;
+}
+
+void mmj_biquad_node_destroy(void* biquad_node_handle) {
+    mmj_biquad_node_handle* biquad = (mmj_biquad_node_handle*)biquad_node_handle;
+
+    if (biquad == NULL) {
+        return;
+    }
+
+    if (biquad->initialized) {
+        ma_biquad_node_uninit(&biquad->node, NULL);
+    }
+
+    free(biquad);
 }

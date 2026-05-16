@@ -374,6 +374,44 @@ int mmj_device_clear_callbacks(void* device_handle);
 /* Test helper for user callbacks */
 int mmj_device_test_callback_smoke(uint32_t duration_ms);
 
+/* Biquad EQ node APIs (for node graph-based effect processing) */
+void* mmj_biquad_node_create(void);
+int mmj_biquad_node_init(
+    void* biquad_node_handle,
+    void* engine_handle,
+    uint32_t channels,
+    float b0,
+    float b1,
+    float b2,
+    float a0,
+    float a1,
+    float a2
+);
+int mmj_biquad_node_reinit(
+    void* biquad_node_handle,
+    float b0,
+    float b1,
+    float b2,
+    float a0,
+    float a1,
+    float a2
+);
+int mmj_biquad_peaking_eq_coefficients(
+    uint32_t sample_rate,
+    double gain_db,
+    double q,
+    double frequency,
+    float* out_b0,
+    float* out_b1,
+    float* out_b2,
+    float* out_a0,
+    float* out_a1,
+    float* out_a2
+);
+void* mmj_biquad_node_get_node(void* biquad_node_handle);
+int mmj_biquad_node_uninit(void* biquad_node_handle);
+void mmj_biquad_node_destroy(void* biquad_node_handle);
+
 #ifdef __cplusplus
 }
 #endif
