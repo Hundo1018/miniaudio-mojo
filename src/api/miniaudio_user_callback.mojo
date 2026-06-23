@@ -36,8 +36,8 @@ struct DeviceWithUserCallback:
         """Initialize the user callback device wrapper."""
         self._ctypes = ctypes
         self._device_handle = device_handle
-        self._callback_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
-        self._user_data_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
+        self._callback_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0))
+        self._user_data_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0))
         self._initialized = True
 
     def set_callback(

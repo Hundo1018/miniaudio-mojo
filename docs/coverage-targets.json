@@ -1,0 +1,120 @@
+{
+  "shim_line_coverage_threshold": 95,
+  "families": {
+    "decoder": {
+      "done": true,
+      "dod_level": "L3",
+      "notes": "L1+L2+L3 complete: 6 binding tests + 9 API tests (behavioral, seek/cursor/length invariants)"
+    },
+    "encoder": {
+      "done": false,
+      "dod_level": "L3",
+      "notes": "not yet started"
+    },
+    "device": {
+      "done": false,
+      "dod_level": "L3",
+      "notes": "not yet started"
+    },
+    "engine": {
+      "done": false,
+      "dod_level": "L3",
+      "notes": "not yet started"
+    },
+    "sound": {
+      "done": false,
+      "dod_level": "L3",
+      "notes": "not yet started"
+    },
+    "sound_group": {
+      "done": false,
+      "dod_level": "L3",
+      "notes": "not yet started"
+    },
+    "resource_manager": {
+      "done": false,
+      "dod_level": "L3",
+      "notes": "not yet started"
+    },
+    "node": {
+      "done": false,
+      "dod_level": "L2",
+      "notes": "not yet started"
+    },
+    "spatializer": {
+      "done": false,
+      "dod_level": "L2",
+      "notes": "not yet started"
+    },
+    "data_source": {
+      "done": false,
+      "dod_level": "L2",
+      "notes": "not yet started"
+    },
+    "ring_buffer": {
+      "done": false,
+      "dod_level": "L2",
+      "notes": "not yet started"
+    },
+    "channel_converter": {
+      "done": false,
+      "dod_level": "L2",
+      "notes": "not yet started"
+    },
+    "data_converter": {
+      "done": false,
+      "dod_level": "L2",
+      "notes": "not yet started"
+    },
+    "resampler": {
+      "done": false,
+      "dod_level": "L2",
+      "notes": "not yet started"
+    },
+    "waveform": {
+      "done": false,
+      "dod_level": "L2",
+      "notes": "not yet started"
+    },
+    "noise": {
+      "done": false,
+      "dod_level": "L2",
+      "notes": "not yet started"
+    },
+    "biquad": {
+      "done": false,
+      "dod_level": "L2",
+      "notes": "not yet started"
+    },
+    "sync": {
+      "done": false,
+      "dod_level": "L2",
+      "notes": "not yet started"
+    },
+    "log": {
+      "done": false,
+      "dod_level": "L2",
+      "notes": "not yet started"
+    },
+    "context": {
+      "done": false,
+      "dod_level": "L2",
+      "notes": "not yet started"
+    },
+    "vfs": {
+      "done": false,
+      "dod_level": "L2",
+      "notes": "not yet started"
+    },
+    "audio_buffer": {
+      "done": false,
+      "dod_level": "L2",
+      "notes": "not yet started"
+    },
+    "paged_audio_buffer": {
+      "done": false,
+      "dod_level": "L2",
+      "notes": "not yet started"
+    }
+  }
+}

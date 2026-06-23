@@ -95,7 +95,7 @@ def try_decoder_file_output_format_init(
     sample_format: Int,
     format_name: String,
 ) raises -> Bool:
-    var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
+    var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0))
     var decoder = bridge.decoder_create()
     if decoder == null_ptr:
         raise Error("decoder_create failed")
@@ -126,7 +126,7 @@ def try_decoder_file_output_format_init(
 
 def run_decoder_output_format_matrix_smoke(file_path: String) raises:
     var bridge = MiniAudioCtypes("./build/libminiaudio_mojo.so")
-    var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
+    var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0))
     var decoder = bridge.decoder_create()
     var success_count = Int(0)
 
@@ -164,7 +164,7 @@ def try_decoder_memory_output_format_init(
     sample_format: Int,
     format_name: String,
 ) raises -> Bool:
-    var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
+    var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0))
     var decoder = bridge.decoder_create()
     if decoder == null_ptr:
         raise Error("decoder_create failed")
@@ -196,7 +196,7 @@ def try_decoder_memory_output_format_init(
 def run_decoder_memory_output_format_matrix_smoke() raises:
     var bridge = MiniAudioCtypes("./build/libminiaudio_mojo.so")
     var wav_data = _embedded_wav_stereo_2f()
-    var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
+    var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0))
     var decoder = bridge.decoder_create()
     var success_count = Int(0)
 
@@ -226,3 +226,20 @@ def run_decoder_memory_output_format_matrix_smoke() raises:
         raise Error("decoder memory output format matrix smoke found no supported formats")
 
     print("decoder memory output format matrix smoke ok (success_count:", success_count, ")")
+
+
+def run_decoder_vfs_smoke(file_path: String) raises:
+    var bridge = MiniAudioCtypes("./build/libminiaudio_mojo.so")
+    var decoder = MiniAudioDecoderHandle(bridge)
+    try:
+        decoder.init_file_vfs_f32(bridge, file_path, 2, 48000)
+        decoder.seek_to_pcm_frame(bridge, 0)
+        var probe_read = decoder.read_probe_f32(bridge, 256)
+        if probe_read <= 0:
+            raise Error("decoder VFS smoke read 0 frames")
+    except e:
+        decoder.close(bridge)
+        raise e^
+
+    decoder.close(bridge)
+    print("decoder VFS smoke ok (init_vfs + seek + read)")

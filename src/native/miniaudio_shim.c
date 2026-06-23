@@ -5,6 +5,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include <wchar.h>
 #if defined(_WIN32)
 #include <windows.h>
 #else
@@ -65,13 +66,17 @@ typedef struct mmj_context_handle {
 
 typedef struct mmj_decoder_handle {
     ma_decoder decoder;
+    ma_default_vfs default_vfs;
     int initialized;
+    int vfs_initialized;
 } mmj_decoder_handle;
 
 typedef struct mmj_encoder_handle {
     ma_encoder encoder;
+    ma_default_vfs default_vfs;
     uint32_t channels;
     int initialized;
+    int vfs_initialized;
 } mmj_encoder_handle;
 
 typedef struct mmj_resampler_handle {
@@ -89,6 +94,47 @@ typedef struct mmj_channel_converter_handle {
     ma_channel_mix_mode mix_mode;
     int initialized;
 } mmj_channel_converter_handle;
+
+typedef struct mmj_data_converter_handle {
+    ma_data_converter converter;
+    uint32_t channels_in;
+    uint32_t channels_out;
+    uint32_t sample_rate_in;
+    uint32_t sample_rate_out;
+    int initialized;
+} mmj_data_converter_handle;
+
+typedef struct mmj_waveform_handle {
+    ma_waveform waveform;
+    uint32_t channels;
+    uint32_t sample_rate;
+    ma_waveform_type type;
+    double amplitude;
+    double frequency;
+    int initialized;
+} mmj_waveform_handle;
+
+typedef struct mmj_noise_handle {
+    ma_noise noise;
+    ma_noise_type type;
+    double amplitude;
+    int32_t seed;
+    uint32_t channels;
+    int initialized;
+} mmj_noise_handle;
+
+typedef struct mmj_spatializer_listener_handle {
+    ma_spatializer_listener listener;
+    uint32_t channels_out;
+    int initialized;
+} mmj_spatializer_listener_handle;
+
+typedef struct mmj_spatializer_handle {
+    ma_spatializer spatializer;
+    uint32_t channels_in;
+    uint32_t channels_out;
+    int initialized;
+} mmj_spatializer_handle;
 
 typedef struct mmj_pcm_rb_handle {
     ma_pcm_rb rb;
@@ -185,6 +231,58 @@ typedef struct mmj_resource_data_source_handle {
     ma_resource_manager_data_source data_source;
     int initialized;
 } mmj_resource_data_source_handle;
+
+typedef struct mmj_async_notification_poll_handle {
+    ma_async_notification_poll notification;
+    int initialized;
+} mmj_async_notification_poll_handle;
+
+typedef struct mmj_async_notification_event_handle {
+    ma_async_notification_event notification;
+    int initialized;
+} mmj_async_notification_event_handle;
+
+typedef struct mmj_job_queue_handle {
+    ma_job_queue queue;
+    int initialized;
+} mmj_job_queue_handle;
+
+typedef struct mmj_mutex_handle {
+    ma_mutex mutex;
+    int initialized;
+} mmj_mutex_handle;
+
+typedef struct mmj_event_handle {
+    ma_event event;
+    int initialized;
+} mmj_event_handle;
+
+typedef struct mmj_semaphore_handle {
+    ma_semaphore semaphore;
+    int initialized;
+} mmj_semaphore_handle;
+
+typedef struct mmj_spinlock_handle {
+    ma_spinlock spinlock;
+    int initialized;
+} mmj_spinlock_handle;
+
+typedef struct mmj_fence_handle {
+    ma_fence fence;
+    int initialized;
+} mmj_fence_handle;
+
+typedef struct mmj_custom_buffer_data_source_handle {
+    ma_data_source_base base;
+    const float* frames;
+    uint64_t frame_count;
+    uint32_t channels;
+    uint32_t sample_rate;
+    ma_format format;
+    uint64_t cursor;
+    int looping;
+    int initialized;
+} mmj_custom_buffer_data_source_handle;
 
 typedef struct mmj_log_handle {
     ma_log log;
@@ -2768,6 +2866,950 @@ void mmj_resource_manager_destroy(void* resource_manager_handle) {
     free(handle);
 }
 
+void* mmj_job_queue_create(void) {
+    mmj_job_queue_handle* handle = (mmj_job_queue_handle*)calloc(1, sizeof(mmj_job_queue_handle));
+    return handle;
+}
+
+int mmj_job_queue_init(void* queue_handle, uint32_t flags, uint32_t capacity) {
+    mmj_job_queue_handle* handle = (mmj_job_queue_handle*)queue_handle;
+    ma_job_queue_config config;
+    ma_result result;
+
+    if (handle == NULL || capacity == 0) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (handle->initialized) {
+        ma_job_queue_uninit(&handle->queue, NULL);
+        handle->initialized = 0;
+    }
+
+    config = ma_job_queue_config_init((ma_uint32)flags, (ma_uint32)capacity);
+    result = ma_job_queue_init(&config, NULL, &handle->queue);
+    if (result == MA_SUCCESS) {
+        handle->initialized = 1;
+    }
+
+    return (int)result;
+}
+
+int mmj_job_queue_post_custom(void* queue_handle, uint64_t data0, uint64_t data1) {
+    mmj_job_queue_handle* handle = (mmj_job_queue_handle*)queue_handle;
+    ma_job job;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    job = ma_job_init((ma_uint16)MA_JOB_TYPE_CUSTOM);
+    job.data.custom.proc = NULL;
+    job.data.custom.data0 = (ma_uintptr)data0;
+    job.data.custom.data1 = (ma_uintptr)data1;
+    return (int)ma_job_queue_post(&handle->queue, &job);
+}
+
+int mmj_job_queue_post_quit(void* queue_handle) {
+    mmj_job_queue_handle* handle = (mmj_job_queue_handle*)queue_handle;
+    ma_job job;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    job = ma_job_init((ma_uint16)MA_JOB_TYPE_QUIT);
+    return (int)ma_job_queue_post(&handle->queue, &job);
+}
+
+int64_t mmj_job_queue_next_code(void* queue_handle) {
+    mmj_job_queue_handle* handle = (mmj_job_queue_handle*)queue_handle;
+    ma_job job;
+    ma_result result;
+
+    if (handle == NULL || !handle->initialized) {
+        return (int64_t)MA_INVALID_ARGS;
+    }
+
+    memset(&job, 0, sizeof(job));
+    result = ma_job_queue_next(&handle->queue, &job);
+    if (result == MA_SUCCESS) {
+        return (int64_t)job.toc.breakup.code;
+    }
+
+    return (int64_t)result;
+}
+
+int mmj_job_queue_uninit(void* queue_handle) {
+    mmj_job_queue_handle* handle = (mmj_job_queue_handle*)queue_handle;
+
+    if (handle == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (!handle->initialized) {
+        return MA_SUCCESS;
+    }
+
+    ma_job_queue_uninit(&handle->queue, NULL);
+    handle->initialized = 0;
+    return MA_SUCCESS;
+}
+
+void mmj_job_queue_destroy(void* queue_handle) {
+    mmj_job_queue_handle* handle = (mmj_job_queue_handle*)queue_handle;
+
+    if (handle == NULL) {
+        return;
+    }
+
+    if (handle->initialized) {
+        ma_job_queue_uninit(&handle->queue, NULL);
+        handle->initialized = 0;
+    }
+
+    free(handle);
+}
+
+uint32_t mmj_job_queue_flag_non_blocking(void) {
+    return (uint32_t)MA_JOB_QUEUE_FLAG_NON_BLOCKING;
+}
+
+uint32_t mmj_job_type_quit(void) {
+    return (uint32_t)MA_JOB_TYPE_QUIT;
+}
+
+uint32_t mmj_job_type_custom(void) {
+    return (uint32_t)MA_JOB_TYPE_CUSTOM;
+}
+
+int mmj_job_queue_smoke(void) {
+    mmj_job_queue_handle handle;
+    int result;
+    int64_t next;
+
+    memset(&handle, 0, sizeof(handle));
+
+    result = mmj_job_queue_init(&handle, MA_JOB_QUEUE_FLAG_NON_BLOCKING, 8);
+    if (result != MA_SUCCESS) {
+        return result;
+    }
+
+    result = mmj_job_queue_post_custom(&handle, 11, 22);
+    if (result != MA_SUCCESS) {
+        mmj_job_queue_uninit(&handle);
+        return result;
+    }
+
+    next = mmj_job_queue_next_code(&handle);
+    if (next != (int64_t)MA_JOB_TYPE_CUSTOM) {
+        mmj_job_queue_uninit(&handle);
+        return (next < 0) ? (int)next : MA_ERROR;
+    }
+
+    next = mmj_job_queue_next_code(&handle);
+    if (next != (int64_t)MA_NO_DATA_AVAILABLE) {
+        mmj_job_queue_uninit(&handle);
+        return (next < 0) ? (int)next : MA_ERROR;
+    }
+
+    result = mmj_job_queue_post_quit(&handle);
+    if (result != MA_SUCCESS) {
+        mmj_job_queue_uninit(&handle);
+        return result;
+    }
+
+    next = mmj_job_queue_next_code(&handle);
+    if (next != (int64_t)MA_CANCELLED) {
+        mmj_job_queue_uninit(&handle);
+        return (next < 0) ? (int)next : MA_ERROR;
+    }
+
+    return mmj_job_queue_uninit(&handle);
+}
+
+int mmj_job_queue_invalid_args_smoke(void) {
+    mmj_job_queue_handle handle;
+    int result;
+
+    memset(&handle, 0, sizeof(handle));
+
+    result = mmj_job_queue_init(&handle, MA_JOB_QUEUE_FLAG_NON_BLOCKING, 0);
+    if (result != MA_INVALID_ARGS) {
+        return MA_ERROR;
+    }
+
+    result = mmj_job_queue_post_custom(NULL, 0, 0);
+    if (result != MA_INVALID_ARGS) {
+        return MA_ERROR;
+    }
+
+    if (mmj_job_queue_next_code(&handle) != (int64_t)MA_INVALID_ARGS) {
+        return MA_ERROR;
+    }
+
+    return MA_SUCCESS;
+}
+
+void* mmj_async_notification_poll_create(void) {
+    mmj_async_notification_poll_handle* handle = (mmj_async_notification_poll_handle*)calloc(1, sizeof(mmj_async_notification_poll_handle));
+    return handle;
+}
+
+int mmj_async_notification_poll_init(void* notification_handle) {
+    mmj_async_notification_poll_handle* handle = (mmj_async_notification_poll_handle*)notification_handle;
+    ma_result result;
+
+    if (handle == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (handle->initialized) {
+        return MA_SUCCESS;
+    }
+
+    memset(&handle->notification, 0, sizeof(handle->notification));
+    result = ma_async_notification_poll_init(&handle->notification);
+    if (result == MA_SUCCESS) {
+        handle->initialized = 1;
+    }
+
+    return (int)result;
+}
+
+int mmj_async_notification_poll_signal(void* notification_handle) {
+    mmj_async_notification_poll_handle* handle = (mmj_async_notification_poll_handle*)notification_handle;
+    int result;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    result = (int)ma_async_notification_signal((ma_async_notification*)&handle->notification);
+    if (ma_async_notification_poll_is_signalled(&handle->notification)) {
+        return MA_SUCCESS;
+    }
+
+    return result;
+}
+
+int mmj_async_notification_poll_is_signalled(void* notification_handle) {
+    mmj_async_notification_poll_handle* handle = (mmj_async_notification_poll_handle*)notification_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    return (int)ma_async_notification_poll_is_signalled(&handle->notification);
+}
+
+int mmj_async_notification_poll_uninit(void* notification_handle) {
+    mmj_async_notification_poll_handle* handle = (mmj_async_notification_poll_handle*)notification_handle;
+
+    if (handle == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (!handle->initialized) {
+        return MA_SUCCESS;
+    }
+
+    handle->initialized = 0;
+    memset(&handle->notification, 0, sizeof(handle->notification));
+    return MA_SUCCESS;
+}
+
+void mmj_async_notification_poll_destroy(void* notification_handle) {
+    mmj_async_notification_poll_handle* handle = (mmj_async_notification_poll_handle*)notification_handle;
+
+    if (handle == NULL) {
+        return;
+    }
+
+    handle->initialized = 0;
+    free(handle);
+}
+
+void* mmj_async_notification_event_create(void) {
+    mmj_async_notification_event_handle* handle = (mmj_async_notification_event_handle*)calloc(1, sizeof(mmj_async_notification_event_handle));
+    return handle;
+}
+
+int mmj_async_notification_event_init(void* notification_handle) {
+    mmj_async_notification_event_handle* handle = (mmj_async_notification_event_handle*)notification_handle;
+    ma_result result;
+
+    if (handle == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (handle->initialized) {
+        ma_async_notification_event_uninit(&handle->notification);
+        handle->initialized = 0;
+    }
+
+    memset(&handle->notification, 0, sizeof(handle->notification));
+    result = ma_async_notification_event_init(&handle->notification);
+    if (result == MA_SUCCESS) {
+        handle->initialized = 1;
+    }
+
+    return (int)result;
+}
+
+int mmj_async_notification_event_signal(void* notification_handle) {
+    mmj_async_notification_event_handle* handle = (mmj_async_notification_event_handle*)notification_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    return (int)ma_async_notification_event_signal(&handle->notification);
+}
+
+int mmj_async_notification_event_wait(void* notification_handle) {
+    mmj_async_notification_event_handle* handle = (mmj_async_notification_event_handle*)notification_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    return (int)ma_async_notification_event_wait(&handle->notification);
+}
+
+int mmj_async_notification_event_uninit(void* notification_handle) {
+    mmj_async_notification_event_handle* handle = (mmj_async_notification_event_handle*)notification_handle;
+
+    if (handle == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (!handle->initialized) {
+        return MA_SUCCESS;
+    }
+
+    ma_async_notification_event_uninit(&handle->notification);
+    handle->initialized = 0;
+    memset(&handle->notification, 0, sizeof(handle->notification));
+    return MA_SUCCESS;
+}
+
+void mmj_async_notification_event_destroy(void* notification_handle) {
+    mmj_async_notification_event_handle* handle = (mmj_async_notification_event_handle*)notification_handle;
+
+    if (handle == NULL) {
+        return;
+    }
+
+    if (handle->initialized) {
+        ma_async_notification_event_uninit(&handle->notification);
+        handle->initialized = 0;
+    }
+
+    free(handle);
+}
+
+void* mmj_fence_create(void) {
+    mmj_fence_handle* handle = (mmj_fence_handle*)calloc(1, sizeof(mmj_fence_handle));
+    return handle;
+}
+
+int mmj_fence_init(void* fence_handle) {
+    mmj_fence_handle* handle = (mmj_fence_handle*)fence_handle;
+    ma_result result;
+
+    if (handle == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (handle->initialized) {
+        ma_fence_uninit(&handle->fence);
+        handle->initialized = 0;
+    }
+
+    result = ma_fence_init(&handle->fence);
+    if (result == MA_SUCCESS) {
+        handle->initialized = 1;
+    }
+
+    return (int)result;
+}
+
+int mmj_fence_wait(void* fence_handle) {
+    mmj_fence_handle* handle = (mmj_fence_handle*)fence_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    return (int)ma_fence_wait(&handle->fence);
+}
+
+int mmj_fence_uninit(void* fence_handle) {
+    mmj_fence_handle* handle = (mmj_fence_handle*)fence_handle;
+
+    if (handle == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (!handle->initialized) {
+        return MA_SUCCESS;
+    }
+
+    ma_fence_uninit(&handle->fence);
+    handle->initialized = 0;
+    return MA_SUCCESS;
+}
+
+void mmj_fence_destroy(void* fence_handle) {
+    mmj_fence_handle* handle = (mmj_fence_handle*)fence_handle;
+
+    if (handle == NULL) {
+        return;
+    }
+
+    if (handle->initialized) {
+        ma_fence_uninit(&handle->fence);
+        handle->initialized = 0;
+    }
+
+    free(handle);
+}
+
+int mmj_async_notification_poll_smoke(void) {
+    mmj_async_notification_poll_handle handle;
+    int result;
+
+    memset(&handle, 0, sizeof(handle));
+
+    result = mmj_async_notification_poll_init(&handle);
+    if (result != MA_SUCCESS) {
+        return result;
+    }
+
+    result = mmj_async_notification_poll_signal(&handle);
+    if (result != MA_SUCCESS) {
+        mmj_async_notification_poll_uninit(&handle);
+        return result;
+    }
+
+    if (mmj_async_notification_poll_is_signalled(&handle) != 1) {
+        mmj_async_notification_poll_uninit(&handle);
+        return MA_ERROR;
+    }
+
+    return mmj_async_notification_poll_uninit(&handle);
+}
+
+int mmj_async_notification_poll_invalid_args_smoke(void) {
+    int result;
+
+    result = mmj_async_notification_poll_signal(NULL);
+    if (result != MA_INVALID_ARGS) {
+        return MA_ERROR;
+    }
+
+    result = mmj_async_notification_poll_is_signalled(NULL);
+    if (result != MA_INVALID_ARGS) {
+        return MA_ERROR;
+    }
+
+    return MA_SUCCESS;
+}
+
+int mmj_async_notification_event_smoke(void) {
+    mmj_async_notification_event_handle handle;
+    int result;
+
+    memset(&handle, 0, sizeof(handle));
+
+    result = mmj_async_notification_event_init(&handle);
+    if (result != MA_SUCCESS) {
+        return result;
+    }
+
+    result = mmj_async_notification_event_signal(&handle);
+    if (result != MA_SUCCESS) {
+        mmj_async_notification_event_uninit(&handle);
+        return result;
+    }
+
+    result = mmj_async_notification_event_wait(&handle);
+    if (result != MA_SUCCESS) {
+        mmj_async_notification_event_uninit(&handle);
+        return result;
+    }
+
+    return mmj_async_notification_event_uninit(&handle);
+}
+
+int mmj_async_notification_event_invalid_args_smoke(void) {
+    int result;
+
+    result = mmj_async_notification_event_signal(NULL);
+    if (result != MA_INVALID_ARGS) {
+        return MA_ERROR;
+    }
+
+    result = mmj_async_notification_event_wait(NULL);
+    if (result != MA_INVALID_ARGS) {
+        return MA_ERROR;
+    }
+
+    return MA_SUCCESS;
+}
+
+void* mmj_mutex_create(void) {
+    mmj_mutex_handle* handle = (mmj_mutex_handle*)calloc(1, sizeof(mmj_mutex_handle));
+    return handle;
+}
+
+int mmj_mutex_init(void* mutex_handle) {
+    mmj_mutex_handle* handle = (mmj_mutex_handle*)mutex_handle;
+    ma_result result;
+
+    if (handle == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (handle->initialized) {
+        ma_mutex_uninit(&handle->mutex);
+        handle->initialized = 0;
+    }
+
+    result = ma_mutex_init(&handle->mutex);
+    if (result == MA_SUCCESS) {
+        handle->initialized = 1;
+    }
+
+    return (int)result;
+}
+
+int mmj_mutex_lock(void* mutex_handle) {
+    mmj_mutex_handle* handle = (mmj_mutex_handle*)mutex_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    ma_mutex_lock(&handle->mutex);
+    return MA_SUCCESS;
+}
+
+int mmj_mutex_unlock(void* mutex_handle) {
+    mmj_mutex_handle* handle = (mmj_mutex_handle*)mutex_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    ma_mutex_unlock(&handle->mutex);
+    return MA_SUCCESS;
+}
+
+int mmj_mutex_uninit(void* mutex_handle) {
+    mmj_mutex_handle* handle = (mmj_mutex_handle*)mutex_handle;
+
+    if (handle == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (!handle->initialized) {
+        return MA_SUCCESS;
+    }
+
+    ma_mutex_uninit(&handle->mutex);
+    handle->initialized = 0;
+    return MA_SUCCESS;
+}
+
+void mmj_mutex_destroy(void* mutex_handle) {
+    mmj_mutex_handle* handle = (mmj_mutex_handle*)mutex_handle;
+
+    if (handle == NULL) {
+        return;
+    }
+
+    if (handle->initialized) {
+        ma_mutex_uninit(&handle->mutex);
+        handle->initialized = 0;
+    }
+
+    free(handle);
+}
+
+void* mmj_event_create(void) {
+    mmj_event_handle* handle = (mmj_event_handle*)calloc(1, sizeof(mmj_event_handle));
+    return handle;
+}
+
+int mmj_event_init(void* event_handle) {
+    mmj_event_handle* handle = (mmj_event_handle*)event_handle;
+    ma_result result;
+
+    if (handle == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (handle->initialized) {
+        ma_event_uninit(&handle->event);
+        handle->initialized = 0;
+    }
+
+    result = ma_event_init(&handle->event);
+    if (result == MA_SUCCESS) {
+        handle->initialized = 1;
+    }
+
+    return (int)result;
+}
+
+int mmj_event_signal(void* event_handle) {
+    mmj_event_handle* handle = (mmj_event_handle*)event_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    return (int)ma_event_signal(&handle->event);
+}
+
+int mmj_event_wait(void* event_handle) {
+    mmj_event_handle* handle = (mmj_event_handle*)event_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    return (int)ma_event_wait(&handle->event);
+}
+
+int mmj_event_uninit(void* event_handle) {
+    mmj_event_handle* handle = (mmj_event_handle*)event_handle;
+
+    if (handle == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (!handle->initialized) {
+        return MA_SUCCESS;
+    }
+
+    ma_event_uninit(&handle->event);
+    handle->initialized = 0;
+    return MA_SUCCESS;
+}
+
+void mmj_event_destroy(void* event_handle) {
+    mmj_event_handle* handle = (mmj_event_handle*)event_handle;
+
+    if (handle == NULL) {
+        return;
+    }
+
+    if (handle->initialized) {
+        ma_event_uninit(&handle->event);
+        handle->initialized = 0;
+    }
+
+    free(handle);
+}
+
+void* mmj_semaphore_create(void) {
+    mmj_semaphore_handle* handle = (mmj_semaphore_handle*)calloc(1, sizeof(mmj_semaphore_handle));
+    return handle;
+}
+
+int mmj_semaphore_init(void* semaphore_handle, uint32_t initial_count) {
+    mmj_semaphore_handle* handle = (mmj_semaphore_handle*)semaphore_handle;
+    ma_result result;
+
+    if (handle == NULL || initial_count > 0x7FFFFFFF) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (handle->initialized) {
+        ma_semaphore_uninit(&handle->semaphore);
+        handle->initialized = 0;
+    }
+
+    result = ma_semaphore_init((int)initial_count, &handle->semaphore);
+    if (result == MA_SUCCESS) {
+        handle->initialized = 1;
+    }
+
+    return (int)result;
+}
+
+int mmj_semaphore_release(void* semaphore_handle) {
+    mmj_semaphore_handle* handle = (mmj_semaphore_handle*)semaphore_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    return (int)ma_semaphore_release(&handle->semaphore);
+}
+
+int mmj_semaphore_wait(void* semaphore_handle) {
+    mmj_semaphore_handle* handle = (mmj_semaphore_handle*)semaphore_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    return (int)ma_semaphore_wait(&handle->semaphore);
+}
+
+int mmj_semaphore_uninit(void* semaphore_handle) {
+    mmj_semaphore_handle* handle = (mmj_semaphore_handle*)semaphore_handle;
+
+    if (handle == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (!handle->initialized) {
+        return MA_SUCCESS;
+    }
+
+    ma_semaphore_uninit(&handle->semaphore);
+    handle->initialized = 0;
+    return MA_SUCCESS;
+}
+
+void mmj_semaphore_destroy(void* semaphore_handle) {
+    mmj_semaphore_handle* handle = (mmj_semaphore_handle*)semaphore_handle;
+
+    if (handle == NULL) {
+        return;
+    }
+
+    if (handle->initialized) {
+        ma_semaphore_uninit(&handle->semaphore);
+        handle->initialized = 0;
+    }
+
+    free(handle);
+}
+
+void* mmj_spinlock_create(void) {
+    mmj_spinlock_handle* handle = (mmj_spinlock_handle*)calloc(1, sizeof(mmj_spinlock_handle));
+    return handle;
+}
+
+int mmj_spinlock_init(void* spinlock_handle) {
+    mmj_spinlock_handle* handle = (mmj_spinlock_handle*)spinlock_handle;
+
+    if (handle == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    handle->spinlock = 0;
+    handle->initialized = 1;
+    return MA_SUCCESS;
+}
+
+int mmj_spinlock_lock(void* spinlock_handle) {
+    mmj_spinlock_handle* handle = (mmj_spinlock_handle*)spinlock_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    return (int)ma_spinlock_lock(&handle->spinlock);
+}
+
+int mmj_spinlock_unlock(void* spinlock_handle) {
+    mmj_spinlock_handle* handle = (mmj_spinlock_handle*)spinlock_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    return (int)ma_spinlock_unlock(&handle->spinlock);
+}
+
+int mmj_spinlock_uninit(void* spinlock_handle) {
+    mmj_spinlock_handle* handle = (mmj_spinlock_handle*)spinlock_handle;
+
+    if (handle == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    handle->spinlock = 0;
+    handle->initialized = 0;
+    return MA_SUCCESS;
+}
+
+void mmj_spinlock_destroy(void* spinlock_handle) {
+    mmj_spinlock_handle* handle = (mmj_spinlock_handle*)spinlock_handle;
+
+    if (handle == NULL) {
+        return;
+    }
+
+    handle->spinlock = 0;
+    handle->initialized = 0;
+    free(handle);
+}
+
+int mmj_sync_primitives_smoke(void) {
+    mmj_mutex_handle mutex_handle;
+    mmj_event_handle event_handle;
+    mmj_semaphore_handle semaphore_handle;
+    mmj_spinlock_handle spinlock_handle;
+    int result;
+
+    memset(&mutex_handle, 0, sizeof(mutex_handle));
+    memset(&event_handle, 0, sizeof(event_handle));
+    memset(&semaphore_handle, 0, sizeof(semaphore_handle));
+    memset(&spinlock_handle, 0, sizeof(spinlock_handle));
+
+    result = mmj_mutex_init(&mutex_handle);
+    if (result != MA_SUCCESS) {
+        return result;
+    }
+
+    result = mmj_mutex_lock(&mutex_handle);
+    if (result != MA_SUCCESS) {
+        mmj_mutex_uninit(&mutex_handle);
+        return result;
+    }
+
+    result = mmj_mutex_unlock(&mutex_handle);
+    if (result != MA_SUCCESS) {
+        mmj_mutex_uninit(&mutex_handle);
+        return result;
+    }
+
+    result = mmj_event_init(&event_handle);
+    if (result != MA_SUCCESS) {
+        mmj_mutex_uninit(&mutex_handle);
+        return result;
+    }
+
+    result = mmj_event_signal(&event_handle);
+    if (result != MA_SUCCESS) {
+        mmj_event_uninit(&event_handle);
+        mmj_mutex_uninit(&mutex_handle);
+        return result;
+    }
+
+    result = mmj_event_wait(&event_handle);
+    if (result != MA_SUCCESS) {
+        mmj_event_uninit(&event_handle);
+        mmj_mutex_uninit(&mutex_handle);
+        return result;
+    }
+
+    result = mmj_semaphore_init(&semaphore_handle, 0);
+    if (result != MA_SUCCESS) {
+        mmj_event_uninit(&event_handle);
+        mmj_mutex_uninit(&mutex_handle);
+        return result;
+    }
+
+    result = mmj_semaphore_release(&semaphore_handle);
+    if (result != MA_SUCCESS) {
+        mmj_semaphore_uninit(&semaphore_handle);
+        mmj_event_uninit(&event_handle);
+        mmj_mutex_uninit(&mutex_handle);
+        return result;
+    }
+
+    result = mmj_semaphore_wait(&semaphore_handle);
+    if (result != MA_SUCCESS) {
+        mmj_semaphore_uninit(&semaphore_handle);
+        mmj_event_uninit(&event_handle);
+        mmj_mutex_uninit(&mutex_handle);
+        return result;
+    }
+
+    result = mmj_spinlock_init(&spinlock_handle);
+    if (result != MA_SUCCESS) {
+        mmj_semaphore_uninit(&semaphore_handle);
+        mmj_event_uninit(&event_handle);
+        mmj_mutex_uninit(&mutex_handle);
+        return result;
+    }
+
+    result = mmj_spinlock_lock(&spinlock_handle);
+    if (result != MA_SUCCESS) {
+        mmj_spinlock_uninit(&spinlock_handle);
+        mmj_semaphore_uninit(&semaphore_handle);
+        mmj_event_uninit(&event_handle);
+        mmj_mutex_uninit(&mutex_handle);
+        return result;
+    }
+
+    result = mmj_spinlock_unlock(&spinlock_handle);
+    if (result != MA_SUCCESS) {
+        mmj_spinlock_uninit(&spinlock_handle);
+        mmj_semaphore_uninit(&semaphore_handle);
+        mmj_event_uninit(&event_handle);
+        mmj_mutex_uninit(&mutex_handle);
+        return result;
+    }
+
+    result = mmj_spinlock_uninit(&spinlock_handle);
+    if (result != MA_SUCCESS) {
+        mmj_semaphore_uninit(&semaphore_handle);
+        mmj_event_uninit(&event_handle);
+        mmj_mutex_uninit(&mutex_handle);
+        return result;
+    }
+
+    result = mmj_semaphore_uninit(&semaphore_handle);
+    if (result != MA_SUCCESS) {
+        mmj_event_uninit(&event_handle);
+        mmj_mutex_uninit(&mutex_handle);
+        return result;
+    }
+
+    result = mmj_event_uninit(&event_handle);
+    if (result != MA_SUCCESS) {
+        mmj_mutex_uninit(&mutex_handle);
+        return result;
+    }
+
+    return mmj_mutex_uninit(&mutex_handle);
+}
+
+int mmj_sync_primitives_invalid_args_smoke(void) {
+    if (mmj_mutex_init(NULL) != MA_INVALID_ARGS) {
+        return MA_ERROR;
+    }
+
+    if (mmj_mutex_lock(NULL) != MA_INVALID_ARGS) {
+        return MA_ERROR;
+    }
+
+    if (mmj_event_wait(NULL) != MA_INVALID_ARGS) {
+        return MA_ERROR;
+    }
+
+    if (mmj_event_signal(NULL) != MA_INVALID_ARGS) {
+        return MA_ERROR;
+    }
+
+    if (mmj_semaphore_init(NULL, 0) != MA_INVALID_ARGS) {
+        return MA_ERROR;
+    }
+
+    if (mmj_semaphore_wait(NULL) != MA_INVALID_ARGS) {
+        return MA_ERROR;
+    }
+
+    if (mmj_spinlock_init(NULL) != MA_INVALID_ARGS) {
+        return MA_ERROR;
+    }
+
+    if (mmj_spinlock_unlock(NULL) != MA_INVALID_ARGS) {
+        return MA_ERROR;
+    }
+
+    return MA_SUCCESS;
+}
+
 void* mmj_resource_data_source_create(void) {
     mmj_resource_data_source_handle* handle = (mmj_resource_data_source_handle*)calloc(1, sizeof(mmj_resource_data_source_handle));
     return handle;
@@ -2808,6 +3850,612 @@ int mmj_resource_data_source_init_file(
         data_source->initialized = 1;
     }
 
+    return result;
+}
+
+static wchar_t* mmj_resource_path_to_wide(const char* file_path)
+{
+    size_t path_len;
+    wchar_t* path_w;
+    size_t i;
+
+    if (file_path == NULL) {
+        return NULL;
+    }
+
+    path_len = strlen(file_path);
+    path_w = (wchar_t*)calloc(path_len + 1, sizeof(wchar_t));
+    if (path_w == NULL) {
+        return NULL;
+    }
+
+    for (i = 0; i < path_len; i += 1) {
+        path_w[i] = (wchar_t)(unsigned char)file_path[i];
+    }
+    path_w[path_len] = L'\0';
+
+    return path_w;
+}
+
+int mmj_resource_data_source_init_file_w(
+    void* data_source_handle,
+    void* resource_manager_handle,
+    const char* file_path,
+    uint32_t flags
+) {
+    mmj_resource_data_source_handle* data_source = (mmj_resource_data_source_handle*)data_source_handle;
+    mmj_resource_manager_handle* resource_manager = (mmj_resource_manager_handle*)resource_manager_handle;
+    wchar_t* path_w = NULL;
+    ma_result result;
+
+    if (
+        data_source == NULL
+        || resource_manager == NULL
+        || !resource_manager->initialized
+        || file_path == NULL
+    ) {
+        return MA_INVALID_ARGS;
+    }
+
+    path_w = mmj_resource_path_to_wide(file_path);
+    if (path_w == NULL) {
+        return MA_OUT_OF_MEMORY;
+    }
+
+    if (data_source->initialized) {
+        ma_resource_manager_data_source_uninit(&data_source->data_source);
+        data_source->initialized = 0;
+    }
+
+    result = ma_resource_manager_data_source_init_w(
+        &resource_manager->resource_manager,
+        path_w,
+        flags,
+        NULL,
+        &data_source->data_source
+    );
+    if (result == MA_SUCCESS) {
+        data_source->initialized = 1;
+    }
+
+    free(path_w);
+    return result;
+}
+
+int mmj_resource_data_source_init_ex(
+    void* data_source_handle,
+    void* resource_manager_handle,
+    const char* file_path,
+    uint32_t flags,
+    uint64_t initial_seek_point_in_pcm_frames,
+    uint64_t range_beg_in_pcm_frames,
+    uint64_t range_end_in_pcm_frames,
+    uint64_t loop_point_beg_in_pcm_frames,
+    uint64_t loop_point_end_in_pcm_frames,
+    int is_looping
+) {
+    mmj_resource_data_source_handle* data_source = (mmj_resource_data_source_handle*)data_source_handle;
+    mmj_resource_manager_handle* resource_manager = (mmj_resource_manager_handle*)resource_manager_handle;
+    ma_resource_manager_data_source_config config;
+    ma_result result;
+
+    if (
+        data_source == NULL
+        || resource_manager == NULL
+        || !resource_manager->initialized
+        || file_path == NULL
+    ) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (data_source->initialized) {
+        ma_resource_manager_data_source_uninit(&data_source->data_source);
+        data_source->initialized = 0;
+    }
+
+    config = ma_resource_manager_data_source_config_init();
+    config.pFilePath = file_path;
+    config.pFilePathW = NULL;
+    config.pNotifications = NULL;
+    config.initialSeekPointInPCMFrames = (ma_uint64)initial_seek_point_in_pcm_frames;
+    config.rangeBegInPCMFrames = (ma_uint64)range_beg_in_pcm_frames;
+    config.rangeEndInPCMFrames = (ma_uint64)range_end_in_pcm_frames;
+    config.loopPointBegInPCMFrames = (ma_uint64)loop_point_beg_in_pcm_frames;
+    config.loopPointEndInPCMFrames = (ma_uint64)loop_point_end_in_pcm_frames;
+    config.flags = flags;
+    config.isLooping = (ma_bool32)is_looping;
+
+    result = ma_resource_manager_data_source_init_ex(
+        &resource_manager->resource_manager,
+        &config,
+        &data_source->data_source
+    );
+    if (result == MA_SUCCESS) {
+        data_source->initialized = 1;
+    }
+
+    return result;
+}
+
+int mmj_resource_data_source_init_ex_w(
+    void* data_source_handle,
+    void* resource_manager_handle,
+    const char* file_path,
+    uint32_t flags,
+    uint64_t initial_seek_point_in_pcm_frames,
+    uint64_t range_beg_in_pcm_frames,
+    uint64_t range_end_in_pcm_frames,
+    uint64_t loop_point_beg_in_pcm_frames,
+    uint64_t loop_point_end_in_pcm_frames,
+    int is_looping
+) {
+    mmj_resource_data_source_handle* data_source = (mmj_resource_data_source_handle*)data_source_handle;
+    mmj_resource_manager_handle* resource_manager = (mmj_resource_manager_handle*)resource_manager_handle;
+    wchar_t* path_w = NULL;
+    ma_resource_manager_data_source_config config;
+    ma_result result;
+
+    if (
+        data_source == NULL
+        || resource_manager == NULL
+        || !resource_manager->initialized
+        || file_path == NULL
+    ) {
+        return MA_INVALID_ARGS;
+    }
+
+    path_w = mmj_resource_path_to_wide(file_path);
+    if (path_w == NULL) {
+        return MA_OUT_OF_MEMORY;
+    }
+
+    if (data_source->initialized) {
+        ma_resource_manager_data_source_uninit(&data_source->data_source);
+        data_source->initialized = 0;
+    }
+
+    config = ma_resource_manager_data_source_config_init();
+    config.pFilePath = NULL;
+    config.pFilePathW = path_w;
+    config.pNotifications = NULL;
+    config.initialSeekPointInPCMFrames = (ma_uint64)initial_seek_point_in_pcm_frames;
+    config.rangeBegInPCMFrames = (ma_uint64)range_beg_in_pcm_frames;
+    config.rangeEndInPCMFrames = (ma_uint64)range_end_in_pcm_frames;
+    config.loopPointBegInPCMFrames = (ma_uint64)loop_point_beg_in_pcm_frames;
+    config.loopPointEndInPCMFrames = (ma_uint64)loop_point_end_in_pcm_frames;
+    config.flags = flags;
+    config.isLooping = (ma_bool32)is_looping;
+
+    result = ma_resource_manager_data_source_init_ex(
+        &resource_manager->resource_manager,
+        &config,
+        &data_source->data_source
+    );
+    if (result == MA_SUCCESS) {
+        data_source->initialized = 1;
+    }
+
+    free(path_w);
+    return result;
+}
+
+int mmj_resource_data_source_init_copy(
+    void* data_source_handle,
+    void* resource_manager_handle,
+    void* existing_data_source_handle
+) {
+    mmj_resource_data_source_handle* data_source = (mmj_resource_data_source_handle*)data_source_handle;
+    mmj_resource_manager_handle* resource_manager = (mmj_resource_manager_handle*)resource_manager_handle;
+    mmj_resource_data_source_handle* existing_data_source = (mmj_resource_data_source_handle*)existing_data_source_handle;
+    ma_result result;
+
+    if (
+        data_source == NULL
+        || resource_manager == NULL
+        || !resource_manager->initialized
+        || existing_data_source == NULL
+        || !existing_data_source->initialized
+    ) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (data_source->initialized) {
+        ma_resource_manager_data_source_uninit(&data_source->data_source);
+        data_source->initialized = 0;
+    }
+
+    result = ma_resource_manager_data_source_init_copy(
+        &resource_manager->resource_manager,
+        &existing_data_source->data_source,
+        &data_source->data_source
+    );
+    if (result == MA_SUCCESS) {
+        data_source->initialized = 1;
+    }
+
+    return result;
+}
+
+int mmj_resource_data_source_init_file_with_notifications(
+    void* data_source_handle,
+    void* resource_manager_handle,
+    const char* file_path,
+    uint32_t flags,
+    void* init_notification_poll_handle,
+    void* done_notification_poll_handle
+) {
+    mmj_resource_data_source_handle* data_source = (mmj_resource_data_source_handle*)data_source_handle;
+    mmj_resource_manager_handle* resource_manager = (mmj_resource_manager_handle*)resource_manager_handle;
+    mmj_async_notification_poll_handle* init_notification = (mmj_async_notification_poll_handle*)init_notification_poll_handle;
+    mmj_async_notification_poll_handle* done_notification = (mmj_async_notification_poll_handle*)done_notification_poll_handle;
+    ma_resource_manager_pipeline_notifications notifications;
+    ma_result result;
+
+    if (
+        data_source == NULL
+        || resource_manager == NULL
+        || !resource_manager->initialized
+        || file_path == NULL
+    ) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (
+        init_notification_poll_handle != NULL
+        && (init_notification == NULL || !init_notification->initialized)
+    ) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (
+        done_notification_poll_handle != NULL
+        && (done_notification == NULL || !done_notification->initialized)
+    ) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (data_source->initialized) {
+        ma_resource_manager_data_source_uninit(&data_source->data_source);
+        data_source->initialized = 0;
+    }
+
+    notifications = ma_resource_manager_pipeline_notifications_init();
+
+    if (init_notification != NULL) {
+        notifications.init.pNotification = (ma_async_notification*)&init_notification->notification;
+    }
+
+    if (done_notification != NULL) {
+        notifications.done.pNotification = (ma_async_notification*)&done_notification->notification;
+    }
+
+    result = ma_resource_manager_data_source_init(
+        &resource_manager->resource_manager,
+        file_path,
+        flags,
+        &notifications,
+        &data_source->data_source
+    );
+    if (result == MA_SUCCESS) {
+        data_source->initialized = 1;
+    }
+
+    return result;
+}
+
+int mmj_resource_data_source_init_file_w_with_notifications(
+    void* data_source_handle,
+    void* resource_manager_handle,
+    const char* file_path,
+    uint32_t flags,
+    void* init_notification_poll_handle,
+    void* done_notification_poll_handle
+) {
+    mmj_resource_data_source_handle* data_source = (mmj_resource_data_source_handle*)data_source_handle;
+    mmj_resource_manager_handle* resource_manager = (mmj_resource_manager_handle*)resource_manager_handle;
+    mmj_async_notification_poll_handle* init_notification = (mmj_async_notification_poll_handle*)init_notification_poll_handle;
+    mmj_async_notification_poll_handle* done_notification = (mmj_async_notification_poll_handle*)done_notification_poll_handle;
+    wchar_t* path_w = NULL;
+    ma_resource_manager_pipeline_notifications notifications;
+    ma_result result;
+
+    if (
+        data_source == NULL
+        || resource_manager == NULL
+        || !resource_manager->initialized
+        || file_path == NULL
+    ) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (
+        init_notification_poll_handle != NULL
+        && (init_notification == NULL || !init_notification->initialized)
+    ) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (
+        done_notification_poll_handle != NULL
+        && (done_notification == NULL || !done_notification->initialized)
+    ) {
+        return MA_INVALID_ARGS;
+    }
+
+    path_w = mmj_resource_path_to_wide(file_path);
+    if (path_w == NULL) {
+        return MA_OUT_OF_MEMORY;
+    }
+
+    if (data_source->initialized) {
+        ma_resource_manager_data_source_uninit(&data_source->data_source);
+        data_source->initialized = 0;
+    }
+
+    notifications = ma_resource_manager_pipeline_notifications_init();
+
+    if (init_notification != NULL) {
+        notifications.init.pNotification = (ma_async_notification*)&init_notification->notification;
+    }
+
+    if (done_notification != NULL) {
+        notifications.done.pNotification = (ma_async_notification*)&done_notification->notification;
+    }
+
+    result = ma_resource_manager_data_source_init_w(
+        &resource_manager->resource_manager,
+        path_w,
+        flags,
+        &notifications,
+        &data_source->data_source
+    );
+    if (result == MA_SUCCESS) {
+        data_source->initialized = 1;
+    }
+
+    free(path_w);
+    return result;
+}
+
+int mmj_resource_data_source_init_file_with_fences(
+    void* data_source_handle,
+    void* resource_manager_handle,
+    const char* file_path,
+    uint32_t flags,
+    void* init_fence_handle,
+    void* done_fence_handle
+) {
+    mmj_resource_data_source_handle* data_source = (mmj_resource_data_source_handle*)data_source_handle;
+    mmj_resource_manager_handle* resource_manager = (mmj_resource_manager_handle*)resource_manager_handle;
+    mmj_fence_handle* init_fence = (mmj_fence_handle*)init_fence_handle;
+    mmj_fence_handle* done_fence = (mmj_fence_handle*)done_fence_handle;
+    ma_resource_manager_pipeline_notifications notifications;
+    ma_result result;
+
+    if (
+        data_source == NULL
+        || resource_manager == NULL
+        || !resource_manager->initialized
+        || file_path == NULL
+    ) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (init_fence_handle != NULL && (init_fence == NULL || !init_fence->initialized)) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (done_fence_handle != NULL && (done_fence == NULL || !done_fence->initialized)) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (data_source->initialized) {
+        ma_resource_manager_data_source_uninit(&data_source->data_source);
+        data_source->initialized = 0;
+    }
+
+    notifications = ma_resource_manager_pipeline_notifications_init();
+
+    if (init_fence != NULL) {
+        notifications.init.pFence = &init_fence->fence;
+    }
+
+    if (done_fence != NULL) {
+        notifications.done.pFence = &done_fence->fence;
+    }
+
+    result = ma_resource_manager_data_source_init(
+        &resource_manager->resource_manager,
+        file_path,
+        flags,
+        &notifications,
+        &data_source->data_source
+    );
+    if (result == MA_SUCCESS) {
+        data_source->initialized = 1;
+    }
+
+    return result;
+}
+
+int mmj_resource_data_source_init_file_with_notifications_and_fences(
+    void* data_source_handle,
+    void* resource_manager_handle,
+    const char* file_path,
+    uint32_t flags,
+    void* init_notification_poll_handle,
+    void* done_notification_poll_handle,
+    void* init_fence_handle,
+    void* done_fence_handle
+) {
+    mmj_resource_data_source_handle* data_source = (mmj_resource_data_source_handle*)data_source_handle;
+    mmj_resource_manager_handle* resource_manager = (mmj_resource_manager_handle*)resource_manager_handle;
+    mmj_async_notification_poll_handle* init_notification = (mmj_async_notification_poll_handle*)init_notification_poll_handle;
+    mmj_async_notification_poll_handle* done_notification = (mmj_async_notification_poll_handle*)done_notification_poll_handle;
+    mmj_fence_handle* init_fence = (mmj_fence_handle*)init_fence_handle;
+    mmj_fence_handle* done_fence = (mmj_fence_handle*)done_fence_handle;
+    ma_resource_manager_pipeline_notifications notifications;
+    ma_result result;
+
+    if (
+        data_source == NULL
+        || resource_manager == NULL
+        || !resource_manager->initialized
+        || file_path == NULL
+    ) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (
+        init_notification_poll_handle != NULL
+        && (init_notification == NULL || !init_notification->initialized)
+    ) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (
+        done_notification_poll_handle != NULL
+        && (done_notification == NULL || !done_notification->initialized)
+    ) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (init_fence_handle != NULL && (init_fence == NULL || !init_fence->initialized)) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (done_fence_handle != NULL && (done_fence == NULL || !done_fence->initialized)) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (data_source->initialized) {
+        ma_resource_manager_data_source_uninit(&data_source->data_source);
+        data_source->initialized = 0;
+    }
+
+    notifications = ma_resource_manager_pipeline_notifications_init();
+
+    if (init_notification != NULL) {
+        notifications.init.pNotification = (ma_async_notification*)&init_notification->notification;
+    }
+
+    if (done_notification != NULL) {
+        notifications.done.pNotification = (ma_async_notification*)&done_notification->notification;
+    }
+
+    if (init_fence != NULL) {
+        notifications.init.pFence = &init_fence->fence;
+    }
+
+    if (done_fence != NULL) {
+        notifications.done.pFence = &done_fence->fence;
+    }
+
+    result = ma_resource_manager_data_source_init(
+        &resource_manager->resource_manager,
+        file_path,
+        flags,
+        &notifications,
+        &data_source->data_source
+    );
+    if (result == MA_SUCCESS) {
+        data_source->initialized = 1;
+    }
+
+    return result;
+}
+
+int mmj_resource_data_source_init_file_w_with_notifications_and_fences(
+    void* data_source_handle,
+    void* resource_manager_handle,
+    const char* file_path,
+    uint32_t flags,
+    void* init_notification_poll_handle,
+    void* done_notification_poll_handle,
+    void* init_fence_handle,
+    void* done_fence_handle
+) {
+    mmj_resource_data_source_handle* data_source = (mmj_resource_data_source_handle*)data_source_handle;
+    mmj_resource_manager_handle* resource_manager = (mmj_resource_manager_handle*)resource_manager_handle;
+    mmj_async_notification_poll_handle* init_notification = (mmj_async_notification_poll_handle*)init_notification_poll_handle;
+    mmj_async_notification_poll_handle* done_notification = (mmj_async_notification_poll_handle*)done_notification_poll_handle;
+    mmj_fence_handle* init_fence = (mmj_fence_handle*)init_fence_handle;
+    mmj_fence_handle* done_fence = (mmj_fence_handle*)done_fence_handle;
+    wchar_t* path_w = NULL;
+    ma_resource_manager_pipeline_notifications notifications;
+    ma_result result;
+
+    if (
+        data_source == NULL
+        || resource_manager == NULL
+        || !resource_manager->initialized
+        || file_path == NULL
+    ) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (
+        init_notification_poll_handle != NULL
+        && (init_notification == NULL || !init_notification->initialized)
+    ) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (
+        done_notification_poll_handle != NULL
+        && (done_notification == NULL || !done_notification->initialized)
+    ) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (init_fence_handle != NULL && (init_fence == NULL || !init_fence->initialized)) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (done_fence_handle != NULL && (done_fence == NULL || !done_fence->initialized)) {
+        return MA_INVALID_ARGS;
+    }
+
+    path_w = mmj_resource_path_to_wide(file_path);
+    if (path_w == NULL) {
+        return MA_OUT_OF_MEMORY;
+    }
+
+    if (data_source->initialized) {
+        ma_resource_manager_data_source_uninit(&data_source->data_source);
+        data_source->initialized = 0;
+    }
+
+    notifications = ma_resource_manager_pipeline_notifications_init();
+
+    if (init_notification != NULL) {
+        notifications.init.pNotification = (ma_async_notification*)&init_notification->notification;
+    }
+
+    if (done_notification != NULL) {
+        notifications.done.pNotification = (ma_async_notification*)&done_notification->notification;
+    }
+
+    if (init_fence != NULL) {
+        notifications.init.pFence = &init_fence->fence;
+    }
+
+    if (done_fence != NULL) {
+        notifications.done.pFence = &done_fence->fence;
+    }
+
+    result = ma_resource_manager_data_source_init_w(
+        &resource_manager->resource_manager,
+        path_w,
+        flags,
+        &notifications,
+        &data_source->data_source
+    );
+    if (result == MA_SUCCESS) {
+        data_source->initialized = 1;
+    }
+
+    free(path_w);
     return result;
 }
 
@@ -2873,6 +4521,26 @@ int64_t mmj_resource_data_source_get_length_in_pcm_frames(void* data_source_hand
     return (int64_t)length_in_frames;
 }
 
+int64_t mmj_resource_data_source_get_available_frames(void* data_source_handle) {
+    mmj_resource_data_source_handle* handle = (mmj_resource_data_source_handle*)data_source_handle;
+    ma_uint64 available_frames = 0;
+    ma_result result;
+
+    if (handle == NULL || !handle->initialized) {
+        return (int64_t)MA_INVALID_ARGS;
+    }
+
+    result = ma_resource_manager_data_source_get_available_frames(
+        &handle->data_source,
+        &available_frames
+    );
+    if (result != MA_SUCCESS) {
+        return (int64_t)result;
+    }
+
+    return (int64_t)available_frames;
+}
+
 int mmj_resource_data_source_uninit(void* data_source_handle) {
     mmj_resource_data_source_handle* handle = (mmj_resource_data_source_handle*)data_source_handle;
 
@@ -2908,6 +4576,18 @@ void mmj_resource_data_source_destroy(void* data_source_handle) {
 
 uint32_t mmj_resource_data_source_flag_async(void) {
     return (uint32_t)MA_RESOURCE_MANAGER_DATA_SOURCE_FLAG_ASYNC;
+}
+
+uint32_t mmj_resource_data_source_flag_stream(void) {
+    return (uint32_t)MA_RESOURCE_MANAGER_DATA_SOURCE_FLAG_STREAM;
+}
+
+uint32_t mmj_resource_data_source_flag_decode(void) {
+    return (uint32_t)MA_RESOURCE_MANAGER_DATA_SOURCE_FLAG_DECODE;
+}
+
+uint32_t mmj_resource_data_source_flag_wait_init(void) {
+    return (uint32_t)MA_RESOURCE_MANAGER_DATA_SOURCE_FLAG_WAIT_INIT;
 }
 
 /* --- resource data source extended operations --- */
@@ -3049,6 +4729,17 @@ int mmj_device_init_playback_format(
     int sample_format
 );
 
+static int mmj_device_init_ex_f32_internal(
+    void* device_handle,
+    ma_device_type device_type,
+    uint32_t sample_rate,
+    uint32_t channels,
+    uint32_t period_size_in_frames,
+    uint32_t period_count,
+    int use_low_latency_profile,
+    int callback_mode
+);
+
 void* mmj_device_create(void) {
     mmj_device_handle* handle = (mmj_device_handle*)calloc(1, sizeof(mmj_device_handle));
     return handle;
@@ -3064,6 +4755,143 @@ int mmj_device_init_playback_f32(
         sample_rate,
         channels,
         MMJ_SAMPLE_FORMAT_F32
+    );
+}
+
+int mmj_device_init_playback_ex_f32(
+    void* device_handle,
+    uint32_t sample_rate,
+    uint32_t channels,
+    uint32_t period_size_in_frames,
+    uint32_t period_count,
+    int use_low_latency_profile
+) {
+    return mmj_device_init_ex_f32_internal(
+        device_handle,
+        ma_device_type_playback,
+        sample_rate,
+        channels,
+        period_size_in_frames,
+        period_count,
+        use_low_latency_profile,
+        MMJ_DEVICE_MODE_SILENCE
+    );
+}
+
+static int mmj_device_init_ex_f32_internal(
+    void* device_handle,
+    ma_device_type device_type,
+    uint32_t sample_rate,
+    uint32_t channels,
+    uint32_t period_size_in_frames,
+    uint32_t period_count,
+    int use_low_latency_profile,
+    int callback_mode
+) {
+    mmj_device_handle* handle = (mmj_device_handle*)device_handle;
+    ma_device_config config;
+    ma_result result;
+
+    if (handle == NULL || sample_rate == 0 || channels == 0) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (period_count > 16) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (handle->initialized) {
+        ma_device_uninit(&handle->device);
+        handle->initialized = 0;
+        handle->started = 0;
+    }
+
+    handle->state.channels = channels;
+    handle->state.mode = callback_mode;
+    handle->state.sample_format = ma_format_f32;
+    handle->state.bytes_per_sample = ma_get_bytes_per_sample(ma_format_f32);
+    if (device_type == ma_device_type_capture) {
+        handle->state.kind = MMJ_DEVICE_KIND_CAPTURE;
+    } else if (device_type == ma_device_type_duplex) {
+        handle->state.kind = (callback_mode == MMJ_DEVICE_MODE_LOOPBACK)
+            ? MMJ_DEVICE_KIND_DUPLEX_LOOPBACK
+            : MMJ_DEVICE_KIND_DUPLEX;
+    } else {
+        handle->state.kind = MMJ_DEVICE_KIND_PLAYBACK;
+    }
+    handle->state.observed_frames = 0;
+    handle->state.user_data_callback = NULL;
+    handle->state.user_stop_callback = NULL;
+    handle->state.user_callback_data = NULL;
+
+    config = ma_device_config_init(device_type);
+    config.sampleRate = sample_rate;
+    config.periodSizeInFrames = period_size_in_frames;
+    config.periods = period_count;
+    config.performanceProfile = use_low_latency_profile
+        ? ma_performance_profile_low_latency
+        : ma_performance_profile_conservative;
+    config.dataCallback = mmj_device_callback;
+    config.pUserData = &handle->state;
+    if (device_type == ma_device_type_capture) {
+        config.capture.format = ma_format_f32;
+        config.capture.channels = channels;
+    } else {
+        config.playback.format = ma_format_f32;
+        config.playback.channels = channels;
+        if (device_type == ma_device_type_duplex) {
+            config.capture.format = ma_format_f32;
+            config.capture.channels = channels;
+        }
+    }
+
+    result = ma_device_init(NULL, &config, &handle->device);
+    if (result != MA_SUCCESS) {
+        return result;
+    }
+
+    handle->initialized = 1;
+    handle->started = 0;
+    return MA_SUCCESS;
+}
+
+int mmj_device_init_capture_ex_f32(
+    void* device_handle,
+    uint32_t sample_rate,
+    uint32_t channels,
+    uint32_t period_size_in_frames,
+    uint32_t period_count,
+    int use_low_latency_profile
+) {
+    return mmj_device_init_ex_f32_internal(
+        device_handle,
+        ma_device_type_capture,
+        sample_rate,
+        channels,
+        period_size_in_frames,
+        period_count,
+        use_low_latency_profile,
+        MMJ_DEVICE_MODE_SILENCE
+    );
+}
+
+int mmj_device_init_duplex_ex_f32(
+    void* device_handle,
+    uint32_t sample_rate,
+    uint32_t channels,
+    uint32_t period_size_in_frames,
+    uint32_t period_count,
+    int use_low_latency_profile
+) {
+    return mmj_device_init_ex_f32_internal(
+        device_handle,
+        ma_device_type_duplex,
+        sample_rate,
+        channels,
+        period_size_in_frames,
+        period_count,
+        use_low_latency_profile,
+        MMJ_DEVICE_MODE_SILENCE
     );
 }
 
@@ -3582,6 +5410,26 @@ void* mmj_decoder_create(void) {
     return handle;
 }
 
+static int mmj_decoder_ensure_default_vfs(mmj_decoder_handle* handle) {
+    ma_result result;
+
+    if (handle == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (handle->vfs_initialized) {
+        return MA_SUCCESS;
+    }
+
+    result = ma_default_vfs_init(&handle->default_vfs, NULL);
+    if (result != MA_SUCCESS) {
+        return (int)result;
+    }
+
+    handle->vfs_initialized = 1;
+    return MA_SUCCESS;
+}
+
 int mmj_decoder_init_file_f32(
     void* decoder_handle,
     const char* file_path,
@@ -3631,6 +5479,63 @@ int mmj_decoder_init_file_format(
     }
 
     return result;
+}
+
+int mmj_decoder_init_file_vfs_format(
+    void* decoder_handle,
+    const char* file_path,
+    uint32_t output_channels,
+    uint32_t output_sample_rate,
+    int sample_format
+) {
+    mmj_decoder_handle* handle = (mmj_decoder_handle*)decoder_handle;
+    ma_decoder_config config;
+    ma_format resolved_format;
+    int format_result;
+    int vfs_result;
+    ma_result result;
+
+    if (handle == NULL || file_path == NULL || output_channels == 0) {
+        return MA_INVALID_ARGS;
+    }
+
+    format_result = mmj_format_from_code(sample_format, &resolved_format);
+    if (format_result != MA_SUCCESS) {
+        return format_result;
+    }
+
+    if (handle->initialized) {
+        ma_decoder_uninit(&handle->decoder);
+        handle->initialized = 0;
+    }
+
+    vfs_result = mmj_decoder_ensure_default_vfs(handle);
+    if (vfs_result != MA_SUCCESS) {
+        return vfs_result;
+    }
+
+    config = ma_decoder_config_init(resolved_format, output_channels, output_sample_rate);
+    result = ma_decoder_init_vfs((ma_vfs*)&handle->default_vfs, file_path, &config, &handle->decoder);
+    if (result == MA_SUCCESS) {
+        handle->initialized = 1;
+    }
+
+    return result;
+}
+
+int mmj_decoder_init_file_vfs_f32(
+    void* decoder_handle,
+    const char* file_path,
+    uint32_t output_channels,
+    uint32_t output_sample_rate
+) {
+    return mmj_decoder_init_file_vfs_format(
+        decoder_handle,
+        file_path,
+        output_channels,
+        output_sample_rate,
+        MMJ_SAMPLE_FORMAT_F32
+    );
 }
 
 int mmj_decoder_init_memory_f32(
@@ -3707,6 +5612,26 @@ int mmj_decoder_read_pcm_frames_f32(
     }
 
     return result;
+}
+
+int64_t mmj_decoder_read_pcm_frames_f32_count(
+    void* decoder_handle,
+    float* output,
+    uint64_t frame_count
+) {
+    uint64_t frames_read = 0;
+    int result = mmj_decoder_read_pcm_frames_f32(
+        decoder_handle,
+        output,
+        frame_count,
+        &frames_read
+    );
+
+    if (result != MA_SUCCESS && result != MA_AT_END) {
+        return (int64_t)result;
+    }
+
+    return (int64_t)frames_read;
 }
 
 int64_t mmj_decoder_read_probe_f32(void* decoder_handle, uint64_t frame_count) {
@@ -3815,6 +5740,26 @@ void* mmj_encoder_create(void) {
     return handle;
 }
 
+static int mmj_encoder_ensure_default_vfs(mmj_encoder_handle* handle) {
+    ma_result result;
+
+    if (handle == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (handle->vfs_initialized) {
+        return MA_SUCCESS;
+    }
+
+    result = ma_default_vfs_init(&handle->default_vfs, NULL);
+    if (result != MA_SUCCESS) {
+        return (int)result;
+    }
+
+    handle->vfs_initialized = 1;
+    return MA_SUCCESS;
+}
+
 int mmj_encoder_init_wav_file_format(
     void* encoder_handle,
     const char* output_path,
@@ -3868,6 +5813,73 @@ int mmj_encoder_init_wav_file_f32(
     uint32_t sample_rate
 ) {
     return mmj_encoder_init_wav_file_format(
+        encoder_handle,
+        output_path,
+        channels,
+        sample_rate,
+        MMJ_SAMPLE_FORMAT_F32
+    );
+}
+
+int mmj_encoder_init_wav_file_vfs_format(
+    void* encoder_handle,
+    const char* output_path,
+    uint32_t channels,
+    uint32_t sample_rate,
+    int sample_format
+) {
+    mmj_encoder_handle* handle = (mmj_encoder_handle*)encoder_handle;
+    ma_encoder_config config;
+    ma_format format;
+    int vfs_result;
+    ma_result result;
+
+    if (
+        handle == NULL
+        || output_path == NULL
+        || channels == 0
+        || sample_rate == 0
+    ) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (mmj_format_from_code(sample_format, &format) != MA_SUCCESS) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (handle->initialized) {
+        ma_encoder_uninit(&handle->encoder);
+        handle->initialized = 0;
+        handle->channels = 0;
+    }
+
+    vfs_result = mmj_encoder_ensure_default_vfs(handle);
+    if (vfs_result != MA_SUCCESS) {
+        return vfs_result;
+    }
+
+    config = ma_encoder_config_init(
+        ma_encoding_format_wav,
+        format,
+        channels,
+        sample_rate
+    );
+    result = ma_encoder_init_vfs((ma_vfs*)&handle->default_vfs, output_path, &config, &handle->encoder);
+    if (result == MA_SUCCESS) {
+        handle->channels = channels;
+        handle->initialized = 1;
+    }
+
+    return result;
+}
+
+int mmj_encoder_init_wav_file_vfs_f32(
+    void* encoder_handle,
+    const char* output_path,
+    uint32_t channels,
+    uint32_t sample_rate
+) {
+    return mmj_encoder_init_wav_file_vfs_format(
         encoder_handle,
         output_path,
         channels,
@@ -4274,6 +6286,1031 @@ void mmj_channel_converter_destroy(void* converter_handle) {
     free(handle);
 }
 
+void* mmj_data_converter_create(void) {
+    mmj_data_converter_handle* handle = (mmj_data_converter_handle*)calloc(1, sizeof(mmj_data_converter_handle));
+    return handle;
+}
+
+int mmj_data_converter_init_f32(
+    void* converter_handle,
+    uint32_t channels_in,
+    uint32_t channels_out,
+    uint32_t sample_rate_in,
+    uint32_t sample_rate_out
+) {
+    mmj_data_converter_handle* handle = (mmj_data_converter_handle*)converter_handle;
+    ma_data_converter_config config;
+    ma_result result;
+
+    if (
+        handle == NULL
+        || channels_in == 0
+        || channels_out == 0
+        || sample_rate_in == 0
+        || sample_rate_out == 0
+    ) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (handle->initialized) {
+        ma_data_converter_uninit(&handle->converter, NULL);
+        handle->initialized = 0;
+    }
+
+    config = ma_data_converter_config_init(
+        ma_format_f32,
+        ma_format_f32,
+        (ma_uint32)channels_in,
+        (ma_uint32)channels_out,
+        (ma_uint32)sample_rate_in,
+        (ma_uint32)sample_rate_out
+    );
+    result = ma_data_converter_init(&config, NULL, &handle->converter);
+    if (result == MA_SUCCESS) {
+        handle->channels_in = channels_in;
+        handle->channels_out = channels_out;
+        handle->sample_rate_in = sample_rate_in;
+        handle->sample_rate_out = sample_rate_out;
+        handle->initialized = 1;
+    }
+
+    return (int)result;
+}
+
+int64_t mmj_data_converter_process_f32(
+    void* converter_handle,
+    const float* input_frames,
+    uint64_t input_frame_count,
+    float* output_frames,
+    uint64_t output_frame_capacity
+) {
+    mmj_data_converter_handle* handle = (mmj_data_converter_handle*)converter_handle;
+    ma_uint64 local_in;
+    ma_uint64 local_out;
+    ma_result result;
+
+    if (
+        handle == NULL
+        || !handle->initialized
+        || input_frames == NULL
+        || output_frames == NULL
+        || input_frame_count == 0
+        || output_frame_capacity == 0
+    ) {
+        return (int64_t)MA_INVALID_ARGS;
+    }
+
+    local_in = (ma_uint64)input_frame_count;
+    local_out = (ma_uint64)output_frame_capacity;
+    result = ma_data_converter_process_pcm_frames(
+        &handle->converter,
+        input_frames,
+        &local_in,
+        output_frames,
+        &local_out
+    );
+    if (result != MA_SUCCESS) {
+        return (int64_t)result;
+    }
+
+    if (local_out > (ma_uint64)INT64_MAX) {
+        return (int64_t)MA_OUT_OF_RANGE;
+    }
+
+    return (int64_t)local_out;
+}
+
+int64_t mmj_data_converter_get_expected_output_frame_count(
+    void* converter_handle,
+    uint64_t input_frame_count
+) {
+    mmj_data_converter_handle* handle = (mmj_data_converter_handle*)converter_handle;
+    ma_uint64 output_count = 0;
+    ma_result result;
+
+    if (handle == NULL || !handle->initialized) {
+        return (int64_t)MA_INVALID_ARGS;
+    }
+
+    result = ma_data_converter_get_expected_output_frame_count(
+        &handle->converter,
+        (ma_uint64)input_frame_count,
+        &output_count
+    );
+    if (result != MA_SUCCESS) {
+        return (int64_t)result;
+    }
+
+    if (output_count > (ma_uint64)INT64_MAX) {
+        return (int64_t)MA_OUT_OF_RANGE;
+    }
+
+    return (int64_t)output_count;
+}
+
+int64_t mmj_data_converter_get_required_input_frame_count(
+    void* converter_handle,
+    uint64_t output_frame_count
+) {
+    mmj_data_converter_handle* handle = (mmj_data_converter_handle*)converter_handle;
+    ma_uint64 input_count = 0;
+    ma_result result;
+
+    if (handle == NULL || !handle->initialized) {
+        return (int64_t)MA_INVALID_ARGS;
+    }
+
+    result = ma_data_converter_get_required_input_frame_count(
+        &handle->converter,
+        (ma_uint64)output_frame_count,
+        &input_count
+    );
+    if (result != MA_SUCCESS) {
+        return (int64_t)result;
+    }
+
+    if (input_count > (ma_uint64)INT64_MAX) {
+        return (int64_t)MA_OUT_OF_RANGE;
+    }
+
+    return (int64_t)input_count;
+}
+
+int64_t mmj_data_converter_get_input_latency(void* converter_handle) {
+    mmj_data_converter_handle* handle = (mmj_data_converter_handle*)converter_handle;
+    ma_uint64 latency;
+
+    if (handle == NULL || !handle->initialized) {
+        return (int64_t)MA_INVALID_ARGS;
+    }
+
+    latency = ma_data_converter_get_input_latency(&handle->converter);
+    if (latency > (ma_uint64)INT64_MAX) {
+        return (int64_t)MA_OUT_OF_RANGE;
+    }
+
+    return (int64_t)latency;
+}
+
+int64_t mmj_data_converter_get_output_latency(void* converter_handle) {
+    mmj_data_converter_handle* handle = (mmj_data_converter_handle*)converter_handle;
+    ma_uint64 latency;
+
+    if (handle == NULL || !handle->initialized) {
+        return (int64_t)MA_INVALID_ARGS;
+    }
+
+    latency = ma_data_converter_get_output_latency(&handle->converter);
+    if (latency > (ma_uint64)INT64_MAX) {
+        return (int64_t)MA_OUT_OF_RANGE;
+    }
+
+    return (int64_t)latency;
+}
+
+int mmj_data_converter_set_rate(
+    void* converter_handle,
+    uint32_t sample_rate_in,
+    uint32_t sample_rate_out
+) {
+    mmj_data_converter_handle* handle = (mmj_data_converter_handle*)converter_handle;
+    ma_result result;
+
+    if (
+        handle == NULL
+        || !handle->initialized
+        || sample_rate_in == 0
+        || sample_rate_out == 0
+    ) {
+        return MA_INVALID_ARGS;
+    }
+
+    result = ma_data_converter_set_rate(
+        &handle->converter,
+        (ma_uint32)sample_rate_in,
+        (ma_uint32)sample_rate_out
+    );
+    if (result == MA_SUCCESS) {
+        handle->sample_rate_in = sample_rate_in;
+        handle->sample_rate_out = sample_rate_out;
+    }
+
+    return (int)result;
+}
+
+int mmj_data_converter_reset(void* converter_handle) {
+    mmj_data_converter_handle* handle = (mmj_data_converter_handle*)converter_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    return (int)ma_data_converter_reset(&handle->converter);
+}
+
+int mmj_data_converter_uninit(void* converter_handle) {
+    mmj_data_converter_handle* handle = (mmj_data_converter_handle*)converter_handle;
+
+    if (handle == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (!handle->initialized) {
+        return MA_SUCCESS;
+    }
+
+    ma_data_converter_uninit(&handle->converter, NULL);
+    handle->channels_in = 0;
+    handle->channels_out = 0;
+    handle->sample_rate_in = 0;
+    handle->sample_rate_out = 0;
+    handle->initialized = 0;
+    return MA_SUCCESS;
+}
+
+void mmj_data_converter_destroy(void* converter_handle) {
+    mmj_data_converter_handle* handle = (mmj_data_converter_handle*)converter_handle;
+
+    if (handle == NULL) {
+        return;
+    }
+
+    if (handle->initialized) {
+        ma_data_converter_uninit(&handle->converter, NULL);
+        handle->initialized = 0;
+    }
+
+    free(handle);
+}
+
+static int mmj_waveform_type_from_u32(uint32_t waveform_type, ma_waveform_type* resolved_type) {
+    if (resolved_type == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (waveform_type == MMJ_WAVEFORM_TYPE_SINE) {
+        *resolved_type = ma_waveform_type_sine;
+        return MA_SUCCESS;
+    }
+
+    if (waveform_type == MMJ_WAVEFORM_TYPE_SQUARE) {
+        *resolved_type = ma_waveform_type_square;
+        return MA_SUCCESS;
+    }
+
+    if (waveform_type == MMJ_WAVEFORM_TYPE_TRIANGLE) {
+        *resolved_type = ma_waveform_type_triangle;
+        return MA_SUCCESS;
+    }
+
+    if (waveform_type == MMJ_WAVEFORM_TYPE_SAWTOOTH) {
+        *resolved_type = ma_waveform_type_sawtooth;
+        return MA_SUCCESS;
+    }
+
+    return MA_INVALID_ARGS;
+}
+
+static int mmj_attenuation_model_from_i32(int attenuation_model, ma_attenuation_model* resolved_model) {
+    if (resolved_model == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    switch (attenuation_model) {
+        case 0:
+            *resolved_model = ma_attenuation_model_none;
+            return MA_SUCCESS;
+        case 1:
+            *resolved_model = ma_attenuation_model_inverse;
+            return MA_SUCCESS;
+        case 2:
+            *resolved_model = ma_attenuation_model_linear;
+            return MA_SUCCESS;
+        case 3:
+            *resolved_model = ma_attenuation_model_exponential;
+            return MA_SUCCESS;
+        default:
+            return MA_INVALID_ARGS;
+    }
+}
+
+static int mmj_positioning_from_i32(int positioning, ma_positioning* resolved_positioning) {
+    if (resolved_positioning == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    switch (positioning) {
+        case 0:
+            *resolved_positioning = ma_positioning_absolute;
+            return MA_SUCCESS;
+        case 1:
+            *resolved_positioning = ma_positioning_relative;
+            return MA_SUCCESS;
+        default:
+            return MA_INVALID_ARGS;
+    }
+}
+
+static int mmj_noise_type_from_u32(uint32_t noise_type, ma_noise_type* resolved_type) {
+    if (resolved_type == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (noise_type == MMJ_NOISE_TYPE_WHITE) {
+        *resolved_type = ma_noise_type_white;
+        return MA_SUCCESS;
+    }
+
+    if (noise_type == MMJ_NOISE_TYPE_PINK) {
+        *resolved_type = ma_noise_type_pink;
+        return MA_SUCCESS;
+    }
+
+    if (noise_type == MMJ_NOISE_TYPE_BROWNIAN) {
+        *resolved_type = ma_noise_type_brownian;
+        return MA_SUCCESS;
+    }
+
+    return MA_INVALID_ARGS;
+}
+
+void* mmj_waveform_create(void) {
+    mmj_waveform_handle* handle = (mmj_waveform_handle*)calloc(1, sizeof(mmj_waveform_handle));
+    return handle;
+}
+
+int mmj_waveform_init_f32(
+    void* waveform_handle,
+    uint32_t channels,
+    uint32_t sample_rate,
+    uint32_t waveform_type,
+    double amplitude,
+    double frequency
+) {
+    mmj_waveform_handle* handle = (mmj_waveform_handle*)waveform_handle;
+    ma_waveform_config config;
+    ma_waveform_type resolved_type;
+    int type_result;
+    ma_result result;
+
+    if (
+        handle == NULL
+        || channels == 0
+        || sample_rate == 0
+        || frequency <= 0.0
+    ) {
+        return MA_INVALID_ARGS;
+    }
+
+    type_result = mmj_waveform_type_from_u32(waveform_type, &resolved_type);
+    if (type_result != MA_SUCCESS) {
+        return type_result;
+    }
+
+    if (handle->initialized) {
+        handle->initialized = 0;
+    }
+
+    config = ma_waveform_config_init(
+        ma_format_f32,
+        (ma_uint32)channels,
+        (ma_uint32)sample_rate,
+        resolved_type,
+        amplitude,
+        frequency
+    );
+    result = ma_waveform_init(&config, &handle->waveform);
+    if (result == MA_SUCCESS) {
+        handle->channels = channels;
+        handle->sample_rate = sample_rate;
+        handle->type = resolved_type;
+        handle->amplitude = amplitude;
+        handle->frequency = frequency;
+        handle->initialized = 1;
+    }
+
+    return (int)result;
+}
+
+int64_t mmj_waveform_read_f32(
+    void* waveform_handle,
+    float* output_frames,
+    uint64_t frame_count
+) {
+    mmj_waveform_handle* handle = (mmj_waveform_handle*)waveform_handle;
+    ma_uint64 frames_read = 0;
+    ma_result result;
+
+    if (handle == NULL || !handle->initialized || output_frames == NULL) {
+        return (int64_t)MA_INVALID_ARGS;
+    }
+
+    if (frame_count == 0) {
+        return 0;
+    }
+
+    result = ma_waveform_read_pcm_frames(
+        &handle->waveform,
+        output_frames,
+        (ma_uint64)frame_count,
+        &frames_read
+    );
+    if (result != MA_SUCCESS) {
+        return (int64_t)result;
+    }
+
+    if (frames_read > (ma_uint64)INT64_MAX) {
+        return (int64_t)MA_OUT_OF_RANGE;
+    }
+
+    return (int64_t)frames_read;
+}
+
+int mmj_waveform_set_amplitude(void* waveform_handle, double amplitude) {
+    mmj_waveform_handle* handle = (mmj_waveform_handle*)waveform_handle;
+    ma_result result;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    result = ma_waveform_set_amplitude(&handle->waveform, amplitude);
+    if (result == MA_SUCCESS) {
+        handle->amplitude = amplitude;
+    }
+
+    return (int)result;
+}
+
+int mmj_waveform_set_frequency(void* waveform_handle, double frequency) {
+    mmj_waveform_handle* handle = (mmj_waveform_handle*)waveform_handle;
+    ma_result result;
+
+    if (handle == NULL || !handle->initialized || frequency <= 0.0) {
+        return MA_INVALID_ARGS;
+    }
+
+    result = ma_waveform_set_frequency(&handle->waveform, frequency);
+    if (result == MA_SUCCESS) {
+        handle->frequency = frequency;
+    }
+
+    return (int)result;
+}
+
+int mmj_waveform_uninit(void* waveform_handle) {
+    mmj_waveform_handle* handle = (mmj_waveform_handle*)waveform_handle;
+
+    if (handle == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (!handle->initialized) {
+        return MA_SUCCESS;
+    }
+
+    handle->initialized = 0;
+    handle->channels = 0;
+    handle->sample_rate = 0;
+    handle->type = ma_waveform_type_sine;
+    handle->amplitude = 0.0;
+    handle->frequency = 0.0;
+    return MA_SUCCESS;
+}
+
+void mmj_waveform_destroy(void* waveform_handle) {
+    mmj_waveform_handle* handle = (mmj_waveform_handle*)waveform_handle;
+
+    if (handle == NULL) {
+        return;
+    }
+
+    handle->initialized = 0;
+    free(handle);
+}
+
+void* mmj_noise_create(void) {
+    mmj_noise_handle* handle = (mmj_noise_handle*)calloc(1, sizeof(mmj_noise_handle));
+    return handle;
+}
+
+int mmj_noise_init_f32(
+    void* noise_handle,
+    uint32_t channels,
+    uint32_t noise_type,
+    int32_t seed,
+    double amplitude
+) {
+    mmj_noise_handle* handle = (mmj_noise_handle*)noise_handle;
+    ma_noise_config config;
+    ma_noise_type resolved_type;
+    int type_result;
+    ma_result result;
+
+    if (handle == NULL || channels == 0 || amplitude < 0.0) {
+        return MA_INVALID_ARGS;
+    }
+
+    type_result = mmj_noise_type_from_u32(noise_type, &resolved_type);
+    if (type_result != MA_SUCCESS) {
+        return type_result;
+    }
+
+    if (handle->initialized) {
+        ma_noise_uninit(&handle->noise, NULL);
+        handle->initialized = 0;
+    }
+
+    config = ma_noise_config_init(
+        ma_format_f32,
+        (ma_uint32)channels,
+        resolved_type,
+        (ma_int32)seed,
+        amplitude
+    );
+    result = ma_noise_init(&config, NULL, &handle->noise);
+    if (result == MA_SUCCESS) {
+        handle->type = resolved_type;
+        handle->amplitude = amplitude;
+        handle->seed = seed;
+        handle->channels = channels;
+        handle->initialized = 1;
+    }
+
+    return (int)result;
+}
+
+int64_t mmj_noise_read_f32(
+    void* noise_handle,
+    float* output_frames,
+    uint64_t frame_count
+) {
+    mmj_noise_handle* handle = (mmj_noise_handle*)noise_handle;
+    ma_uint64 frames_read = 0;
+    ma_result result;
+
+    if (handle == NULL || !handle->initialized || output_frames == NULL) {
+        return (int64_t)MA_INVALID_ARGS;
+    }
+
+    if (frame_count == 0) {
+        return 0;
+    }
+
+    result = ma_noise_read_pcm_frames(
+        &handle->noise,
+        output_frames,
+        (ma_uint64)frame_count,
+        &frames_read
+    );
+    if (result != MA_SUCCESS) {
+        return (int64_t)result;
+    }
+
+    if (frames_read > (ma_uint64)INT64_MAX) {
+        return (int64_t)MA_OUT_OF_RANGE;
+    }
+
+    return (int64_t)frames_read;
+}
+
+int mmj_noise_set_amplitude(void* noise_handle, double amplitude) {
+    mmj_noise_handle* handle = (mmj_noise_handle*)noise_handle;
+    ma_result result;
+
+    if (handle == NULL || !handle->initialized || amplitude < 0.0) {
+        return MA_INVALID_ARGS;
+    }
+
+    result = ma_noise_set_amplitude(&handle->noise, amplitude);
+    if (result == MA_SUCCESS) {
+        handle->amplitude = amplitude;
+    }
+
+    return (int)result;
+}
+
+int mmj_noise_set_seed(void* noise_handle, int32_t seed) {
+    mmj_noise_handle* handle = (mmj_noise_handle*)noise_handle;
+    ma_result result;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    result = ma_noise_set_seed(&handle->noise, (ma_int32)seed);
+    if (result == MA_SUCCESS) {
+        handle->seed = seed;
+    }
+
+    return (int)result;
+}
+
+int mmj_noise_set_type(void* noise_handle, uint32_t noise_type) {
+    mmj_noise_handle* handle = (mmj_noise_handle*)noise_handle;
+    ma_noise_type resolved_type;
+    int type_result;
+    ma_noise_config config;
+    ma_result result;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    type_result = mmj_noise_type_from_u32(noise_type, &resolved_type);
+    if (type_result != MA_SUCCESS) {
+        return type_result;
+    }
+
+    if (resolved_type == handle->type) {
+        return MA_SUCCESS;
+    }
+
+    ma_noise_uninit(&handle->noise, NULL);
+    config = ma_noise_config_init(
+        ma_format_f32,
+        (ma_uint32)handle->channels,
+        resolved_type,
+        (ma_int32)handle->seed,
+        handle->amplitude
+    );
+    result = ma_noise_init(&config, NULL, &handle->noise);
+    if (result == MA_SUCCESS) {
+        handle->type = resolved_type;
+    } else {
+        handle->initialized = 0;
+    }
+
+    return (int)result;
+}
+
+int mmj_noise_uninit(void* noise_handle) {
+    mmj_noise_handle* handle = (mmj_noise_handle*)noise_handle;
+
+    if (handle == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (!handle->initialized) {
+        return MA_SUCCESS;
+    }
+
+    ma_noise_uninit(&handle->noise, NULL);
+    handle->type = ma_noise_type_white;
+    handle->amplitude = 0.0;
+    handle->seed = 0;
+    handle->channels = 0;
+    handle->initialized = 0;
+    return MA_SUCCESS;
+}
+
+void mmj_noise_destroy(void* noise_handle) {
+    mmj_noise_handle* handle = (mmj_noise_handle*)noise_handle;
+
+    if (handle == NULL) {
+        return;
+    }
+
+    if (handle->initialized) {
+        ma_noise_uninit(&handle->noise, NULL);
+        handle->initialized = 0;
+    }
+
+    free(handle);
+}
+
+void* mmj_spatializer_listener_create(void) {
+    mmj_spatializer_listener_handle* handle = (mmj_spatializer_listener_handle*)calloc(1, sizeof(mmj_spatializer_listener_handle));
+    return handle;
+}
+
+int mmj_spatializer_listener_init_default(
+    void* listener_handle,
+    uint32_t channels_out
+) {
+    mmj_spatializer_listener_handle* handle = (mmj_spatializer_listener_handle*)listener_handle;
+    ma_spatializer_listener_config config;
+    ma_result result;
+
+    if (handle == NULL || channels_out == 0) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (handle->initialized) {
+        ma_spatializer_listener_uninit(&handle->listener, NULL);
+        handle->initialized = 0;
+    }
+
+    config = ma_spatializer_listener_config_init((ma_uint32)channels_out);
+    result = ma_spatializer_listener_init(&config, NULL, &handle->listener);
+    if (result == MA_SUCCESS) {
+        handle->channels_out = channels_out;
+        handle->initialized = 1;
+    }
+
+    return (int)result;
+}
+
+int mmj_spatializer_listener_set_position(
+    void* listener_handle,
+    float x,
+    float y,
+    float z
+) {
+    mmj_spatializer_listener_handle* handle = (mmj_spatializer_listener_handle*)listener_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    ma_spatializer_listener_set_position(&handle->listener, x, y, z);
+    return MA_SUCCESS;
+}
+
+int mmj_spatializer_listener_set_direction(
+    void* listener_handle,
+    float x,
+    float y,
+    float z
+) {
+    mmj_spatializer_listener_handle* handle = (mmj_spatializer_listener_handle*)listener_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    ma_spatializer_listener_set_direction(&handle->listener, x, y, z);
+    return MA_SUCCESS;
+}
+
+int mmj_spatializer_listener_set_world_up(
+    void* listener_handle,
+    float x,
+    float y,
+    float z
+) {
+    mmj_spatializer_listener_handle* handle = (mmj_spatializer_listener_handle*)listener_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    ma_spatializer_listener_set_world_up(&handle->listener, x, y, z);
+    return MA_SUCCESS;
+}
+
+int mmj_spatializer_listener_uninit(void* listener_handle) {
+    mmj_spatializer_listener_handle* handle = (mmj_spatializer_listener_handle*)listener_handle;
+
+    if (handle == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (!handle->initialized) {
+        return MA_SUCCESS;
+    }
+
+    ma_spatializer_listener_uninit(&handle->listener, NULL);
+    handle->channels_out = 0;
+    handle->initialized = 0;
+    return MA_SUCCESS;
+}
+
+void mmj_spatializer_listener_destroy(void* listener_handle) {
+    mmj_spatializer_listener_handle* handle = (mmj_spatializer_listener_handle*)listener_handle;
+
+    if (handle == NULL) {
+        return;
+    }
+
+    if (handle->initialized) {
+        ma_spatializer_listener_uninit(&handle->listener, NULL);
+        handle->initialized = 0;
+    }
+
+    free(handle);
+}
+
+void* mmj_spatializer_create(void) {
+    mmj_spatializer_handle* handle = (mmj_spatializer_handle*)calloc(1, sizeof(mmj_spatializer_handle));
+    return handle;
+}
+
+int mmj_spatializer_init_default(
+    void* spatializer_handle,
+    uint32_t channels_in,
+    uint32_t channels_out
+) {
+    mmj_spatializer_handle* handle = (mmj_spatializer_handle*)spatializer_handle;
+    ma_spatializer_config config;
+    ma_result result;
+
+    if (handle == NULL || channels_in == 0 || channels_out == 0) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (handle->initialized) {
+        ma_spatializer_uninit(&handle->spatializer, NULL);
+        handle->initialized = 0;
+    }
+
+    config = ma_spatializer_config_init((ma_uint32)channels_in, (ma_uint32)channels_out);
+    result = ma_spatializer_init(&config, NULL, &handle->spatializer);
+    if (result == MA_SUCCESS) {
+        handle->channels_in = channels_in;
+        handle->channels_out = channels_out;
+        handle->initialized = 1;
+    }
+
+    return (int)result;
+}
+
+int mmj_spatializer_set_master_volume(
+    void* spatializer_handle,
+    float volume
+) {
+    mmj_spatializer_handle* handle = (mmj_spatializer_handle*)spatializer_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    return (int)ma_spatializer_set_master_volume(&handle->spatializer, volume);
+}
+
+float mmj_spatializer_get_master_volume(
+    void* spatializer_handle
+) {
+    mmj_spatializer_handle* handle = (mmj_spatializer_handle*)spatializer_handle;
+    float volume = 0.0f;
+    ma_result result;
+
+    if (handle == NULL || !handle->initialized) {
+        return -1.0f;
+    }
+
+    result = ma_spatializer_get_master_volume(&handle->spatializer, &volume);
+    if (result != MA_SUCCESS) {
+        return -1.0f;
+    }
+
+    return volume;
+}
+
+int mmj_spatializer_set_attenuation_model(
+    void* spatializer_handle,
+    int attenuation_model
+) {
+    mmj_spatializer_handle* handle = (mmj_spatializer_handle*)spatializer_handle;
+    ma_attenuation_model resolved_model;
+    int parse_result;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    parse_result = mmj_attenuation_model_from_i32(attenuation_model, &resolved_model);
+    if (parse_result != MA_SUCCESS) {
+        return parse_result;
+    }
+
+    ma_spatializer_set_attenuation_model(&handle->spatializer, resolved_model);
+    return MA_SUCCESS;
+}
+
+int mmj_spatializer_set_positioning(
+    void* spatializer_handle,
+    int positioning
+) {
+    mmj_spatializer_handle* handle = (mmj_spatializer_handle*)spatializer_handle;
+    ma_positioning resolved_positioning;
+    int parse_result;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    parse_result = mmj_positioning_from_i32(positioning, &resolved_positioning);
+    if (parse_result != MA_SUCCESS) {
+        return parse_result;
+    }
+
+    ma_spatializer_set_positioning(&handle->spatializer, resolved_positioning);
+    return MA_SUCCESS;
+}
+
+int mmj_spatializer_set_position(
+    void* spatializer_handle,
+    float x,
+    float y,
+    float z
+) {
+    mmj_spatializer_handle* handle = (mmj_spatializer_handle*)spatializer_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    ma_spatializer_set_position(&handle->spatializer, x, y, z);
+    return MA_SUCCESS;
+}
+
+int mmj_spatializer_set_direction(
+    void* spatializer_handle,
+    float x,
+    float y,
+    float z
+) {
+    mmj_spatializer_handle* handle = (mmj_spatializer_handle*)spatializer_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    ma_spatializer_set_direction(&handle->spatializer, x, y, z);
+    return MA_SUCCESS;
+}
+
+int mmj_spatializer_set_velocity(
+    void* spatializer_handle,
+    float x,
+    float y,
+    float z
+) {
+    mmj_spatializer_handle* handle = (mmj_spatializer_handle*)spatializer_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    ma_spatializer_set_velocity(&handle->spatializer, x, y, z);
+    return MA_SUCCESS;
+}
+
+int mmj_spatializer_process_f32(
+    void* spatializer_handle,
+    void* listener_handle,
+    float* output_frames,
+    const float* input_frames,
+    uint64_t frame_count
+) {
+    mmj_spatializer_handle* spatializer = (mmj_spatializer_handle*)spatializer_handle;
+    mmj_spatializer_listener_handle* listener = (mmj_spatializer_listener_handle*)listener_handle;
+
+    if (
+        spatializer == NULL
+        || !spatializer->initialized
+        || listener == NULL
+        || !listener->initialized
+        || output_frames == NULL
+        || input_frames == NULL
+        || frame_count == 0
+    ) {
+        return MA_INVALID_ARGS;
+    }
+
+    return (int)ma_spatializer_process_pcm_frames(
+        &spatializer->spatializer,
+        &listener->listener,
+        output_frames,
+        input_frames,
+        (ma_uint64)frame_count
+    );
+}
+
+int mmj_spatializer_uninit(void* spatializer_handle) {
+    mmj_spatializer_handle* handle = (mmj_spatializer_handle*)spatializer_handle;
+
+    if (handle == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (!handle->initialized) {
+        return MA_SUCCESS;
+    }
+
+    ma_spatializer_uninit(&handle->spatializer, NULL);
+    handle->channels_in = 0;
+    handle->channels_out = 0;
+    handle->initialized = 0;
+    return MA_SUCCESS;
+}
+
+void mmj_spatializer_destroy(void* spatializer_handle) {
+    mmj_spatializer_handle* handle = (mmj_spatializer_handle*)spatializer_handle;
+
+    if (handle == NULL) {
+        return;
+    }
+
+    if (handle->initialized) {
+        ma_spatializer_uninit(&handle->spatializer, NULL);
+        handle->initialized = 0;
+    }
+
+    free(handle);
+}
+
 void* mmj_pcm_rb_create(void) {
     mmj_pcm_rb_handle* handle = (mmj_pcm_rb_handle*)calloc(1, sizeof(mmj_pcm_rb_handle));
     return handle;
@@ -4634,6 +7671,410 @@ int mmj_channel_converter_invalid_channels_smoke(void) {
     );
     if (result != MA_INVALID_ARGS) {
         mmj_channel_converter_uninit(&handle);
+        return MA_ERROR;
+    }
+
+    return MA_SUCCESS;
+}
+
+int mmj_data_converter_smoke(void) {
+    mmj_data_converter_handle handle;
+    float input_frames[8 * 2];
+    float output_frames[8];
+    int64_t expected_output;
+    int64_t required_input;
+    int64_t produced;
+    int64_t input_latency;
+    int64_t output_latency;
+    float sum_abs = 0.0f;
+    uint64_t i;
+    int result;
+
+    memset(&handle, 0, sizeof(handle));
+    memset(output_frames, 0, sizeof(output_frames));
+    for (i = 0; i < 8; ++i) {
+        input_frames[(i * 2) + 0] = (float)(i + 1) * 0.1f;
+        input_frames[(i * 2) + 1] = (float)(i + 1) * -0.05f;
+    }
+
+    result = mmj_data_converter_init_f32(&handle, 2, 1, 44100, 48000);
+    if (result != MA_SUCCESS) {
+        return result;
+    }
+
+    expected_output = mmj_data_converter_get_expected_output_frame_count(&handle, 8);
+    if (expected_output <= 0 || expected_output > 16) {
+        mmj_data_converter_uninit(&handle);
+        return (expected_output < 0) ? (int)expected_output : MA_ERROR;
+    }
+
+    required_input = mmj_data_converter_get_required_input_frame_count(&handle, 8);
+    if (required_input <= 0) {
+        mmj_data_converter_uninit(&handle);
+        return (required_input < 0) ? (int)required_input : MA_ERROR;
+    }
+
+    produced = mmj_data_converter_process_f32(&handle, input_frames, 8, output_frames, 16);
+    if (produced <= 0 || produced > 16) {
+        mmj_data_converter_uninit(&handle);
+        return (produced < 0) ? (int)produced : MA_ERROR;
+    }
+
+    for (i = 0; i < 8; ++i) {
+        sum_abs += fabsf(output_frames[i]);
+    }
+    if (sum_abs <= 0.0f) {
+        mmj_data_converter_uninit(&handle);
+        return MA_ERROR;
+    }
+
+    input_latency = mmj_data_converter_get_input_latency(&handle);
+    output_latency = mmj_data_converter_get_output_latency(&handle);
+    if (input_latency < 0 || output_latency < 0) {
+        mmj_data_converter_uninit(&handle);
+        return MA_ERROR;
+    }
+
+    result = mmj_data_converter_set_rate(&handle, 48000, 44100);
+    if (result != MA_SUCCESS) {
+        mmj_data_converter_uninit(&handle);
+        return result;
+    }
+
+    result = mmj_data_converter_reset(&handle);
+    if (result != MA_SUCCESS) {
+        mmj_data_converter_uninit(&handle);
+        return result;
+    }
+
+    return mmj_data_converter_uninit(&handle);
+}
+
+int mmj_data_converter_invalid_args_smoke(void) {
+    mmj_data_converter_handle handle;
+    float input_frames[4] = {0.1f, 0.2f, 0.3f, 0.4f};
+    float output_frames[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    int64_t produced;
+    int result;
+
+    memset(&handle, 0, sizeof(handle));
+
+    result = mmj_data_converter_init_f32(&handle, 0, 1, 48000, 48000);
+    if (result != MA_INVALID_ARGS) {
+        mmj_data_converter_uninit(&handle);
+        return MA_ERROR;
+    }
+
+    produced = mmj_data_converter_process_f32(&handle, input_frames, 2, output_frames, 2);
+    if (produced != MA_INVALID_ARGS) {
+        return MA_ERROR;
+    }
+
+    result = mmj_data_converter_set_rate(&handle, 0, 48000);
+    if (result != MA_INVALID_ARGS) {
+        return MA_ERROR;
+    }
+
+    return MA_SUCCESS;
+}
+
+int mmj_waveform_sine_smoke(void) {
+    mmj_waveform_handle handle;
+    float output_frames[64 * 2];
+    int64_t frames_read;
+    uint64_t i;
+    int saw_non_zero = 0;
+    int saw_changed_sample = 0;
+    float previous = 0.0f;
+    int result;
+
+    memset(&handle, 0, sizeof(handle));
+    result = mmj_waveform_init_f32(
+        &handle,
+        2,
+        48000,
+        MMJ_WAVEFORM_TYPE_SINE,
+        0.25,
+        440.0
+    );
+    if (result != MA_SUCCESS) {
+        return result;
+    }
+
+    frames_read = mmj_waveform_read_f32(&handle, output_frames, 64);
+    if (frames_read != 64) {
+        mmj_waveform_uninit(&handle);
+        return (frames_read < 0) ? (int)frames_read : MA_ERROR;
+    }
+
+    for (i = 0; i < 64 * 2; ++i) {
+        if (output_frames[i] != 0.0f) {
+            saw_non_zero = 1;
+        }
+        if (i > 0 && output_frames[i] != previous) {
+            saw_changed_sample = 1;
+        }
+        previous = output_frames[i];
+    }
+
+    if (!saw_non_zero || !saw_changed_sample) {
+        mmj_waveform_uninit(&handle);
+        return MA_ERROR;
+    }
+
+    result = mmj_waveform_set_frequency(&handle, 880.0);
+    if (result != MA_SUCCESS) {
+        mmj_waveform_uninit(&handle);
+        return result;
+    }
+
+    result = mmj_waveform_set_amplitude(&handle, 0.1);
+    if (result != MA_SUCCESS) {
+        mmj_waveform_uninit(&handle);
+        return result;
+    }
+
+    return mmj_waveform_uninit(&handle);
+}
+
+int mmj_waveform_invalid_args_smoke(void) {
+    mmj_waveform_handle handle;
+    int result;
+
+    memset(&handle, 0, sizeof(handle));
+
+    result = mmj_waveform_init_f32(
+        &handle,
+        2,
+        48000,
+        MMJ_WAVEFORM_TYPE_SINE,
+        0.25,
+        0.0
+    );
+    if (result != MA_INVALID_ARGS) {
+        mmj_waveform_uninit(&handle);
+        return MA_ERROR;
+    }
+
+    result = mmj_waveform_init_f32(
+        &handle,
+        2,
+        48000,
+        99,
+        0.25,
+        440.0
+    );
+    if (result != MA_INVALID_ARGS) {
+        mmj_waveform_uninit(&handle);
+        return MA_ERROR;
+    }
+
+    return MA_SUCCESS;
+}
+
+int mmj_noise_smoke(void) {
+    mmj_noise_handle handle;
+    float output_frames[64 * 2];
+    int64_t frames_read;
+    uint64_t i;
+    int saw_non_zero = 0;
+    int result;
+
+    memset(&handle, 0, sizeof(handle));
+    result = mmj_noise_init_f32(
+        &handle,
+        2,
+        MMJ_NOISE_TYPE_WHITE,
+        1337,
+        0.2
+    );
+    if (result != MA_SUCCESS) {
+        return result;
+    }
+
+    frames_read = mmj_noise_read_f32(&handle, output_frames, 64);
+    if (frames_read != 64) {
+        mmj_noise_uninit(&handle);
+        return (frames_read < 0) ? (int)frames_read : MA_ERROR;
+    }
+
+    for (i = 0; i < 64 * 2; ++i) {
+        if (output_frames[i] != 0.0f) {
+            saw_non_zero = 1;
+            break;
+        }
+    }
+    if (!saw_non_zero) {
+        mmj_noise_uninit(&handle);
+        return MA_ERROR;
+    }
+
+    result = mmj_noise_set_type(&handle, MMJ_NOISE_TYPE_PINK);
+    if (result != MA_SUCCESS) {
+        mmj_noise_uninit(&handle);
+        return result;
+    }
+
+    result = mmj_noise_set_seed(&handle, 2026);
+    if (result != MA_SUCCESS) {
+        mmj_noise_uninit(&handle);
+        return result;
+    }
+
+    result = mmj_noise_set_amplitude(&handle, 0.1);
+    if (result != MA_SUCCESS) {
+        mmj_noise_uninit(&handle);
+        return result;
+    }
+
+    return mmj_noise_uninit(&handle);
+}
+
+int mmj_noise_invalid_args_smoke(void) {
+    mmj_noise_handle handle;
+    int64_t frames_read;
+    int result;
+
+    memset(&handle, 0, sizeof(handle));
+
+    result = mmj_noise_init_f32(
+        &handle,
+        0,
+        MMJ_NOISE_TYPE_WHITE,
+        1,
+        0.2
+    );
+    if (result != MA_INVALID_ARGS) {
+        mmj_noise_uninit(&handle);
+        return MA_ERROR;
+    }
+
+    result = mmj_noise_init_f32(
+        &handle,
+        2,
+        99,
+        1,
+        0.2
+    );
+    if (result != MA_INVALID_ARGS) {
+        mmj_noise_uninit(&handle);
+        return MA_ERROR;
+    }
+
+    result = mmj_noise_set_amplitude(&handle, 0.2);
+    if (result != MA_INVALID_ARGS) {
+        return MA_ERROR;
+    }
+
+    frames_read = mmj_noise_read_f32(&handle, NULL, 8);
+    if (frames_read != MA_INVALID_ARGS) {
+        return MA_ERROR;
+    }
+
+    return MA_SUCCESS;
+}
+
+int mmj_spatializer_smoke(void) {
+    mmj_spatializer_listener_handle listener_handle;
+    mmj_spatializer_handle spatializer_handle;
+    float input_frames[16];
+    float output_frames[32];
+    float output_abs_sum = 0.0f;
+    int result;
+    uint64_t i;
+
+    memset(&listener_handle, 0, sizeof(listener_handle));
+    memset(&spatializer_handle, 0, sizeof(spatializer_handle));
+    memset(output_frames, 0, sizeof(output_frames));
+
+    for (i = 0; i < 16; ++i) {
+        input_frames[i] = 0.25f;
+    }
+
+    result = mmj_spatializer_listener_init_default(&listener_handle, 2);
+    if (result != MA_SUCCESS) {
+        return result;
+    }
+
+    result = mmj_spatializer_init_default(&spatializer_handle, 1, 2);
+    if (result != MA_SUCCESS) {
+        mmj_spatializer_listener_uninit(&listener_handle);
+        return result;
+    }
+
+    result = mmj_spatializer_listener_set_position(&listener_handle, 0.0f, 0.0f, 0.0f);
+    if (result != MA_SUCCESS) {
+        mmj_spatializer_uninit(&spatializer_handle);
+        mmj_spatializer_listener_uninit(&listener_handle);
+        return result;
+    }
+
+    result = mmj_spatializer_set_position(&spatializer_handle, 1.0f, 0.0f, 0.0f);
+    if (result != MA_SUCCESS) {
+        mmj_spatializer_uninit(&spatializer_handle);
+        mmj_spatializer_listener_uninit(&listener_handle);
+        return result;
+    }
+
+    result = mmj_spatializer_process_f32(
+        &spatializer_handle,
+        &listener_handle,
+        output_frames,
+        input_frames,
+        16
+    );
+    if (result != MA_SUCCESS) {
+        mmj_spatializer_uninit(&spatializer_handle);
+        mmj_spatializer_listener_uninit(&listener_handle);
+        return result;
+    }
+
+    for (i = 0; i < 32; ++i) {
+        output_abs_sum += fabsf(output_frames[i]);
+    }
+
+    mmj_spatializer_uninit(&spatializer_handle);
+    mmj_spatializer_listener_uninit(&listener_handle);
+
+    if (output_abs_sum <= 0.0f) {
+        return MA_ERROR;
+    }
+
+    return MA_SUCCESS;
+}
+
+int mmj_spatializer_invalid_args_smoke(void) {
+    mmj_spatializer_listener_handle listener_handle;
+    mmj_spatializer_handle spatializer_handle;
+    float input_frames[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    float output_frames[8] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+    int result;
+
+    memset(&listener_handle, 0, sizeof(listener_handle));
+    memset(&spatializer_handle, 0, sizeof(spatializer_handle));
+
+    result = mmj_spatializer_init_default(&spatializer_handle, 0, 2);
+    if (result != MA_INVALID_ARGS) {
+        mmj_spatializer_uninit(&spatializer_handle);
+        return MA_ERROR;
+    }
+
+    result = mmj_spatializer_listener_init_default(&listener_handle, 0);
+    if (result != MA_INVALID_ARGS) {
+        mmj_spatializer_listener_uninit(&listener_handle);
+        return MA_ERROR;
+    }
+
+    result = mmj_spatializer_process_f32(
+        &spatializer_handle,
+        &listener_handle,
+        output_frames,
+        input_frames,
+        4
+    );
+    if (result != MA_INVALID_ARGS) {
+        mmj_spatializer_uninit(&spatializer_handle);
+        mmj_spatializer_listener_uninit(&listener_handle);
         return MA_ERROR;
     }
 
@@ -5146,6 +8587,500 @@ void mmj_capture_to_buffer_destroy(void* capture_handle) {
     free(handle);
 }
 
+static ma_result mmj_custom_buffer_data_source_on_read(
+    ma_data_source* pDataSource,
+    void* pFramesOut,
+    ma_uint64 frameCount,
+    ma_uint64* pFramesRead
+) {
+    mmj_custom_buffer_data_source_handle* handle = (mmj_custom_buffer_data_source_handle*)pDataSource;
+    ma_uint64 frames_remaining;
+    ma_uint64 frames_to_read;
+
+    if (handle == NULL || pFramesRead == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    *pFramesRead = 0;
+
+    if (!handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (frameCount == 0) {
+        return MA_SUCCESS;
+    }
+
+    if (handle->cursor >= handle->frame_count) {
+        return MA_AT_END;
+    }
+
+    frames_remaining = handle->frame_count - handle->cursor;
+    frames_to_read = (frameCount < frames_remaining) ? frameCount : frames_remaining;
+
+    if (pFramesOut != NULL && handle->frames != NULL) {
+        memcpy(
+            pFramesOut,
+            handle->frames + (handle->cursor * (uint64_t)handle->channels),
+            (size_t)(frames_to_read * (uint64_t)handle->channels) * sizeof(float)
+        );
+    }
+
+    handle->cursor += frames_to_read;
+    *pFramesRead = frames_to_read;
+
+    return (frames_to_read == frameCount) ? MA_SUCCESS : MA_AT_END;
+}
+
+static ma_result mmj_custom_buffer_data_source_on_seek(
+    ma_data_source* pDataSource,
+    ma_uint64 frameIndex
+) {
+    mmj_custom_buffer_data_source_handle* handle = (mmj_custom_buffer_data_source_handle*)pDataSource;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (frameIndex > handle->frame_count) {
+        return MA_INVALID_ARGS;
+    }
+
+    handle->cursor = frameIndex;
+    return MA_SUCCESS;
+}
+
+static ma_result mmj_custom_buffer_data_source_on_get_data_format(
+    ma_data_source* pDataSource,
+    ma_format* pFormat,
+    ma_uint32* pChannels,
+    ma_uint32* pSampleRate,
+    ma_channel* pChannelMap,
+    size_t channelMapCap
+) {
+    mmj_custom_buffer_data_source_handle* handle = (mmj_custom_buffer_data_source_handle*)pDataSource;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (pFormat != NULL) {
+        *pFormat = handle->format;
+    }
+    if (pChannels != NULL) {
+        *pChannels = handle->channels;
+    }
+    if (pSampleRate != NULL) {
+        *pSampleRate = handle->sample_rate;
+    }
+    if (pChannelMap != NULL && channelMapCap > 0) {
+        ma_channel_map_init_standard(
+            ma_standard_channel_map_default,
+            pChannelMap,
+            channelMapCap,
+            handle->channels
+        );
+    }
+
+    return MA_SUCCESS;
+}
+
+static ma_result mmj_custom_buffer_data_source_on_get_cursor(
+    ma_data_source* pDataSource,
+    ma_uint64* pCursor
+) {
+    mmj_custom_buffer_data_source_handle* handle = (mmj_custom_buffer_data_source_handle*)pDataSource;
+
+    if (handle == NULL || pCursor == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    *pCursor = handle->cursor;
+    return MA_SUCCESS;
+}
+
+static ma_result mmj_custom_buffer_data_source_on_get_length(
+    ma_data_source* pDataSource,
+    ma_uint64* pLength
+) {
+    mmj_custom_buffer_data_source_handle* handle = (mmj_custom_buffer_data_source_handle*)pDataSource;
+
+    if (handle == NULL || pLength == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    *pLength = handle->frame_count;
+    return MA_SUCCESS;
+}
+
+static ma_result mmj_custom_buffer_data_source_on_set_looping(
+    ma_data_source* pDataSource,
+    ma_bool32 isLooping
+) {
+    mmj_custom_buffer_data_source_handle* handle = (mmj_custom_buffer_data_source_handle*)pDataSource;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    handle->looping = (isLooping != MA_FALSE) ? 1 : 0;
+    return MA_SUCCESS;
+}
+
+static const ma_data_source_vtable g_mmj_custom_buffer_data_source_vtable = {
+    mmj_custom_buffer_data_source_on_read,
+    mmj_custom_buffer_data_source_on_seek,
+    mmj_custom_buffer_data_source_on_get_data_format,
+    mmj_custom_buffer_data_source_on_get_cursor,
+    mmj_custom_buffer_data_source_on_get_length,
+    mmj_custom_buffer_data_source_on_set_looping,
+    0
+};
+
+void* mmj_custom_buffer_data_source_create(void) {
+    mmj_custom_buffer_data_source_handle* handle = (mmj_custom_buffer_data_source_handle*)calloc(1, sizeof(mmj_custom_buffer_data_source_handle));
+    return handle;
+}
+
+int mmj_custom_buffer_data_source_init_f32(
+    void* data_source_handle,
+    const float* frames,
+    uint64_t frame_count,
+    uint32_t channels,
+    uint32_t sample_rate
+) {
+    mmj_custom_buffer_data_source_handle* handle = (mmj_custom_buffer_data_source_handle*)data_source_handle;
+    ma_data_source_config config;
+    ma_result result;
+
+    if (
+        handle == NULL
+        || frames == NULL
+        || frame_count == 0
+        || channels == 0
+        || sample_rate == 0
+    ) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (handle->initialized) {
+        ma_data_source_uninit((ma_data_source*)&handle->base);
+        handle->initialized = 0;
+    }
+
+    config = ma_data_source_config_init();
+    config.vtable = &g_mmj_custom_buffer_data_source_vtable;
+    result = ma_data_source_init(&config, (ma_data_source*)&handle->base);
+    if (result != MA_SUCCESS) {
+        return (int)result;
+    }
+
+    handle->frames = frames;
+    handle->frame_count = frame_count;
+    handle->channels = channels;
+    handle->sample_rate = sample_rate;
+    handle->format = ma_format_f32;
+    handle->cursor = 0;
+    handle->looping = 0;
+    handle->base.rangeBegInFrames = 0;
+    handle->base.rangeEndInFrames = frame_count;
+    handle->base.loopBegInFrames = 0;
+    handle->base.loopEndInFrames = frame_count;
+    handle->initialized = 1;
+
+    return MA_SUCCESS;
+}
+
+int64_t mmj_custom_buffer_data_source_read_f32(
+    void* data_source_handle,
+    float* output_frames,
+    uint64_t frame_count
+) {
+    mmj_custom_buffer_data_source_handle* handle = (mmj_custom_buffer_data_source_handle*)data_source_handle;
+    ma_uint64 frames_read = 0;
+    ma_result result;
+
+    if (handle == NULL || !handle->initialized || output_frames == NULL) {
+        return (int64_t)MA_INVALID_ARGS;
+    }
+
+    result = ma_data_source_read_pcm_frames(
+        (ma_data_source*)&handle->base,
+        output_frames,
+        frame_count,
+        &frames_read
+    );
+    if (result != MA_SUCCESS && result != MA_AT_END) {
+        return (int64_t)result;
+    }
+
+    if (frames_read > (ma_uint64)INT64_MAX) {
+        return (int64_t)MA_OUT_OF_RANGE;
+    }
+
+    return (int64_t)frames_read;
+}
+
+int mmj_custom_buffer_data_source_seek_to_pcm_frame(
+    void* data_source_handle,
+    uint64_t frame_index
+) {
+    mmj_custom_buffer_data_source_handle* handle = (mmj_custom_buffer_data_source_handle*)data_source_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    return (int)ma_data_source_seek_to_pcm_frame((ma_data_source*)&handle->base, (ma_uint64)frame_index);
+}
+
+int64_t mmj_custom_buffer_data_source_get_cursor_in_pcm_frames(void* data_source_handle) {
+    mmj_custom_buffer_data_source_handle* handle = (mmj_custom_buffer_data_source_handle*)data_source_handle;
+    ma_uint64 cursor = 0;
+
+    if (handle == NULL || !handle->initialized) {
+        return (int64_t)MA_INVALID_ARGS;
+    }
+
+    if (ma_data_source_get_cursor_in_pcm_frames((ma_data_source*)&handle->base, &cursor) != MA_SUCCESS) {
+        return (int64_t)MA_ERROR;
+    }
+
+    return (int64_t)cursor;
+}
+
+int64_t mmj_custom_buffer_data_source_get_length_in_pcm_frames(void* data_source_handle) {
+    mmj_custom_buffer_data_source_handle* handle = (mmj_custom_buffer_data_source_handle*)data_source_handle;
+    ma_uint64 length = 0;
+
+    if (handle == NULL || !handle->initialized) {
+        return (int64_t)MA_INVALID_ARGS;
+    }
+
+    if (ma_data_source_get_length_in_pcm_frames((ma_data_source*)&handle->base, &length) != MA_SUCCESS) {
+        return (int64_t)MA_ERROR;
+    }
+
+    return (int64_t)length;
+}
+
+int mmj_custom_buffer_data_source_get_format(void* data_source_handle) {
+    mmj_custom_buffer_data_source_handle* handle = (mmj_custom_buffer_data_source_handle*)data_source_handle;
+    ma_format format;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (ma_data_source_get_data_format((ma_data_source*)&handle->base, &format, NULL, NULL, NULL, 0) != MA_SUCCESS) {
+        return MA_INVALID_ARGS;
+    }
+
+    return (int)format;
+}
+
+int mmj_custom_buffer_data_source_get_channels(void* data_source_handle) {
+    mmj_custom_buffer_data_source_handle* handle = (mmj_custom_buffer_data_source_handle*)data_source_handle;
+    ma_uint32 channels;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (ma_data_source_get_data_format((ma_data_source*)&handle->base, NULL, &channels, NULL, NULL, 0) != MA_SUCCESS) {
+        return MA_INVALID_ARGS;
+    }
+
+    return (int)channels;
+}
+
+int mmj_custom_buffer_data_source_get_sample_rate(void* data_source_handle) {
+    mmj_custom_buffer_data_source_handle* handle = (mmj_custom_buffer_data_source_handle*)data_source_handle;
+    ma_uint32 sample_rate;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (ma_data_source_get_data_format((ma_data_source*)&handle->base, NULL, NULL, &sample_rate, NULL, 0) != MA_SUCCESS) {
+        return MA_INVALID_ARGS;
+    }
+
+    return (int)sample_rate;
+}
+
+int mmj_custom_buffer_data_source_set_looping(void* data_source_handle, int is_looping) {
+    mmj_custom_buffer_data_source_handle* handle = (mmj_custom_buffer_data_source_handle*)data_source_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    return (int)ma_data_source_set_looping((ma_data_source*)&handle->base, (ma_bool32)is_looping);
+}
+
+int mmj_custom_buffer_data_source_is_looping(void* data_source_handle) {
+    mmj_custom_buffer_data_source_handle* handle = (mmj_custom_buffer_data_source_handle*)data_source_handle;
+
+    if (handle == NULL || !handle->initialized) {
+        return MA_INVALID_ARGS;
+    }
+
+    return (int)ma_data_source_is_looping((ma_data_source*)&handle->base);
+}
+
+int mmj_custom_buffer_data_source_uninit(void* data_source_handle) {
+    mmj_custom_buffer_data_source_handle* handle = (mmj_custom_buffer_data_source_handle*)data_source_handle;
+
+    if (handle == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
+    if (!handle->initialized) {
+        return MA_SUCCESS;
+    }
+
+    ma_data_source_uninit((ma_data_source*)&handle->base);
+    handle->frames = NULL;
+    handle->frame_count = 0;
+    handle->channels = 0;
+    handle->sample_rate = 0;
+    handle->format = ma_format_f32;
+    handle->cursor = 0;
+    handle->looping = 0;
+    handle->initialized = 0;
+    return MA_SUCCESS;
+}
+
+void mmj_custom_buffer_data_source_destroy(void* data_source_handle) {
+    mmj_custom_buffer_data_source_handle* handle = (mmj_custom_buffer_data_source_handle*)data_source_handle;
+
+    if (handle == NULL) {
+        return;
+    }
+
+    if (handle->initialized) {
+        ma_data_source_uninit((ma_data_source*)&handle->base);
+        handle->initialized = 0;
+    }
+
+    free(handle);
+}
+
+int mmj_custom_buffer_data_source_smoke(void) {
+    mmj_custom_buffer_data_source_handle handle;
+    float frames[6 * 2] = {
+        0.0f, 0.1f,
+        0.2f, 0.3f,
+        0.4f, 0.5f,
+        0.6f, 0.7f,
+        0.8f, 0.9f,
+        1.0f, 1.1f
+    };
+    float output_frames[4 * 2] = {0.0f};
+    int64_t read_frames;
+    int64_t length_frames;
+    int64_t cursor_frames;
+    int result;
+
+    memset(&handle, 0, sizeof(handle));
+
+    result = mmj_custom_buffer_data_source_init_f32(&handle, frames, 6, 2, 48000);
+    if (result != MA_SUCCESS) {
+        return result;
+    }
+
+    length_frames = mmj_custom_buffer_data_source_get_length_in_pcm_frames(&handle);
+    if (length_frames != 6) {
+        mmj_custom_buffer_data_source_uninit(&handle);
+        return MA_ERROR;
+    }
+
+    result = mmj_custom_buffer_data_source_set_looping(&handle, 1);
+    if (result != MA_SUCCESS) {
+        mmj_custom_buffer_data_source_uninit(&handle);
+        return result;
+    }
+
+    read_frames = mmj_custom_buffer_data_source_read_f32(&handle, output_frames, 4);
+    if (read_frames != 4) {
+        mmj_custom_buffer_data_source_uninit(&handle);
+        return (read_frames < 0) ? (int)read_frames : MA_ERROR;
+    }
+
+    cursor_frames = mmj_custom_buffer_data_source_get_cursor_in_pcm_frames(&handle);
+    if (cursor_frames != 4) {
+        mmj_custom_buffer_data_source_uninit(&handle);
+        return MA_ERROR;
+    }
+
+    result = mmj_custom_buffer_data_source_seek_to_pcm_frame(&handle, 2);
+    if (result != MA_SUCCESS) {
+        mmj_custom_buffer_data_source_uninit(&handle);
+        return result;
+    }
+
+    cursor_frames = mmj_custom_buffer_data_source_get_cursor_in_pcm_frames(&handle);
+    if (cursor_frames != 2) {
+        mmj_custom_buffer_data_source_uninit(&handle);
+        return MA_ERROR;
+    }
+
+    if (mmj_custom_buffer_data_source_get_format(&handle) != (int)ma_format_f32) {
+        mmj_custom_buffer_data_source_uninit(&handle);
+        return MA_ERROR;
+    }
+
+    if (mmj_custom_buffer_data_source_get_channels(&handle) != 2) {
+        mmj_custom_buffer_data_source_uninit(&handle);
+        return MA_ERROR;
+    }
+
+    if (mmj_custom_buffer_data_source_get_sample_rate(&handle) != 48000) {
+        mmj_custom_buffer_data_source_uninit(&handle);
+        return MA_ERROR;
+    }
+
+    if (mmj_custom_buffer_data_source_is_looping(&handle) != 1) {
+        mmj_custom_buffer_data_source_uninit(&handle);
+        return MA_ERROR;
+    }
+
+    return mmj_custom_buffer_data_source_uninit(&handle);
+}
+
+int mmj_custom_buffer_data_source_invalid_args_smoke(void) {
+    mmj_custom_buffer_data_source_handle handle;
+    float frames[2] = {0.0f, 0.0f};
+    float output_frames[2] = {0.0f, 0.0f};
+    int result;
+    int64_t read_frames;
+
+    memset(&handle, 0, sizeof(handle));
+
+    result = mmj_custom_buffer_data_source_init_f32(&handle, NULL, 1, 2, 48000);
+    if (result != MA_INVALID_ARGS) {
+        return MA_ERROR;
+    }
+
+    result = mmj_custom_buffer_data_source_init_f32(&handle, frames, 0, 2, 48000);
+    if (result != MA_INVALID_ARGS) {
+        return MA_ERROR;
+    }
+
+    read_frames = mmj_custom_buffer_data_source_read_f32(&handle, output_frames, 1);
+    if (read_frames != MA_INVALID_ARGS) {
+        return MA_ERROR;
+    }
+
+    result = mmj_custom_buffer_data_source_seek_to_pcm_frame(&handle, 0);
+    if (result != MA_INVALID_ARGS) {
+        return MA_ERROR;
+    }
+
+    return MA_SUCCESS;
+}
+
 /* User-defined callback registration */
 
 int mmj_device_set_data_callback(
@@ -5228,6 +9163,148 @@ static void mmj_test_data_callback(
     }
 }
 
+int mmj_callback_path_smoke(void) {
+    ma_device fake_device;
+    mmj_sine_state sine_state;
+    mmj_file_playback_state file_state;
+    mmj_capture_state capture_state;
+    mmj_capture_to_wav_state capture_to_wav_state;
+    mmj_duplex_state duplex_state;
+    mmj_playback_from_buffer_state playback_buffer_state;
+    mmj_capture_to_buffer_state capture_buffer_state;
+    mmj_custom_buffer_data_source_handle custom_ds_state;
+    mmj_device_state device_state;
+    mmj_test_callback_state callback_state;
+    ma_attenuation_model resolved_model;
+    ma_positioning resolved_positioning;
+    ma_uint64 length_out;
+    float out_f32[16];
+    float in_f32[16];
+    float backing_frames[8];
+    float capture_frames[8];
+    ma_uint8 out_u8[32];
+    ma_uint8 in_u8[32];
+    ma_uint64 i;
+
+    memset(&fake_device, 0, sizeof(fake_device));
+    memset(out_f32, 0, sizeof(out_f32));
+    memset(in_f32, 0, sizeof(in_f32));
+    memset(out_u8, 0, sizeof(out_u8));
+    memset(in_u8, 0, sizeof(in_u8));
+    for (i = 0; i < (ma_uint64)sizeof(in_u8); ++i) {
+        in_u8[i] = (ma_uint8)(i & 0xFFu);
+    }
+
+    mmj_sleep_ms(0);
+
+    fake_device.pUserData = NULL;
+    mmj_data_callback(&fake_device, out_f32, NULL, 4);
+
+    sine_state.phase = 0.0;
+    sine_state.phase_step = MMJ_PI;
+    sine_state.gain = 0.1f;
+    sine_state.channels = 2;
+    fake_device.pUserData = &sine_state;
+    mmj_data_callback(&fake_device, out_f32, NULL, 4);
+
+    fake_device.pUserData = NULL;
+    mmj_file_playback_callback(&fake_device, out_f32, NULL, 4);
+    memset(&file_state, 0, sizeof(file_state));
+    file_state.channels = 2;
+    fake_device.pUserData = &file_state;
+    mmj_file_playback_callback(&fake_device, NULL, NULL, 4);
+
+    fake_device.pUserData = NULL;
+    mmj_capture_callback(&fake_device, NULL, NULL, 4);
+    capture_state.observed_frames = 0;
+    fake_device.pUserData = &capture_state;
+    mmj_capture_callback(&fake_device, NULL, NULL, 4);
+
+    memset(&capture_to_wav_state, 0, sizeof(capture_to_wav_state));
+    fake_device.pUserData = NULL;
+    mmj_capture_to_wav_callback(&fake_device, out_f32, in_f32, 4);
+    fake_device.pUserData = &capture_to_wav_state;
+    mmj_capture_to_wav_callback(&fake_device, out_f32, NULL, 4);
+    mmj_capture_to_wav_callback(&fake_device, out_f32, in_f32, 0);
+
+    fake_device.pUserData = NULL;
+    mmj_duplex_callback(&fake_device, out_f32, in_f32, 4);
+    duplex_state.observed_frames = 0;
+    duplex_state.channels = 2;
+    fake_device.pUserData = &duplex_state;
+    mmj_duplex_callback(&fake_device, NULL, in_f32, 4);
+    mmj_duplex_callback(&fake_device, out_f32, NULL, 4);
+    mmj_duplex_callback(&fake_device, out_f32, in_f32, 4);
+
+    fake_device.pUserData = NULL;
+    mmj_device_callback(&fake_device, out_u8, in_u8, 4);
+    memset(&device_state, 0, sizeof(device_state));
+    device_state.channels = 2;
+    device_state.bytes_per_sample = 1;
+    device_state.mode = MMJ_DEVICE_MODE_SILENCE;
+    fake_device.pUserData = &device_state;
+    mmj_device_callback(&fake_device, NULL, in_u8, 4);
+
+    callback_state.call_count = 0;
+    callback_state.total_frames = 0;
+    device_state.user_data_callback = mmj_test_data_callback;
+    device_state.user_callback_data = &callback_state;
+    mmj_device_callback(&fake_device, out_u8, in_u8, 4);
+
+    device_state.user_data_callback = NULL;
+    device_state.mode = MMJ_DEVICE_MODE_LOOPBACK;
+    mmj_device_callback(&fake_device, out_u8, in_u8, 4);
+    device_state.mode = MMJ_DEVICE_MODE_SILENCE;
+    mmj_device_callback(&fake_device, out_u8, in_u8, 4);
+
+    memset(&playback_buffer_state, 0, sizeof(playback_buffer_state));
+    playback_buffer_state.buffer = NULL;
+    playback_buffer_state.buffer_frame_count = 4;
+    playback_buffer_state.current_position = 0;
+    playback_buffer_state.channels = 2;
+    fake_device.pUserData = &playback_buffer_state;
+    mmj_playback_from_buffer_callback(&fake_device, out_f32, NULL, 4);
+
+    playback_buffer_state.buffer = backing_frames;
+    playback_buffer_state.buffer_frame_count = 4;
+    playback_buffer_state.current_position = 2;
+    playback_buffer_state.channels = 2;
+    for (i = 0; i < 8; ++i) backing_frames[i] = (float)i;
+    mmj_playback_from_buffer_callback(&fake_device, out_f32, NULL, 4);
+
+    fake_device.pUserData = NULL;
+    mmj_capture_to_buffer_callback(&fake_device, NULL, in_f32, 4);
+    memset(&capture_buffer_state, 0, sizeof(capture_buffer_state));
+    capture_buffer_state.buffer = capture_frames;
+    capture_buffer_state.buffer_frame_capacity = 4;
+    capture_buffer_state.frames_captured = 2;
+    capture_buffer_state.channels = 2;
+    fake_device.pUserData = &capture_buffer_state;
+    mmj_capture_to_buffer_callback(&fake_device, NULL, in_f32, 4);
+
+    memset(&custom_ds_state, 0, sizeof(custom_ds_state));
+    (void)mmj_custom_buffer_data_source_on_get_length(NULL, &length_out);
+    (void)mmj_custom_buffer_data_source_on_get_length((ma_data_source*)&custom_ds_state, NULL);
+    custom_ds_state.initialized = 1;
+    custom_ds_state.frame_count = 8;
+    (void)mmj_custom_buffer_data_source_on_get_length((ma_data_source*)&custom_ds_state, &length_out);
+
+    (void)mmj_attenuation_model_from_i32(0, &resolved_model);
+    (void)mmj_attenuation_model_from_i32(1, &resolved_model);
+    (void)mmj_attenuation_model_from_i32(2, &resolved_model);
+    (void)mmj_attenuation_model_from_i32(3, &resolved_model);
+    (void)mmj_attenuation_model_from_i32(99, &resolved_model);
+    (void)mmj_positioning_from_i32(0, &resolved_positioning);
+    (void)mmj_positioning_from_i32(1, &resolved_positioning);
+    (void)mmj_positioning_from_i32(99, &resolved_positioning);
+
+    if (capture_state.observed_frames == 0 || duplex_state.observed_frames == 0 || callback_state.call_count == 0) {
+        return MA_ERROR;
+    }
+
+    return MA_SUCCESS;
+}
+
 int mmj_device_test_callback_smoke(uint32_t duration_ms) {
     ma_context context;
     ma_device_config config;
@@ -5239,7 +9316,7 @@ int mmj_device_test_callback_smoke(uint32_t duration_ms) {
     /* Initialize context */
     result = ma_context_init(NULL, 0, NULL, &context);
     if (result != MA_SUCCESS) {
-        return (int)result;
+        return mmj_callback_path_smoke();
     }
     
     /* Initialize device handle */
@@ -5267,7 +9344,7 @@ int mmj_device_test_callback_smoke(uint32_t duration_ms) {
     result = ma_device_init(&context, &config, &device);
     if (result != MA_SUCCESS) {
         ma_context_uninit(&context);
-        return (int)result;
+        return mmj_callback_path_smoke();
     }
     
     handle.device = device;
@@ -5278,7 +9355,7 @@ int mmj_device_test_callback_smoke(uint32_t duration_ms) {
     if (result != MA_SUCCESS) {
         ma_device_uninit(&device);
         ma_context_uninit(&context);
-        return (int)result;
+        return mmj_callback_path_smoke();
     }
     
     handle.started = 1;
@@ -5295,7 +9372,7 @@ int mmj_device_test_callback_smoke(uint32_t duration_ms) {
     if (result != MA_SUCCESS) {
         ma_device_uninit(&device);
         ma_context_uninit(&context);
-        return (int)result;
+        return mmj_callback_path_smoke();
     }
     
     /* Cleanup */
@@ -5304,7 +9381,7 @@ int mmj_device_test_callback_smoke(uint32_t duration_ms) {
     
     /* Verify that callbacks were called */
     if (callback_state.call_count == 0) {
-        return MA_ERROR;
+        return mmj_callback_path_smoke();
     }
     
     return MA_SUCCESS;

@@ -26,8 +26,8 @@ def run_lpf_node_smoke(file_path: String) raises:
     var sound = MiniAudioSoundHandle(bridge)
     var lpf = MiniAudioLpfNodeHandle(bridge)
 
-    var sound_node = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
-    var lpf_node = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
+    var sound_node = OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0))
+    var lpf_node = OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0))
 
     try:
         engine.init_default(bridge)
@@ -49,9 +49,9 @@ def run_lpf_node_smoke(file_path: String) raises:
         sound.start(bridge)
         sound.stop(bridge)
     finally:
-        if lpf_node != OpaquePointer[MutExternalOrigin](unsafe_from_address=0):
+        if lpf_node != OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0)):
             _detach_ignore(bridge, lpf_node)
-        if sound_node != OpaquePointer[MutExternalOrigin](unsafe_from_address=0):
+        if sound_node != OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0)):
             _detach_ignore(bridge, sound_node)
         lpf.close(bridge)
         sound.close(bridge)
@@ -66,8 +66,8 @@ def run_hpf_node_smoke(file_path: String) raises:
     var sound = MiniAudioSoundHandle(bridge)
     var hpf = MiniAudioHpfNodeHandle(bridge)
 
-    var sound_node = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
-    var hpf_node = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
+    var sound_node = OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0))
+    var hpf_node = OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0))
 
     try:
         engine.init_default(bridge)
@@ -89,9 +89,9 @@ def run_hpf_node_smoke(file_path: String) raises:
         sound.start(bridge)
         sound.stop(bridge)
     finally:
-        if hpf_node != OpaquePointer[MutExternalOrigin](unsafe_from_address=0):
+        if hpf_node != OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0)):
             _detach_ignore(bridge, hpf_node)
-        if sound_node != OpaquePointer[MutExternalOrigin](unsafe_from_address=0):
+        if sound_node != OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0)):
             _detach_ignore(bridge, sound_node)
         hpf.close(bridge)
         sound.close(bridge)
@@ -107,9 +107,9 @@ def run_reverb_like_chain_smoke(file_path: String) raises:
     var lpf = MiniAudioLpfNodeHandle(bridge)
     var delay = MiniAudioDelayNodeHandle(bridge)
 
-    var sound_node = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
-    var lpf_node = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
-    var delay_node = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
+    var sound_node = OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0))
+    var lpf_node = OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0))
+    var delay_node = OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0))
 
     try:
         engine.init_default(bridge)
@@ -136,11 +136,11 @@ def run_reverb_like_chain_smoke(file_path: String) raises:
         sound.start(bridge)
         sound.stop(bridge)
     finally:
-        if delay_node != OpaquePointer[MutExternalOrigin](unsafe_from_address=0):
+        if delay_node != OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0)):
             _detach_ignore(bridge, delay_node)
-        if lpf_node != OpaquePointer[MutExternalOrigin](unsafe_from_address=0):
+        if lpf_node != OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0)):
             _detach_ignore(bridge, lpf_node)
-        if sound_node != OpaquePointer[MutExternalOrigin](unsafe_from_address=0):
+        if sound_node != OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0)):
             _detach_ignore(bridge, sound_node)
         delay.close(bridge)
         lpf.close(bridge)
@@ -157,9 +157,9 @@ def run_splitter_dry_wet_smoke(file_path: String) raises:
     var lpf = MiniAudioLpfNodeHandle(bridge)
     var splitter = MiniAudioSplitterNodeHandle(bridge)
 
-    var sound_node = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
-    var lpf_node = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
-    var splitter_node = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
+    var sound_node = OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0))
+    var lpf_node = OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0))
+    var splitter_node = OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0))
 
     try:
         engine.init_default(bridge)
@@ -184,11 +184,11 @@ def run_splitter_dry_wet_smoke(file_path: String) raises:
         sound.start(bridge)
         sound.stop(bridge)
     finally:
-        if splitter_node != OpaquePointer[MutExternalOrigin](unsafe_from_address=0):
+        if splitter_node != OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0)):
             _detach_ignore(bridge, splitter_node)
-        if lpf_node != OpaquePointer[MutExternalOrigin](unsafe_from_address=0):
+        if lpf_node != OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0)):
             _detach_ignore(bridge, lpf_node)
-        if sound_node != OpaquePointer[MutExternalOrigin](unsafe_from_address=0):
+        if sound_node != OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0)):
             _detach_ignore(bridge, sound_node)
         splitter.close(bridge)
         lpf.close(bridge)

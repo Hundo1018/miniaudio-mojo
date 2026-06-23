@@ -1,33 +1,66 @@
 from miniaudio import run_playback_file_smoke, run_playback_smoke
 from miniaudio_biquad import run_biquad_invalid_q_smoke, run_biquad_peaking_eq_smoke
+from miniaudio_binding_contract import run_mojo_binding_contract_smoke, run_mojo_decoder_encoder_contract_suite, run_mojo_device_init_ex_contract_suite, run_mojo_handle_lifecycle_contract_smoke
 from miniaudio_capture import run_capture_file_smoke, run_capture_smoke, run_encoder_wav_smoke
 from miniaudio_context import run_context_smoke
-from miniaudio_decoder import run_decoder_memory_invalid_args_smoke, run_decoder_memory_output_format_matrix_smoke, run_decoder_memory_smoke, run_decoder_output_format_matrix_smoke, run_decoder_read_smoke, run_decoder_smoke
-from miniaudio_encoder import run_encoder_wav_format_matrix_smoke, run_encoder_write_frames_smoke
-from miniaudio_device import run_device_callback_longrun_smoke, run_device_callback_smoke, run_device_config_smoke, run_device_control_smoke, run_device_format_matrix_smoke, run_device_volume_smoke, run_device_user_callback_smoke
+from miniaudio_data_converter import run_data_converter_invalid_args_smoke, run_data_converter_smoke
+from miniaudio_decoder import run_decoder_memory_invalid_args_smoke, run_decoder_memory_output_format_matrix_smoke, run_decoder_memory_smoke, run_decoder_output_format_matrix_smoke, run_decoder_read_smoke, run_decoder_smoke, run_decoder_vfs_smoke
+from miniaudio_custom_data_source import run_custom_buffer_data_source_invalid_args_smoke, run_custom_buffer_data_source_smoke
+from miniaudio_encoder import run_encoder_invalid_state_smoke, run_encoder_vfs_wav_smoke, run_encoder_wav_format_matrix_smoke, run_encoder_write_frames_smoke
+from miniaudio_device import run_device_callback_longrun_smoke, run_device_callback_smoke, run_device_config_smoke, run_device_control_smoke, run_device_format_matrix_smoke, run_device_init_ex_smoke, run_device_volume_smoke, run_device_user_callback_smoke
 from miniaudio_devices import run_device_select_smoke, run_devices_smoke
 from miniaudio_duplex import run_duplex_control_smoke, run_duplex_smoke
+from miniaudio_async_notification import run_async_notification_event_invalid_args_smoke, run_async_notification_event_smoke, run_async_notification_poll_invalid_args_smoke, run_async_notification_poll_smoke
 from miniaudio_engine import run_engine_listener_control_smoke, run_engine_play_sound_smoke
 from miniaudio_effects import run_hpf_node_smoke, run_lpf_node_smoke, run_reverb_like_chain_smoke, run_splitter_dry_wet_smoke
+from miniaudio_job_queue import run_job_queue_invalid_args_smoke, run_job_queue_smoke
 from miniaudio_logging import run_logging_invalid_state_smoke, run_logging_smoke
+from miniaudio_noise import run_noise_invalid_args_smoke, run_noise_smoke
 from miniaudio_node import run_node_attach_detach_smoke, run_node_routing_scene_smoke
-from miniaudio_resource_manager import run_resource_manager_async_poll_smoke, run_resource_manager_smoke
+from miniaudio_resource_manager import run_resource_manager_async_poll_smoke, run_resource_manager_init_copy_smoke, run_resource_manager_init_ex_smoke, run_resource_manager_init_ex_w_smoke, run_resource_manager_init_w_smoke, run_resource_manager_pipeline_fence_smoke, run_resource_manager_pipeline_notification_smoke, run_resource_manager_pipeline_notification_w_smoke, run_resource_manager_pipeline_notifications_and_fences_smoke, run_resource_manager_pipeline_notifications_and_fences_w_smoke, run_resource_manager_smoke, run_resource_manager_streaming_async_smoke
 from miniaudio_data_source import run_data_source_extended_smoke, run_data_source_invalid_smoke, run_data_source_loop_point_smoke, run_data_source_range_smoke
 from miniaudio_eq_nodes import run_eq_nodes_invalid_smoke, run_hishelf_node_smoke, run_loshelf_node_smoke, run_notch_node_smoke, run_peak_node_smoke
 from miniaudio_ring_buffer import run_pcm_rb_handle_smoke, run_pcm_rb_invalid_args_smoke, run_pcm_rb_overflow_smoke, run_pcm_rb_smoke
 from miniaudio_resampler import run_channel_converter_init_mode_smoke, run_channel_converter_invalid_channels_smoke, run_channel_converter_stereo_to_mono_smoke, run_resampler_expected_count_smoke, run_resampler_invalid_rate_smoke, run_resampler_linear_smoke
 from miniaudio_sound import run_sound_control_smoke, run_sound_pause_smoke, run_sound_progress_smoke, run_sound_seek_smoke, run_sound_spatial_scene_smoke, run_sound_spatial_smoke
 from miniaudio_sound_group import run_sound_group_attenuation_boundary_smoke, run_sound_group_attenuation_controls_smoke, run_sound_group_control_smoke, run_sound_group_extended_controls_smoke, run_sound_group_fade_invalid_smoke, run_sound_group_fade_smoke, run_sound_group_invalid_state_smoke, run_sound_group_spatial_controls_smoke
+from miniaudio_spatializer import run_spatializer_invalid_args_smoke, run_spatializer_smoke
+from miniaudio_sync_primitives import run_sync_primitives_invalid_args_smoke, run_sync_primitives_smoke
+from miniaudio_waveform import run_waveform_handle_invalid_smoke, run_waveform_invalid_args_smoke, run_waveform_sine_smoke
 from std.os.env import getenv
 
 
 def main() raises:
-    run_playback_smoke()
+    var skip_base_playback_smoke = getenv("MINIAUDIO_SKIP_BASE_PLAYBACK_SMOKE")
+    if skip_base_playback_smoke == "":
+        run_playback_smoke()
+    else:
+        print("Skipping baseline playback smoke")
 
     var context_smoke = getenv("MINIAUDIO_CONTEXT_SMOKE")
     if context_smoke != "":
         print("Running context smoke")
         run_context_smoke()
+
+    var mojo_binding_contract_smoke = getenv("MINIAUDIO_BINDING_CONTRACT_SMOKE")
+    if mojo_binding_contract_smoke != "":
+        print("Running Mojo binding contract smoke")
+        run_mojo_binding_contract_smoke()
+
+    var mojo_handle_lifecycle_contract_smoke = getenv("MINIAUDIO_HANDLE_LIFECYCLE_CONTRACT_SMOKE")
+    if mojo_handle_lifecycle_contract_smoke != "":
+        print("Running Mojo handle lifecycle contract smoke")
+        run_mojo_handle_lifecycle_contract_smoke()
+
+    var mojo_device_init_ex_contract_suite = getenv("MINIAUDIO_DEVICE_INIT_EX_CONTRACT_SUITE")
+    if mojo_device_init_ex_contract_suite != "":
+        print("Running Mojo device init_ex contract suite")
+        run_mojo_device_init_ex_contract_suite()
+
+    var mojo_decoder_encoder_contract_suite = getenv("MINIAUDIO_DECODER_ENCODER_CONTRACT_SUITE")
+    if mojo_decoder_encoder_contract_suite != "":
+        print("Running Mojo decoder/encoder contract suite")
+        run_mojo_decoder_encoder_contract_suite()
 
     var capture_smoke = getenv("MINIAUDIO_CAPTURE_SMOKE")
     if capture_smoke != "":
@@ -89,6 +122,11 @@ def main() raises:
         print("Running device format matrix smoke")
         run_device_format_matrix_smoke()
 
+    var device_init_ex_smoke = getenv("MINIAUDIO_DEVICE_INIT_EX_SMOKE")
+    if device_init_ex_smoke != "":
+        print("Running device init_ex smoke")
+        run_device_init_ex_smoke()
+
     var device_callback_smoke = getenv("MINIAUDIO_DEVICE_CALLBACK_SMOKE")
     if device_callback_smoke != "":
         print("Running device callback smoke")
@@ -120,6 +158,11 @@ def main() raises:
         print("Running decoder read smoke for:", decoder_read_file)
         run_decoder_read_smoke(decoder_read_file)
 
+    var decoder_vfs_file = getenv("MINIAUDIO_DECODER_VFS_FILE")
+    if decoder_vfs_file != "":
+        print("Running decoder VFS smoke for:", decoder_vfs_file)
+        run_decoder_vfs_smoke(decoder_vfs_file)
+
     var decoder_format_matrix_file = getenv("MINIAUDIO_DECODER_FORMAT_MATRIX_FILE")
     if decoder_format_matrix_file != "":
         print("Running decoder output format matrix smoke for:", decoder_format_matrix_file)
@@ -145,6 +188,16 @@ def main() raises:
     if encoder_write_frames_input != "" and encoder_write_frames_output != "":
         print("Running encoder write_pcm_frames smoke from:", encoder_write_frames_input, "to:", encoder_write_frames_output)
         run_encoder_write_frames_smoke(encoder_write_frames_input, encoder_write_frames_output)
+
+    var encoder_invalid_state_smoke = getenv("MINIAUDIO_ENCODER_INVALID_STATE_SMOKE")
+    if encoder_invalid_state_smoke != "":
+        print("Running encoder invalid-state smoke")
+        run_encoder_invalid_state_smoke()
+
+    var encoder_vfs_wav_file = getenv("MINIAUDIO_ENCODER_VFS_WAV_FILE")
+    if encoder_vfs_wav_file != "":
+        print("Running encoder VFS WAV smoke for:", encoder_vfs_wav_file)
+        run_encoder_vfs_wav_smoke(encoder_vfs_wav_file)
 
     var playback_file = getenv("MINIAUDIO_PLAYBACK_FILE")
     if playback_file != "":
@@ -316,6 +369,106 @@ def main() raises:
         print("Running resource manager async poll smoke for:", resource_async_file)
         run_resource_manager_async_poll_smoke(resource_async_file)
 
+    var resource_stream_async_file = getenv("MINIAUDIO_RESOURCE_STREAM_ASYNC_FILE")
+    if resource_stream_async_file != "":
+        print("Running resource manager streaming async smoke for:", resource_stream_async_file)
+        run_resource_manager_streaming_async_smoke(resource_stream_async_file)
+
+    var resource_init_ex_file = getenv("MINIAUDIO_RESOURCE_INIT_EX_FILE")
+    if resource_init_ex_file != "":
+        print("Running resource manager init_ex smoke for:", resource_init_ex_file)
+        run_resource_manager_init_ex_smoke(resource_init_ex_file)
+
+    var resource_init_ex_w_file = getenv("MINIAUDIO_RESOURCE_INIT_EX_W_FILE")
+    if resource_init_ex_w_file != "":
+        print("Running resource manager init_ex_w smoke for:", resource_init_ex_w_file)
+        run_resource_manager_init_ex_w_smoke(resource_init_ex_w_file)
+
+    var resource_init_copy_file = getenv("MINIAUDIO_RESOURCE_INIT_COPY_FILE")
+    if resource_init_copy_file != "":
+        print("Running resource manager init_copy smoke for:", resource_init_copy_file)
+        run_resource_manager_init_copy_smoke(resource_init_copy_file)
+
+    var resource_init_w_file = getenv("MINIAUDIO_RESOURCE_INIT_W_FILE")
+    if resource_init_w_file != "":
+        print("Running resource manager init_w smoke for:", resource_init_w_file)
+        run_resource_manager_init_w_smoke(resource_init_w_file)
+
+    var resource_pipeline_notifications_file = getenv("MINIAUDIO_RESOURCE_PIPELINE_NOTIFICATIONS_FILE")
+    if resource_pipeline_notifications_file != "":
+        print("Running resource manager pipeline notifications smoke for:", resource_pipeline_notifications_file)
+        run_resource_manager_pipeline_notification_smoke(resource_pipeline_notifications_file)
+
+    var resource_pipeline_notifications_w_file = getenv("MINIAUDIO_RESOURCE_PIPELINE_NOTIFICATIONS_W_FILE")
+    if resource_pipeline_notifications_w_file != "":
+        print("Running resource manager pipeline notifications_w smoke for:", resource_pipeline_notifications_w_file)
+        run_resource_manager_pipeline_notification_w_smoke(resource_pipeline_notifications_w_file)
+
+    var resource_pipeline_fence_file = getenv("MINIAUDIO_RESOURCE_PIPELINE_FENCE_FILE")
+    if resource_pipeline_fence_file != "":
+        print("Running resource manager pipeline fence smoke for:", resource_pipeline_fence_file)
+        run_resource_manager_pipeline_fence_smoke(resource_pipeline_fence_file)
+
+    var resource_pipeline_notifications_fences_file = getenv("MINIAUDIO_RESOURCE_PIPELINE_NOTIFICATIONS_FENCES_FILE")
+    if resource_pipeline_notifications_fences_file != "":
+        print("Running resource manager pipeline notifications+fences smoke for:", resource_pipeline_notifications_fences_file)
+        run_resource_manager_pipeline_notifications_and_fences_smoke(resource_pipeline_notifications_fences_file)
+
+    var resource_pipeline_notifications_fences_w_file = getenv("MINIAUDIO_RESOURCE_PIPELINE_NOTIFICATIONS_FENCES_W_FILE")
+    if resource_pipeline_notifications_fences_w_file != "":
+        print("Running resource manager pipeline notifications+fences_w smoke for:", resource_pipeline_notifications_fences_w_file)
+        run_resource_manager_pipeline_notifications_and_fences_w_smoke(resource_pipeline_notifications_fences_w_file)
+
+    var job_queue_smoke = getenv("MINIAUDIO_JOB_QUEUE_SMOKE")
+    if job_queue_smoke != "":
+        print("Running job queue smoke")
+        run_job_queue_smoke()
+
+    var job_queue_invalid_args_smoke = getenv("MINIAUDIO_JOB_QUEUE_INVALID_ARGS_SMOKE")
+    if job_queue_invalid_args_smoke != "":
+        print("Running job queue invalid-args smoke")
+        run_job_queue_invalid_args_smoke()
+
+    var sync_primitives_smoke = getenv("MINIAUDIO_SYNC_PRIMITIVES_SMOKE")
+    if sync_primitives_smoke != "":
+        print("Running sync primitives smoke")
+        run_sync_primitives_smoke()
+
+    var sync_primitives_invalid_args_smoke = getenv("MINIAUDIO_SYNC_PRIMITIVES_INVALID_ARGS_SMOKE")
+    if sync_primitives_invalid_args_smoke != "":
+        print("Running sync primitives invalid-args smoke")
+        run_sync_primitives_invalid_args_smoke()
+
+    var async_notification_poll_smoke = getenv("MINIAUDIO_ASYNC_NOTIFICATION_POLL_SMOKE")
+    if async_notification_poll_smoke != "":
+        print("Running async notification poll smoke")
+        run_async_notification_poll_smoke()
+
+    var async_notification_poll_invalid_args_smoke = getenv("MINIAUDIO_ASYNC_NOTIFICATION_POLL_INVALID_ARGS_SMOKE")
+    if async_notification_poll_invalid_args_smoke != "":
+        print("Running async notification poll invalid-args smoke")
+        run_async_notification_poll_invalid_args_smoke()
+
+    var async_notification_event_smoke = getenv("MINIAUDIO_ASYNC_NOTIFICATION_EVENT_SMOKE")
+    if async_notification_event_smoke != "":
+        print("Running async notification event smoke")
+        run_async_notification_event_smoke()
+
+    var async_notification_event_invalid_args_smoke = getenv("MINIAUDIO_ASYNC_NOTIFICATION_EVENT_INVALID_ARGS_SMOKE")
+    if async_notification_event_invalid_args_smoke != "":
+        print("Running async notification event invalid-args smoke")
+        run_async_notification_event_invalid_args_smoke()
+
+    var custom_buffer_data_source_smoke = getenv("MINIAUDIO_CUSTOM_BUFFER_DATA_SOURCE_SMOKE")
+    if custom_buffer_data_source_smoke != "":
+        print("Running custom buffer data source smoke")
+        run_custom_buffer_data_source_smoke()
+
+    var custom_buffer_data_source_invalid_args_smoke = getenv("MINIAUDIO_CUSTOM_BUFFER_DATA_SOURCE_INVALID_ARGS_SMOKE")
+    if custom_buffer_data_source_invalid_args_smoke != "":
+        print("Running custom buffer data source invalid-args smoke")
+        run_custom_buffer_data_source_invalid_args_smoke()
+
     var logging_smoke = getenv("MINIAUDIO_LOGGING_SMOKE")
     if logging_smoke != "":
         print("Running logging smoke")
@@ -370,6 +523,51 @@ def main() raises:
     if channel_converter_init_mode_smoke != "":
         print("Running channel converter init-mode smoke")
         run_channel_converter_init_mode_smoke()
+
+    var data_converter_smoke = getenv("MINIAUDIO_DATA_CONVERTER_SMOKE")
+    if data_converter_smoke != "":
+        print("Running data converter smoke")
+        run_data_converter_smoke()
+
+    var data_converter_invalid_args_smoke = getenv("MINIAUDIO_DATA_CONVERTER_INVALID_ARGS_SMOKE")
+    if data_converter_invalid_args_smoke != "":
+        print("Running data converter invalid-args smoke")
+        run_data_converter_invalid_args_smoke()
+
+    var waveform_sine_smoke = getenv("MINIAUDIO_WAVEFORM_SINE_SMOKE")
+    if waveform_sine_smoke != "":
+        print("Running waveform sine smoke")
+        run_waveform_sine_smoke()
+
+    var waveform_invalid_args_smoke = getenv("MINIAUDIO_WAVEFORM_INVALID_ARGS_SMOKE")
+    if waveform_invalid_args_smoke != "":
+        print("Running waveform invalid-args smoke")
+        run_waveform_invalid_args_smoke()
+
+    var waveform_handle_invalid_smoke = getenv("MINIAUDIO_WAVEFORM_HANDLE_INVALID_SMOKE")
+    if waveform_handle_invalid_smoke != "":
+        print("Running waveform handle invalid smoke")
+        run_waveform_handle_invalid_smoke()
+
+    var noise_smoke = getenv("MINIAUDIO_NOISE_SMOKE")
+    if noise_smoke != "":
+        print("Running noise smoke")
+        run_noise_smoke()
+
+    var noise_invalid_args_smoke = getenv("MINIAUDIO_NOISE_INVALID_ARGS_SMOKE")
+    if noise_invalid_args_smoke != "":
+        print("Running noise invalid-args smoke")
+        run_noise_invalid_args_smoke()
+
+    var spatializer_smoke = getenv("MINIAUDIO_SPATIALIZER_SMOKE")
+    if spatializer_smoke != "":
+        print("Running standalone spatializer smoke")
+        run_spatializer_smoke()
+
+    var spatializer_invalid_args_smoke = getenv("MINIAUDIO_SPATIALIZER_INVALID_ARGS_SMOKE")
+    if spatializer_invalid_args_smoke != "":
+        print("Running standalone spatializer invalid-args smoke")
+        run_spatializer_invalid_args_smoke()
 
     var pcm_rb_smoke = getenv("MINIAUDIO_PCM_RB_SMOKE")
     if pcm_rb_smoke != "":

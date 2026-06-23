@@ -6,7 +6,7 @@ from miniaudio_result_utils import format_result_error
 def run_logging_smoke() raises:
     var bridge = MiniAudioCtypes("./build/libminiaudio_mojo.so")
     var log_handle = bridge.log_create()
-    var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
+    var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0))
 
     if log_handle == null_ptr:
         raise Error("log create failed")
@@ -53,7 +53,7 @@ def run_logging_smoke() raises:
 def run_logging_invalid_state_smoke() raises:
     var bridge = MiniAudioCtypes("./build/libminiaudio_mojo.so")
     var log_handle = bridge.log_create()
-    var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
+    var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0))
 
     if log_handle == null_ptr:
         raise Error("log create failed")

@@ -9,7 +9,7 @@ struct MiniAudioCtypes:
 
     def version(self) raises -> String:
         var raw = self._lib.call["mmj_miniaudio_version", OpaquePointer[MutExternalOrigin]]()
-        var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
+        var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0))
         if raw == null_ptr:
             raise Error("mmj_miniaudio_version returned null")
         var ptr = raw.bitcast[UInt8]()
@@ -17,7 +17,7 @@ struct MiniAudioCtypes:
 
     def result_description(self, result: Int) raises -> String:
         var raw = self._lib.call["mmj_result_description", OpaquePointer[MutExternalOrigin]](Int32(result))
-        var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
+        var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0))
         if raw == null_ptr:
             return String("unknown error")
         var ptr = raw.bitcast[UInt8]()
@@ -1320,6 +1320,181 @@ struct MiniAudioCtypes:
     ):
         self._lib.call["mmj_resource_manager_destroy", NoneType](resource_manager_handle)
 
+    def job_queue_create(self) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_job_queue_create", OpaquePointer[MutExternalOrigin]]()
+
+    def job_queue_init(self, queue_handle: OpaquePointer[MutExternalOrigin], flags: UInt32, capacity: UInt32) -> Int:
+        return Int(self._lib.call["mmj_job_queue_init", Int32](queue_handle, flags, capacity))
+
+    def job_queue_post_custom(
+        self,
+        queue_handle: OpaquePointer[MutExternalOrigin],
+        data0: UInt64,
+        data1: UInt64,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_job_queue_post_custom", Int32](
+                queue_handle,
+                data0,
+                data1,
+            )
+        )
+
+    def job_queue_post_quit(self, queue_handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return Int(self._lib.call["mmj_job_queue_post_quit", Int32](queue_handle))
+
+    def job_queue_next_code(self, queue_handle: OpaquePointer[MutExternalOrigin]) -> Int64:
+        return self._lib.call["mmj_job_queue_next_code", Int64](queue_handle)
+
+    def job_queue_uninit(self, queue_handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return Int(self._lib.call["mmj_job_queue_uninit", Int32](queue_handle))
+
+    def job_queue_destroy(self, queue_handle: OpaquePointer[MutExternalOrigin]):
+        self._lib.call["mmj_job_queue_destroy", NoneType](queue_handle)
+
+    def job_queue_flag_non_blocking(self) -> UInt32:
+        return self._lib.call["mmj_job_queue_flag_non_blocking", UInt32]()
+
+    def job_type_quit(self) -> UInt32:
+        return self._lib.call["mmj_job_type_quit", UInt32]()
+
+    def job_type_custom(self) -> UInt32:
+        return self._lib.call["mmj_job_type_custom", UInt32]()
+
+    def async_notification_poll_create(self) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_async_notification_poll_create", OpaquePointer[MutExternalOrigin]]()
+
+    def async_notification_poll_init(self, notification_handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return Int(self._lib.call["mmj_async_notification_poll_init", Int32](notification_handle))
+
+    def async_notification_poll_signal(self, notification_handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return Int(self._lib.call["mmj_async_notification_poll_signal", Int32](notification_handle))
+
+    def async_notification_poll_is_signalled(self, notification_handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return Int(
+            self._lib.call["mmj_async_notification_poll_is_signalled", Int32](notification_handle)
+        )
+
+    def async_notification_poll_uninit(self, notification_handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return Int(self._lib.call["mmj_async_notification_poll_uninit", Int32](notification_handle))
+
+    def async_notification_poll_destroy(self, notification_handle: OpaquePointer[MutExternalOrigin]):
+        self._lib.call["mmj_async_notification_poll_destroy", NoneType](notification_handle)
+
+    def async_notification_event_create(self) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_async_notification_event_create", OpaquePointer[MutExternalOrigin]]()
+
+    def async_notification_event_init(self, notification_handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return Int(self._lib.call["mmj_async_notification_event_init", Int32](notification_handle))
+
+    def async_notification_event_signal(self, notification_handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return Int(self._lib.call["mmj_async_notification_event_signal", Int32](notification_handle))
+
+    def async_notification_event_wait(self, notification_handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return Int(self._lib.call["mmj_async_notification_event_wait", Int32](notification_handle))
+
+    def async_notification_event_uninit(self, notification_handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return Int(self._lib.call["mmj_async_notification_event_uninit", Int32](notification_handle))
+
+    def async_notification_event_destroy(self, notification_handle: OpaquePointer[MutExternalOrigin]):
+        self._lib.call["mmj_async_notification_event_destroy", NoneType](notification_handle)
+
+    def fence_create(self) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_fence_create", OpaquePointer[MutExternalOrigin]]()
+
+    def fence_init(self, fence_handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return Int(self._lib.call["mmj_fence_init", Int32](fence_handle))
+
+    def fence_wait(self, fence_handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return Int(self._lib.call["mmj_fence_wait", Int32](fence_handle))
+
+    def fence_uninit(self, fence_handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return Int(self._lib.call["mmj_fence_uninit", Int32](fence_handle))
+
+    def fence_destroy(self, fence_handle: OpaquePointer[MutExternalOrigin]):
+        self._lib.call["mmj_fence_destroy", NoneType](fence_handle)
+
+    def mutex_create(self) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_mutex_create", OpaquePointer[MutExternalOrigin]]()
+
+    def mutex_init(self, mutex_handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return Int(self._lib.call["mmj_mutex_init", Int32](mutex_handle))
+
+    def mutex_lock(self, mutex_handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return Int(self._lib.call["mmj_mutex_lock", Int32](mutex_handle))
+
+    def mutex_unlock(self, mutex_handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return Int(self._lib.call["mmj_mutex_unlock", Int32](mutex_handle))
+
+    def mutex_uninit(self, mutex_handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return Int(self._lib.call["mmj_mutex_uninit", Int32](mutex_handle))
+
+    def mutex_destroy(self, mutex_handle: OpaquePointer[MutExternalOrigin]):
+        self._lib.call["mmj_mutex_destroy", NoneType](mutex_handle)
+
+    def event_create(self) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_event_create", OpaquePointer[MutExternalOrigin]]()
+
+    def event_init(self, event_handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return Int(self._lib.call["mmj_event_init", Int32](event_handle))
+
+    def event_signal(self, event_handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return Int(self._lib.call["mmj_event_signal", Int32](event_handle))
+
+    def event_wait(self, event_handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return Int(self._lib.call["mmj_event_wait", Int32](event_handle))
+
+    def event_uninit(self, event_handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return Int(self._lib.call["mmj_event_uninit", Int32](event_handle))
+
+    def event_destroy(self, event_handle: OpaquePointer[MutExternalOrigin]):
+        self._lib.call["mmj_event_destroy", NoneType](event_handle)
+
+    def semaphore_create(self) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_semaphore_create", OpaquePointer[MutExternalOrigin]]()
+
+    def semaphore_init(
+        self,
+        semaphore_handle: OpaquePointer[MutExternalOrigin],
+        initial_count: UInt32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_semaphore_init", Int32](
+                semaphore_handle,
+                initial_count,
+            )
+        )
+
+    def semaphore_release(self, semaphore_handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return Int(self._lib.call["mmj_semaphore_release", Int32](semaphore_handle))
+
+    def semaphore_wait(self, semaphore_handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return Int(self._lib.call["mmj_semaphore_wait", Int32](semaphore_handle))
+
+    def semaphore_uninit(self, semaphore_handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return Int(self._lib.call["mmj_semaphore_uninit", Int32](semaphore_handle))
+
+    def semaphore_destroy(self, semaphore_handle: OpaquePointer[MutExternalOrigin]):
+        self._lib.call["mmj_semaphore_destroy", NoneType](semaphore_handle)
+
+    def spinlock_create(self) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_spinlock_create", OpaquePointer[MutExternalOrigin]]()
+
+    def spinlock_init(self, spinlock_handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return Int(self._lib.call["mmj_spinlock_init", Int32](spinlock_handle))
+
+    def spinlock_lock(self, spinlock_handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return Int(self._lib.call["mmj_spinlock_lock", Int32](spinlock_handle))
+
+    def spinlock_unlock(self, spinlock_handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return Int(self._lib.call["mmj_spinlock_unlock", Int32](spinlock_handle))
+
+    def spinlock_uninit(self, spinlock_handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return Int(self._lib.call["mmj_spinlock_uninit", Int32](spinlock_handle))
+
+    def spinlock_destroy(self, spinlock_handle: OpaquePointer[MutExternalOrigin]):
+        self._lib.call["mmj_spinlock_destroy", NoneType](spinlock_handle)
+
     def resource_data_source_create(self) -> OpaquePointer[MutExternalOrigin]:
         return self._lib.call["mmj_resource_data_source_create", OpaquePointer[MutExternalOrigin]]()
 
@@ -1337,6 +1512,214 @@ struct MiniAudioCtypes:
                 resource_manager_handle,
                 file_path_c.as_bytes().unsafe_ptr(),
                 flags,
+            )
+        )
+
+    def resource_data_source_init_file_w(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+        resource_manager_handle: OpaquePointer[MutExternalOrigin],
+        file_path: String,
+        flags: UInt32,
+    ) -> Int:
+        var file_path_c = file_path + "\x00"
+        return Int(
+            self._lib.call["mmj_resource_data_source_init_file_w", Int32](
+                data_source_handle,
+                resource_manager_handle,
+                file_path_c.as_bytes().unsafe_ptr(),
+                flags,
+            )
+        )
+
+    def resource_data_source_init_ex(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+        resource_manager_handle: OpaquePointer[MutExternalOrigin],
+        file_path: String,
+        flags: UInt32,
+        initial_seek_point_in_pcm_frames: UInt64,
+        range_beg_in_pcm_frames: UInt64,
+        range_end_in_pcm_frames: UInt64,
+        loop_point_beg_in_pcm_frames: UInt64,
+        loop_point_end_in_pcm_frames: UInt64,
+        is_looping: Int,
+    ) -> Int:
+        var file_path_c = file_path + "\x00"
+        return Int(
+            self._lib.call["mmj_resource_data_source_init_ex", Int32](
+                data_source_handle,
+                resource_manager_handle,
+                file_path_c.as_bytes().unsafe_ptr(),
+                flags,
+                initial_seek_point_in_pcm_frames,
+                range_beg_in_pcm_frames,
+                range_end_in_pcm_frames,
+                loop_point_beg_in_pcm_frames,
+                loop_point_end_in_pcm_frames,
+                Int32(is_looping),
+            )
+        )
+
+    def resource_data_source_init_ex_w(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+        resource_manager_handle: OpaquePointer[MutExternalOrigin],
+        file_path: String,
+        flags: UInt32,
+        initial_seek_point_in_pcm_frames: UInt64,
+        range_beg_in_pcm_frames: UInt64,
+        range_end_in_pcm_frames: UInt64,
+        loop_point_beg_in_pcm_frames: UInt64,
+        loop_point_end_in_pcm_frames: UInt64,
+        is_looping: Int,
+    ) -> Int:
+        var file_path_c = file_path + "\x00"
+        return Int(
+            self._lib.call["mmj_resource_data_source_init_ex_w", Int32](
+                data_source_handle,
+                resource_manager_handle,
+                file_path_c.as_bytes().unsafe_ptr(),
+                flags,
+                initial_seek_point_in_pcm_frames,
+                range_beg_in_pcm_frames,
+                range_end_in_pcm_frames,
+                loop_point_beg_in_pcm_frames,
+                loop_point_end_in_pcm_frames,
+                Int32(is_looping),
+            )
+        )
+
+    def resource_data_source_init_copy(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+        resource_manager_handle: OpaquePointer[MutExternalOrigin],
+        existing_data_source_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_resource_data_source_init_copy", Int32](
+                data_source_handle,
+                resource_manager_handle,
+                existing_data_source_handle,
+            )
+        )
+
+    def resource_data_source_init_file_with_notifications(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+        resource_manager_handle: OpaquePointer[MutExternalOrigin],
+        file_path: String,
+        flags: UInt32,
+        init_notification_poll_handle: OpaquePointer[MutExternalOrigin],
+        done_notification_poll_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        var file_path_c = file_path + "\x00"
+        return Int(
+            self._lib.call["mmj_resource_data_source_init_file_with_notifications", Int32](
+                data_source_handle,
+                resource_manager_handle,
+                file_path_c.as_bytes().unsafe_ptr(),
+                flags,
+                init_notification_poll_handle,
+                done_notification_poll_handle,
+            )
+        )
+
+    def resource_data_source_init_file_w_with_notifications(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+        resource_manager_handle: OpaquePointer[MutExternalOrigin],
+        file_path: String,
+        flags: UInt32,
+        init_notification_poll_handle: OpaquePointer[MutExternalOrigin],
+        done_notification_poll_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        var file_path_c = file_path + "\x00"
+        return Int(
+            self._lib.call["mmj_resource_data_source_init_file_w_with_notifications", Int32](
+                data_source_handle,
+                resource_manager_handle,
+                file_path_c.as_bytes().unsafe_ptr(),
+                flags,
+                init_notification_poll_handle,
+                done_notification_poll_handle,
+            )
+        )
+
+    def resource_data_source_init_file_with_fences(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+        resource_manager_handle: OpaquePointer[MutExternalOrigin],
+        file_path: String,
+        flags: UInt32,
+        init_fence_handle: OpaquePointer[MutExternalOrigin],
+        done_fence_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        var file_path_c = file_path + "\x00"
+        return Int(
+            self._lib.call["mmj_resource_data_source_init_file_with_fences", Int32](
+                data_source_handle,
+                resource_manager_handle,
+                file_path_c.as_bytes().unsafe_ptr(),
+                flags,
+                init_fence_handle,
+                done_fence_handle,
+            )
+        )
+
+    def resource_data_source_init_file_with_notifications_and_fences(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+        resource_manager_handle: OpaquePointer[MutExternalOrigin],
+        file_path: String,
+        flags: UInt32,
+        init_notification_poll_handle: OpaquePointer[MutExternalOrigin],
+        done_notification_poll_handle: OpaquePointer[MutExternalOrigin],
+        init_fence_handle: OpaquePointer[MutExternalOrigin],
+        done_fence_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        var file_path_c = file_path + "\x00"
+        return Int(
+            self._lib.call[
+                "mmj_resource_data_source_init_file_with_notifications_and_fences",
+                Int32,
+            ](
+                data_source_handle,
+                resource_manager_handle,
+                file_path_c.as_bytes().unsafe_ptr(),
+                flags,
+                init_notification_poll_handle,
+                done_notification_poll_handle,
+                init_fence_handle,
+                done_fence_handle,
+            )
+        )
+
+    def resource_data_source_init_file_w_with_notifications_and_fences(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+        resource_manager_handle: OpaquePointer[MutExternalOrigin],
+        file_path: String,
+        flags: UInt32,
+        init_notification_poll_handle: OpaquePointer[MutExternalOrigin],
+        done_notification_poll_handle: OpaquePointer[MutExternalOrigin],
+        init_fence_handle: OpaquePointer[MutExternalOrigin],
+        done_fence_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        var file_path_c = file_path + "\x00"
+        return Int(
+            self._lib.call[
+                "mmj_resource_data_source_init_file_w_with_notifications_and_fences",
+                Int32,
+            ](
+                data_source_handle,
+                resource_manager_handle,
+                file_path_c.as_bytes().unsafe_ptr(),
+                flags,
+                init_notification_poll_handle,
+                done_notification_poll_handle,
+                init_fence_handle,
+                done_fence_handle,
             )
         )
 
@@ -1370,6 +1753,14 @@ struct MiniAudioCtypes:
             data_source_handle
         )
 
+    def resource_data_source_get_available_frames(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int64:
+        return self._lib.call["mmj_resource_data_source_get_available_frames", Int64](
+            data_source_handle
+        )
+
     def resource_data_source_uninit(
         self,
         data_source_handle: OpaquePointer[MutExternalOrigin],
@@ -1384,8 +1775,162 @@ struct MiniAudioCtypes:
     ):
         self._lib.call["mmj_resource_data_source_destroy", NoneType](data_source_handle)
 
+    def custom_buffer_data_source_create(self) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_custom_buffer_data_source_create", OpaquePointer[MutExternalOrigin]]()
+
+    def custom_buffer_data_source_init_f32(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+        frames: UnsafePointer[Float32],
+        frame_count: UInt64,
+        channels: UInt32,
+        sample_rate: UInt32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_custom_buffer_data_source_init_f32", Int32](
+                data_source_handle,
+                frames,
+                frame_count,
+                channels,
+                sample_rate,
+            )
+        )
+
+    def custom_buffer_data_source_read_f32(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+        output_frames: UnsafePointer[Float32],
+        frame_count: UInt64,
+    ) -> Int64:
+        return self._lib.call["mmj_custom_buffer_data_source_read_f32", Int64](
+            data_source_handle,
+            output_frames,
+            frame_count,
+        )
+
+    def custom_buffer_data_source_seek_to_pcm_frame(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+        frame_index: UInt64,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_custom_buffer_data_source_seek_to_pcm_frame", Int32](
+                data_source_handle,
+                frame_index,
+            )
+        )
+
+    def custom_buffer_data_source_get_cursor_in_pcm_frames(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int64:
+        return self._lib.call["mmj_custom_buffer_data_source_get_cursor_in_pcm_frames", Int64](
+            data_source_handle
+        )
+
+    def custom_buffer_data_source_get_length_in_pcm_frames(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int64:
+        return self._lib.call["mmj_custom_buffer_data_source_get_length_in_pcm_frames", Int64](
+            data_source_handle
+        )
+
+    def custom_buffer_data_source_get_format(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_custom_buffer_data_source_get_format", Int32](data_source_handle)
+        )
+
+    def custom_buffer_data_source_get_channels(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_custom_buffer_data_source_get_channels", Int32](data_source_handle)
+        )
+
+    def custom_buffer_data_source_get_sample_rate(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_custom_buffer_data_source_get_sample_rate", Int32](data_source_handle)
+        )
+
+    def custom_buffer_data_source_set_looping(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+        is_looping: Int32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_custom_buffer_data_source_set_looping", Int32](
+                data_source_handle,
+                is_looping,
+            )
+        )
+
+    def custom_buffer_data_source_is_looping(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_custom_buffer_data_source_is_looping", Int32](
+                data_source_handle
+            )
+        )
+
+    def custom_buffer_data_source_uninit(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_custom_buffer_data_source_uninit", Int32](data_source_handle)
+        )
+
+    def custom_buffer_data_source_destroy(
+        self,
+        data_source_handle: OpaquePointer[MutExternalOrigin],
+    ):
+        self._lib.call["mmj_custom_buffer_data_source_destroy", NoneType](data_source_handle)
+
     def resource_data_source_flag_async(self) -> UInt32:
         return self._lib.call["mmj_resource_data_source_flag_async", UInt32]()
+
+    def resource_data_source_flag_stream(self) -> UInt32:
+        return self._lib.call["mmj_resource_data_source_flag_stream", UInt32]()
+
+    def resource_data_source_flag_decode(self) -> UInt32:
+        return self._lib.call["mmj_resource_data_source_flag_decode", UInt32]()
+
+    def resource_data_source_flag_wait_init(self) -> UInt32:
+        return self._lib.call["mmj_resource_data_source_flag_wait_init", UInt32]()
+
+    def async_notification_poll_smoke(self) -> Int:
+        return Int(self._lib.call["mmj_async_notification_poll_smoke", Int32]())
+
+    def async_notification_poll_invalid_args_smoke(self) -> Int:
+        return Int(self._lib.call["mmj_async_notification_poll_invalid_args_smoke", Int32]())
+
+    def async_notification_event_smoke(self) -> Int:
+        return Int(self._lib.call["mmj_async_notification_event_smoke", Int32]())
+
+    def async_notification_event_invalid_args_smoke(self) -> Int:
+        return Int(self._lib.call["mmj_async_notification_event_invalid_args_smoke", Int32]())
+
+    def job_queue_smoke(self) -> Int:
+        return Int(self._lib.call["mmj_job_queue_smoke", Int32]())
+
+    def job_queue_invalid_args_smoke(self) -> Int:
+        return Int(self._lib.call["mmj_job_queue_invalid_args_smoke", Int32]())
+
+    def sync_primitives_smoke(self) -> Int:
+        return Int(self._lib.call["mmj_sync_primitives_smoke", Int32]())
+
+    def sync_primitives_invalid_args_smoke(self) -> Int:
+        return Int(self._lib.call["mmj_sync_primitives_invalid_args_smoke", Int32]())
 
     def resource_data_source_seek_to_pcm_frame(
         self,
@@ -1548,6 +2093,12 @@ struct MiniAudioCtypes:
             data_source_handle, seconds
         )
 
+    def custom_buffer_data_source_smoke(self) -> Int:
+        return Int(self._lib.call["mmj_custom_buffer_data_source_smoke", Int32]())
+
+    def custom_buffer_data_source_invalid_args_smoke(self) -> Int:
+        return Int(self._lib.call["mmj_custom_buffer_data_source_invalid_args_smoke", Int32]())
+
     def device_create(self) -> OpaquePointer[MutExternalOrigin]:
         return self._lib.call["mmj_device_create", OpaquePointer[MutExternalOrigin]]()
 
@@ -1562,6 +2113,66 @@ struct MiniAudioCtypes:
                 device_handle,
                 sample_rate,
                 channels,
+            )
+        )
+
+    def device_init_playback_ex_f32(
+        self,
+        device_handle: OpaquePointer[MutExternalOrigin],
+        sample_rate: UInt32,
+        channels: UInt32,
+        period_size_in_frames: UInt32,
+        period_count: UInt32,
+        use_low_latency_profile: Int,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_device_init_playback_ex_f32", Int32](
+                device_handle,
+                sample_rate,
+                channels,
+                period_size_in_frames,
+                period_count,
+                Int32(use_low_latency_profile),
+            )
+        )
+
+    def device_init_capture_ex_f32(
+        self,
+        device_handle: OpaquePointer[MutExternalOrigin],
+        sample_rate: UInt32,
+        channels: UInt32,
+        period_size_in_frames: UInt32,
+        period_count: UInt32,
+        use_low_latency_profile: Int,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_device_init_capture_ex_f32", Int32](
+                device_handle,
+                sample_rate,
+                channels,
+                period_size_in_frames,
+                period_count,
+                Int32(use_low_latency_profile),
+            )
+        )
+
+    def device_init_duplex_ex_f32(
+        self,
+        device_handle: OpaquePointer[MutExternalOrigin],
+        sample_rate: UInt32,
+        channels: UInt32,
+        period_size_in_frames: UInt32,
+        period_count: UInt32,
+        use_low_latency_profile: Int,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_device_init_duplex_ex_f32", Int32](
+                device_handle,
+                sample_rate,
+                channels,
+                period_size_in_frames,
+                period_count,
+                Int32(use_low_latency_profile),
             )
         )
 
@@ -1891,6 +2502,42 @@ struct MiniAudioCtypes:
             )
         )
 
+    def decoder_init_file_vfs_f32(
+        self,
+        decoder_handle: OpaquePointer[MutExternalOrigin],
+        file_path: String,
+        output_channels: UInt32,
+        output_sample_rate: UInt32,
+    ) -> Int:
+        var file_path_c = file_path + "\x00"
+        return Int(
+            self._lib.call["mmj_decoder_init_file_vfs_f32", Int32](
+                decoder_handle,
+                file_path_c.as_bytes().unsafe_ptr(),
+                output_channels,
+                output_sample_rate,
+            )
+        )
+
+    def decoder_init_file_vfs_format(
+        self,
+        decoder_handle: OpaquePointer[MutExternalOrigin],
+        file_path: String,
+        output_channels: UInt32,
+        output_sample_rate: UInt32,
+        sample_format: Int,
+    ) -> Int:
+        var file_path_c = file_path + "\x00"
+        return Int(
+            self._lib.call["mmj_decoder_init_file_vfs_format", Int32](
+                decoder_handle,
+                file_path_c.as_bytes().unsafe_ptr(),
+                output_channels,
+                output_sample_rate,
+                Int32(sample_format),
+            )
+        )
+
     def decoder_init_memory_f32(
         self,
         decoder_handle: OpaquePointer[MutExternalOrigin],
@@ -1962,7 +2609,21 @@ struct MiniAudioCtypes:
                 decoder_handle,
                 output_buffer.as_bytes().unsafe_ptr(),
                 frame_count,
-                OpaquePointer[MutExternalOrigin](unsafe_from_address=0),
+                OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0)),
+            )
+        )
+
+    def decoder_read_pcm_frames_f32_count(
+        self,
+        decoder_handle: OpaquePointer[MutExternalOrigin],
+        output_buffer: String,
+        frame_count: UInt64,
+    ) -> Int64:
+        return Int64(
+            self._lib.call["mmj_decoder_read_pcm_frames_f32_count", Int64](
+                decoder_handle,
+                output_buffer.as_bytes().unsafe_ptr(),
+                frame_count,
             )
         )
 
@@ -2015,6 +2676,42 @@ struct MiniAudioCtypes:
             )
         )
 
+    def encoder_init_wav_file_vfs_f32(
+        self,
+        encoder_handle: OpaquePointer[MutExternalOrigin],
+        output_path: String,
+        channels: UInt32,
+        sample_rate: UInt32,
+    ) -> Int:
+        var output_path_c = output_path + "\x00"
+        return Int(
+            self._lib.call["mmj_encoder_init_wav_file_vfs_f32", Int32](
+                encoder_handle,
+                output_path_c.as_bytes().unsafe_ptr(),
+                channels,
+                sample_rate,
+            )
+        )
+
+    def encoder_init_wav_file_vfs_format(
+        self,
+        encoder_handle: OpaquePointer[MutExternalOrigin],
+        output_path: String,
+        channels: UInt32,
+        sample_rate: UInt32,
+        sample_format: Int,
+    ) -> Int:
+        var output_path_c = output_path + "\x00"
+        return Int(
+            self._lib.call["mmj_encoder_init_wav_file_vfs_format", Int32](
+                encoder_handle,
+                output_path_c.as_bytes().unsafe_ptr(),
+                channels,
+                sample_rate,
+                Int32(sample_format),
+            )
+        )
+
     def encoder_write_silence_f32(
         self,
         encoder_handle: OpaquePointer[MutExternalOrigin],
@@ -2037,6 +2734,20 @@ struct MiniAudioCtypes:
             self._lib.call["mmj_encoder_write_pcm_frames_f32", Int64](
                 encoder_handle,
                 frames,
+                frame_count,
+            )
+        )
+
+    def encoder_write_pcm_frames_f32_buffer(
+        self,
+        encoder_handle: OpaquePointer[MutExternalOrigin],
+        frames_buffer: String,
+        frame_count: UInt64,
+    ) -> Int64:
+        return Int64(
+            self._lib.call["mmj_encoder_write_pcm_frames_f32", Int64](
+                encoder_handle,
+                frames_buffer.as_bytes().unsafe_ptr(),
                 frame_count,
             )
         )
@@ -2623,6 +3334,422 @@ struct MiniAudioCtypes:
     def channel_converter_destroy(self, converter_handle: OpaquePointer[MutExternalOrigin]):
         self._lib.call["mmj_channel_converter_destroy", NoneType](converter_handle)
 
+    def data_converter_create(self) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_data_converter_create", OpaquePointer[MutExternalOrigin]]()
+
+    def data_converter_init_f32(
+        self,
+        converter_handle: OpaquePointer[MutExternalOrigin],
+        channels_in: UInt32,
+        channels_out: UInt32,
+        sample_rate_in: UInt32,
+        sample_rate_out: UInt32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_data_converter_init_f32", Int32](
+                converter_handle,
+                channels_in,
+                channels_out,
+                sample_rate_in,
+                sample_rate_out,
+            )
+        )
+
+    def data_converter_process_f32_buffer(
+        self,
+        converter_handle: OpaquePointer[MutExternalOrigin],
+        input_frames: String,
+        input_frame_count: UInt64,
+        output_frames: String,
+        output_frame_capacity: UInt64,
+    ) -> Int64:
+        return self._lib.call["mmj_data_converter_process_f32", Int64](
+            converter_handle,
+            input_frames.as_bytes().unsafe_ptr(),
+            input_frame_count,
+            output_frames.as_bytes().unsafe_ptr(),
+            output_frame_capacity,
+        )
+
+    def data_converter_get_expected_output_frame_count(
+        self,
+        converter_handle: OpaquePointer[MutExternalOrigin],
+        input_frame_count: UInt64,
+    ) -> Int64:
+        return self._lib.call["mmj_data_converter_get_expected_output_frame_count", Int64](
+            converter_handle,
+            input_frame_count,
+        )
+
+    def data_converter_get_required_input_frame_count(
+        self,
+        converter_handle: OpaquePointer[MutExternalOrigin],
+        output_frame_count: UInt64,
+    ) -> Int64:
+        return self._lib.call["mmj_data_converter_get_required_input_frame_count", Int64](
+            converter_handle,
+            output_frame_count,
+        )
+
+    def data_converter_get_input_latency(
+        self,
+        converter_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int64:
+        return self._lib.call["mmj_data_converter_get_input_latency", Int64](converter_handle)
+
+    def data_converter_get_output_latency(
+        self,
+        converter_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int64:
+        return self._lib.call["mmj_data_converter_get_output_latency", Int64](converter_handle)
+
+    def data_converter_set_rate(
+        self,
+        converter_handle: OpaquePointer[MutExternalOrigin],
+        sample_rate_in: UInt32,
+        sample_rate_out: UInt32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_data_converter_set_rate", Int32](
+                converter_handle,
+                sample_rate_in,
+                sample_rate_out,
+            )
+        )
+
+    def data_converter_reset(
+        self,
+        converter_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(self._lib.call["mmj_data_converter_reset", Int32](converter_handle))
+
+    def data_converter_uninit(
+        self,
+        converter_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Int:
+        return Int(self._lib.call["mmj_data_converter_uninit", Int32](converter_handle))
+
+    def data_converter_destroy(self, converter_handle: OpaquePointer[MutExternalOrigin]):
+        self._lib.call["mmj_data_converter_destroy", NoneType](converter_handle)
+
+    def waveform_create(self) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_waveform_create", OpaquePointer[MutExternalOrigin]]()
+
+    def waveform_init_f32(
+        self,
+        waveform_handle: OpaquePointer[MutExternalOrigin],
+        channels: UInt32,
+        sample_rate: UInt32,
+        waveform_type: UInt32,
+        amplitude: Float64,
+        frequency: Float64,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_waveform_init_f32", Int32](
+                waveform_handle,
+                channels,
+                sample_rate,
+                waveform_type,
+                amplitude,
+                frequency,
+            )
+        )
+
+    def waveform_set_amplitude(
+        self,
+        waveform_handle: OpaquePointer[MutExternalOrigin],
+        amplitude: Float64,
+    ) -> Int:
+        return Int(self._lib.call["mmj_waveform_set_amplitude", Int32](waveform_handle, amplitude))
+
+    def waveform_set_frequency(
+        self,
+        waveform_handle: OpaquePointer[MutExternalOrigin],
+        frequency: Float64,
+    ) -> Int:
+        return Int(self._lib.call["mmj_waveform_set_frequency", Int32](waveform_handle, frequency))
+
+    def waveform_uninit(self, waveform_handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return Int(self._lib.call["mmj_waveform_uninit", Int32](waveform_handle))
+
+    def waveform_destroy(self, waveform_handle: OpaquePointer[MutExternalOrigin]):
+        self._lib.call["mmj_waveform_destroy", NoneType](waveform_handle)
+
+    def noise_create(self) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_noise_create", OpaquePointer[MutExternalOrigin]]()
+
+    def noise_init_f32(
+        self,
+        noise_handle: OpaquePointer[MutExternalOrigin],
+        channels: UInt32,
+        noise_type: UInt32,
+        seed: Int32,
+        amplitude: Float64,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_noise_init_f32", Int32](
+                noise_handle,
+                channels,
+                noise_type,
+                seed,
+                amplitude,
+            )
+        )
+
+    def noise_read_f32_buffer(
+        self,
+        noise_handle: OpaquePointer[MutExternalOrigin],
+        output_frames: String,
+        frame_count: UInt64,
+    ) -> Int64:
+        return self._lib.call["mmj_noise_read_f32", Int64](
+            noise_handle,
+            output_frames.as_bytes().unsafe_ptr(),
+            frame_count,
+        )
+
+    def noise_set_amplitude(
+        self,
+        noise_handle: OpaquePointer[MutExternalOrigin],
+        amplitude: Float64,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_noise_set_amplitude", Int32](
+                noise_handle,
+                amplitude,
+            )
+        )
+
+    def noise_set_seed(
+        self,
+        noise_handle: OpaquePointer[MutExternalOrigin],
+        seed: Int32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_noise_set_seed", Int32](
+                noise_handle,
+                seed,
+            )
+        )
+
+    def noise_set_type(
+        self,
+        noise_handle: OpaquePointer[MutExternalOrigin],
+        noise_type: UInt32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_noise_set_type", Int32](
+                noise_handle,
+                noise_type,
+            )
+        )
+
+    def noise_uninit(self, noise_handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return Int(self._lib.call["mmj_noise_uninit", Int32](noise_handle))
+
+    def noise_destroy(self, noise_handle: OpaquePointer[MutExternalOrigin]):
+        self._lib.call["mmj_noise_destroy", NoneType](noise_handle)
+
+    def spatializer_listener_create(self) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_spatializer_listener_create", OpaquePointer[MutExternalOrigin]]()
+
+    def spatializer_listener_init_default(
+        self,
+        listener_handle: OpaquePointer[MutExternalOrigin],
+        channels_out: UInt32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_spatializer_listener_init_default", Int32](
+                listener_handle,
+                channels_out,
+            )
+        )
+
+    def spatializer_listener_set_position(
+        self,
+        listener_handle: OpaquePointer[MutExternalOrigin],
+        x: Float32,
+        y: Float32,
+        z: Float32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_spatializer_listener_set_position", Int32](
+                listener_handle,
+                x,
+                y,
+                z,
+            )
+        )
+
+    def spatializer_listener_set_direction(
+        self,
+        listener_handle: OpaquePointer[MutExternalOrigin],
+        x: Float32,
+        y: Float32,
+        z: Float32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_spatializer_listener_set_direction", Int32](
+                listener_handle,
+                x,
+                y,
+                z,
+            )
+        )
+
+    def spatializer_listener_set_world_up(
+        self,
+        listener_handle: OpaquePointer[MutExternalOrigin],
+        x: Float32,
+        y: Float32,
+        z: Float32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_spatializer_listener_set_world_up", Int32](
+                listener_handle,
+                x,
+                y,
+                z,
+            )
+        )
+
+    def spatializer_listener_uninit(self, listener_handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return Int(self._lib.call["mmj_spatializer_listener_uninit", Int32](listener_handle))
+
+    def spatializer_listener_destroy(self, listener_handle: OpaquePointer[MutExternalOrigin]):
+        self._lib.call["mmj_spatializer_listener_destroy", NoneType](listener_handle)
+
+    def spatializer_create(self) -> OpaquePointer[MutExternalOrigin]:
+        return self._lib.call["mmj_spatializer_create", OpaquePointer[MutExternalOrigin]]()
+
+    def spatializer_init_default(
+        self,
+        spatializer_handle: OpaquePointer[MutExternalOrigin],
+        channels_in: UInt32,
+        channels_out: UInt32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_spatializer_init_default", Int32](
+                spatializer_handle,
+                channels_in,
+                channels_out,
+            )
+        )
+
+    def spatializer_set_master_volume(
+        self,
+        spatializer_handle: OpaquePointer[MutExternalOrigin],
+        volume: Float32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_spatializer_set_master_volume", Int32](
+                spatializer_handle,
+                volume,
+            )
+        )
+
+    def spatializer_get_master_volume(
+        self,
+        spatializer_handle: OpaquePointer[MutExternalOrigin],
+    ) -> Float32:
+        return self._lib.call["mmj_spatializer_get_master_volume", Float32](spatializer_handle)
+
+    def spatializer_set_attenuation_model(
+        self,
+        spatializer_handle: OpaquePointer[MutExternalOrigin],
+        attenuation_model: Int,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_spatializer_set_attenuation_model", Int32](
+                spatializer_handle,
+                Int32(attenuation_model),
+            )
+        )
+
+    def spatializer_set_positioning(
+        self,
+        spatializer_handle: OpaquePointer[MutExternalOrigin],
+        positioning: Int,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_spatializer_set_positioning", Int32](
+                spatializer_handle,
+                Int32(positioning),
+            )
+        )
+
+    def spatializer_set_position(
+        self,
+        spatializer_handle: OpaquePointer[MutExternalOrigin],
+        x: Float32,
+        y: Float32,
+        z: Float32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_spatializer_set_position", Int32](
+                spatializer_handle,
+                x,
+                y,
+                z,
+            )
+        )
+
+    def spatializer_set_direction(
+        self,
+        spatializer_handle: OpaquePointer[MutExternalOrigin],
+        x: Float32,
+        y: Float32,
+        z: Float32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_spatializer_set_direction", Int32](
+                spatializer_handle,
+                x,
+                y,
+                z,
+            )
+        )
+
+    def spatializer_set_velocity(
+        self,
+        spatializer_handle: OpaquePointer[MutExternalOrigin],
+        x: Float32,
+        y: Float32,
+        z: Float32,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_spatializer_set_velocity", Int32](
+                spatializer_handle,
+                x,
+                y,
+                z,
+            )
+        )
+
+    def spatializer_process_f32_buffer(
+        self,
+        spatializer_handle: OpaquePointer[MutExternalOrigin],
+        listener_handle: OpaquePointer[MutExternalOrigin],
+        output_frames: String,
+        input_frames: String,
+        frame_count: UInt64,
+    ) -> Int:
+        return Int(
+            self._lib.call["mmj_spatializer_process_f32", Int32](
+                spatializer_handle,
+                listener_handle,
+                output_frames.as_bytes().unsafe_ptr(),
+                input_frames.as_bytes().unsafe_ptr(),
+                frame_count,
+            )
+        )
+
+    def spatializer_uninit(self, spatializer_handle: OpaquePointer[MutExternalOrigin]) -> Int:
+        return Int(self._lib.call["mmj_spatializer_uninit", Int32](spatializer_handle))
+
+    def spatializer_destroy(self, spatializer_handle: OpaquePointer[MutExternalOrigin]):
+        self._lib.call["mmj_spatializer_destroy", NoneType](spatializer_handle)
+
     def pcm_rb_create(self) -> OpaquePointer[MutExternalOrigin]:
         return self._lib.call["mmj_pcm_rb_create", OpaquePointer[MutExternalOrigin]]()
 
@@ -2698,6 +3825,30 @@ struct MiniAudioCtypes:
 
     def channel_converter_invalid_channels_smoke(self) -> Int:
         return Int(self._lib.call["mmj_channel_converter_invalid_channels_smoke", Int32]())
+
+    def data_converter_smoke(self) -> Int:
+        return Int(self._lib.call["mmj_data_converter_smoke", Int32]())
+
+    def data_converter_invalid_args_smoke(self) -> Int:
+        return Int(self._lib.call["mmj_data_converter_invalid_args_smoke", Int32]())
+
+    def waveform_sine_smoke(self) -> Int:
+        return Int(self._lib.call["mmj_waveform_sine_smoke", Int32]())
+
+    def waveform_invalid_args_smoke(self) -> Int:
+        return Int(self._lib.call["mmj_waveform_invalid_args_smoke", Int32]())
+
+    def noise_smoke(self) -> Int:
+        return Int(self._lib.call["mmj_noise_smoke", Int32]())
+
+    def noise_invalid_args_smoke(self) -> Int:
+        return Int(self._lib.call["mmj_noise_invalid_args_smoke", Int32]())
+
+    def spatializer_smoke(self) -> Int:
+        return Int(self._lib.call["mmj_spatializer_smoke", Int32]())
+
+    def spatializer_invalid_args_smoke(self) -> Int:
+        return Int(self._lib.call["mmj_spatializer_invalid_args_smoke", Int32]())
 
     def decoder_memory_smoke(self) -> Int:
         return Int(self._lib.call["mmj_decoder_memory_smoke", Int32]())

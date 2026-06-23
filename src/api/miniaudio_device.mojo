@@ -62,7 +62,7 @@ def run_device_control_smoke() raises:
 
 def run_device_volume_smoke() raises:
     var bridge = MiniAudioCtypes("./build/libminiaudio_mojo.so")
-    var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
+    var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0))
 
     var device = bridge.device_create()
     if device == null_ptr:
@@ -121,7 +121,7 @@ def run_device_volume_smoke() raises:
 
 def run_device_config_smoke() raises:
     var bridge = MiniAudioCtypes("./build/libminiaudio_mojo.so")
-    var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
+    var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0))
 
     var device = bridge.device_create()
     if device == null_ptr:
@@ -181,12 +181,54 @@ def run_device_config_smoke() raises:
     print("device config smoke ok (unified init + config getters)")
 
 
+def run_device_init_ex_smoke() raises:
+    var bridge = MiniAudioCtypes("./build/libminiaudio_mojo.so")
+    var device = MiniAudioDeviceHandle(bridge)
+
+    try:
+        var init_result = bridge.device_init_playback_ex_f32(
+            device.raw,
+            48000,
+            2,
+            256,
+            2,
+            1,
+        )
+        if init_result != 0:
+            if is_device_control_skip_code(init_result):
+                device.close(bridge)
+                print(format_result_error(bridge, "device init_ex smoke skipped", init_result))
+                return
+
+            raise Error(format_result_error(bridge, "device init_ex failed", init_result))
+
+        device.initialized = True
+
+        var sample_rate = bridge.device_get_sample_rate(device.raw)
+        if sample_rate != 48000:
+            raise Error("device init_ex sample rate mismatch: " + String(sample_rate))
+
+        var channels = bridge.device_get_channels(device.raw)
+        if channels != 2:
+            raise Error("device init_ex channels mismatch: " + String(channels))
+
+        var kind = bridge.device_get_kind(device.raw)
+        if kind != MMJ_DEVICE_KIND_PLAYBACK:
+            raise Error("device init_ex kind mismatch: " + String(kind))
+    except e:
+        device.close(bridge)
+        raise e^
+
+    device.close(bridge)
+    print("device init_ex smoke ok (playback ex init + config getters)")
+
+
 def try_device_playback_format_init(
     bridge: MiniAudioCtypes,
     sample_format: Int,
     format_name: String,
 ) raises -> Bool:
-    var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
+    var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0))
     var device = bridge.device_create()
     if device == null_ptr:
         raise Error("device_create failed")
@@ -221,7 +263,7 @@ def try_device_capture_format_init(
     sample_format: Int,
     format_name: String,
 ) raises -> Bool:
-    var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
+    var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0))
     var device = bridge.device_create()
     if device == null_ptr:
         raise Error("device_create failed")
@@ -256,7 +298,7 @@ def try_device_duplex_format_init(
     sample_format: Int,
     format_name: String,
 ) raises -> Bool:
-    var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
+    var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0))
     var device = bridge.device_create()
     if device == null_ptr:
         raise Error("device_create failed")
@@ -291,7 +333,7 @@ def try_device_duplex_loopback_format_init(
     sample_format: Int,
     format_name: String,
 ) raises -> Bool:
-    var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
+    var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0))
     var device = bridge.device_create()
     if device == null_ptr:
         raise Error("device_create failed")
@@ -323,7 +365,7 @@ def try_device_duplex_loopback_format_init(
 
 def run_device_format_matrix_smoke() raises:
     var bridge = MiniAudioCtypes("./build/libminiaudio_mojo.so")
-    var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
+    var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0))
     var device = bridge.device_create()
     var success_count = Int(0)
 
@@ -423,7 +465,7 @@ def run_device_format_matrix_smoke() raises:
 
 def run_device_callback_smoke() raises:
     var bridge = MiniAudioCtypes("./build/libminiaudio_mojo.so")
-    var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
+    var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0))
     var device = bridge.device_create()
 
     if device == null_ptr:

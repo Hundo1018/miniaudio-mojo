@@ -25,7 +25,7 @@ def run_capture_file_smoke(output_path: String) raises:
 def run_encoder_wav_smoke(output_path: String) raises:
     var bridge = MiniAudioCtypes("./build/libminiaudio_mojo.so")
     var encoder = bridge.encoder_create()
-    var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
+    var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0))
 
     if encoder == null_ptr:
         raise Error("encoder create failed")

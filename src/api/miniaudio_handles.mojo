@@ -3,7 +3,7 @@ from miniaudio_result_utils import format_result_error
 
 
 def miniaudio_null_handle() -> OpaquePointer[MutExternalOrigin]:
-    return OpaquePointer[MutExternalOrigin](unsafe_from_address=0)
+    return OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0))
 
 
 struct MiniAudioContextHandle:
@@ -1054,6 +1054,116 @@ struct MiniAudioResourceManagerHandle:
         self.raw = miniaudio_null_handle()
 
 
+struct MiniAudioAsyncNotificationPollHandle:
+    var raw: OpaquePointer[MutExternalOrigin]
+    var initialized: Bool
+
+    def __init__(out self, bridge: MiniAudioCtypes) raises:
+        self.raw = bridge.async_notification_poll_create()
+        self.initialized = False
+        if self.raw == miniaudio_null_handle():
+            raise Error("async_notification_poll_create failed")
+
+    def init(mut self, bridge: MiniAudioCtypes) raises:
+        var result = bridge.async_notification_poll_init(self.raw)
+        if result != 0:
+            raise Error(format_result_error(bridge, "async notification poll init failed", result))
+        self.initialized = True
+
+    def signal(self, bridge: MiniAudioCtypes) raises:
+        var result = bridge.async_notification_poll_signal(self.raw)
+        if result != 0:
+            raise Error(format_result_error(bridge, "async notification poll signal failed", result))
+
+    def is_signalled(self, bridge: MiniAudioCtypes) raises -> Bool:
+        var result = bridge.async_notification_poll_is_signalled(self.raw)
+        if result < 0:
+            raise Error("async notification poll is_signalled failed")
+        return result != 0
+
+    def close(mut self, bridge: MiniAudioCtypes):
+        if self.raw == miniaudio_null_handle():
+            return
+
+        if self.initialized:
+            _ = bridge.async_notification_poll_uninit(self.raw)
+            self.initialized = False
+
+        bridge.async_notification_poll_destroy(self.raw)
+        self.raw = miniaudio_null_handle()
+
+
+struct MiniAudioAsyncNotificationEventHandle:
+    var raw: OpaquePointer[MutExternalOrigin]
+    var initialized: Bool
+
+    def __init__(out self, bridge: MiniAudioCtypes) raises:
+        self.raw = bridge.async_notification_event_create()
+        self.initialized = False
+        if self.raw == miniaudio_null_handle():
+            raise Error("async_notification_event_create failed")
+
+    def init(mut self, bridge: MiniAudioCtypes) raises:
+        var result = bridge.async_notification_event_init(self.raw)
+        if result != 0:
+            raise Error(format_result_error(bridge, "async notification event init failed", result))
+        self.initialized = True
+
+    def signal(self, bridge: MiniAudioCtypes) raises:
+        var result = bridge.async_notification_event_signal(self.raw)
+        if result != 0:
+            raise Error(format_result_error(bridge, "async notification event signal failed", result))
+
+    def wait(self, bridge: MiniAudioCtypes) raises:
+        var result = bridge.async_notification_event_wait(self.raw)
+        if result != 0:
+            raise Error(format_result_error(bridge, "async notification event wait failed", result))
+
+    def close(mut self, bridge: MiniAudioCtypes):
+        if self.raw == miniaudio_null_handle():
+            return
+
+        if self.initialized:
+            _ = bridge.async_notification_event_uninit(self.raw)
+            self.initialized = False
+
+        bridge.async_notification_event_destroy(self.raw)
+        self.raw = miniaudio_null_handle()
+
+
+struct MiniAudioFenceHandle:
+    var raw: OpaquePointer[MutExternalOrigin]
+    var initialized: Bool
+
+    def __init__(out self, bridge: MiniAudioCtypes) raises:
+        self.raw = bridge.fence_create()
+        self.initialized = False
+        if self.raw == miniaudio_null_handle():
+            raise Error("fence_create failed")
+
+    def init(mut self, bridge: MiniAudioCtypes) raises:
+        var result = bridge.fence_init(self.raw)
+        if result != 0:
+            raise Error(format_result_error(bridge, "fence init failed", result))
+        self.initialized = True
+
+    def wait(self, bridge: MiniAudioCtypes) raises:
+        var result = bridge.fence_wait(self.raw)
+        if result != 0:
+            raise Error(format_result_error(bridge, "fence wait failed", result))
+
+    def close(mut self, bridge: MiniAudioCtypes):
+        if self.raw == miniaudio_null_handle():
+            return
+
+        if self.initialized:
+            _ = bridge.fence_uninit(self.raw)
+            self.initialized = False
+
+        bridge.fence_destroy(self.raw)
+        self.raw = miniaudio_null_handle()
+
+
 struct MiniAudioResourceDataSourceHandle:
     var raw: OpaquePointer[MutExternalOrigin]
     var initialized: Bool
@@ -1094,6 +1204,260 @@ struct MiniAudioResourceDataSourceHandle:
             bridge.resource_data_source_flag_async(),
         )
 
+    def init_file_w(
+        mut self,
+        bridge: MiniAudioCtypes,
+        resource_manager: MiniAudioResourceManagerHandle,
+        file_path: String,
+        flags: UInt32 = 0,
+    ) raises:
+        var result = bridge.resource_data_source_init_file_w(
+            self.raw,
+            resource_manager.raw,
+            file_path,
+            flags,
+        )
+        if result != 0:
+            raise Error(format_result_error(bridge, "resource data source init_w failed", result))
+        self.initialized = True
+
+    def init_file_async_with_poll_notifications(
+        mut self,
+        bridge: MiniAudioCtypes,
+        resource_manager: MiniAudioResourceManagerHandle,
+        file_path: String,
+        init_notification: MiniAudioAsyncNotificationPollHandle,
+        done_notification: MiniAudioAsyncNotificationPollHandle,
+    ) raises:
+        var result = bridge.resource_data_source_init_file_with_notifications(
+            self.raw,
+            resource_manager.raw,
+            file_path,
+            bridge.resource_data_source_flag_async(),
+            init_notification.raw,
+            done_notification.raw,
+        )
+        if result != 0:
+            raise Error(
+                format_result_error(
+                    bridge,
+                    "resource data source init with pipeline notifications failed",
+                    result,
+                )
+            )
+        self.initialized = True
+
+    def init_file_w_async_with_poll_notifications(
+        mut self,
+        bridge: MiniAudioCtypes,
+        resource_manager: MiniAudioResourceManagerHandle,
+        file_path: String,
+        init_notification: MiniAudioAsyncNotificationPollHandle,
+        done_notification: MiniAudioAsyncNotificationPollHandle,
+    ) raises:
+        var result = bridge.resource_data_source_init_file_w_with_notifications(
+            self.raw,
+            resource_manager.raw,
+            file_path,
+            bridge.resource_data_source_flag_async(),
+            init_notification.raw,
+            done_notification.raw,
+        )
+        if result != 0:
+            raise Error(
+                format_result_error(
+                    bridge,
+                    "resource data source init_w with pipeline notifications failed",
+                    result,
+                )
+            )
+        self.initialized = True
+
+    def init_file_async_with_fences(
+        mut self,
+        bridge: MiniAudioCtypes,
+        resource_manager: MiniAudioResourceManagerHandle,
+        file_path: String,
+        init_fence: MiniAudioFenceHandle,
+        done_fence: MiniAudioFenceHandle,
+    ) raises:
+        var result = bridge.resource_data_source_init_file_with_fences(
+            self.raw,
+            resource_manager.raw,
+            file_path,
+            bridge.resource_data_source_flag_async(),
+            init_fence.raw,
+            done_fence.raw,
+        )
+        if result != 0:
+            raise Error(
+                format_result_error(
+                    bridge,
+                    "resource data source init with stage fences failed",
+                    result,
+                )
+            )
+        self.initialized = True
+
+    def init_file_async_with_poll_notifications_and_fences(
+        mut self,
+        bridge: MiniAudioCtypes,
+        resource_manager: MiniAudioResourceManagerHandle,
+        file_path: String,
+        init_notification: MiniAudioAsyncNotificationPollHandle,
+        done_notification: MiniAudioAsyncNotificationPollHandle,
+        init_fence: MiniAudioFenceHandle,
+        done_fence: MiniAudioFenceHandle,
+    ) raises:
+        var result = bridge.resource_data_source_init_file_with_notifications_and_fences(
+            self.raw,
+            resource_manager.raw,
+            file_path,
+            bridge.resource_data_source_flag_async(),
+            init_notification.raw,
+            done_notification.raw,
+            init_fence.raw,
+            done_fence.raw,
+        )
+        if result != 0:
+            raise Error(
+                format_result_error(
+                    bridge,
+                    "resource data source init with stage notifications and fences failed",
+                    result,
+                )
+            )
+        self.initialized = True
+
+    def init_file_w_async_with_poll_notifications_and_fences(
+        mut self,
+        bridge: MiniAudioCtypes,
+        resource_manager: MiniAudioResourceManagerHandle,
+        file_path: String,
+        init_notification: MiniAudioAsyncNotificationPollHandle,
+        done_notification: MiniAudioAsyncNotificationPollHandle,
+        init_fence: MiniAudioFenceHandle,
+        done_fence: MiniAudioFenceHandle,
+    ) raises:
+        var result = bridge.resource_data_source_init_file_w_with_notifications_and_fences(
+            self.raw,
+            resource_manager.raw,
+            file_path,
+            bridge.resource_data_source_flag_async(),
+            init_notification.raw,
+            done_notification.raw,
+            init_fence.raw,
+            done_fence.raw,
+        )
+        if result != 0:
+            raise Error(
+                format_result_error(
+                    bridge,
+                    "resource data source init_w with stage notifications and fences failed",
+                    result,
+                )
+            )
+        self.initialized = True
+
+    def init_file_stream_async(
+        mut self,
+        bridge: MiniAudioCtypes,
+        resource_manager: MiniAudioResourceManagerHandle,
+        file_path: String,
+        decode: Bool = True,
+        wait_init: Bool = False,
+    ) raises:
+        var flags = bridge.resource_data_source_flag_async() | bridge.resource_data_source_flag_stream()
+
+        if decode:
+            flags = flags | bridge.resource_data_source_flag_decode()
+
+        if wait_init:
+            flags = flags | bridge.resource_data_source_flag_wait_init()
+
+        self.init_file(bridge, resource_manager, file_path, flags)
+
+    def init_ex(
+        mut self,
+        bridge: MiniAudioCtypes,
+        resource_manager: MiniAudioResourceManagerHandle,
+        file_path: String,
+        flags: UInt32,
+        initial_seek_point_in_pcm_frames: UInt64 = 0,
+        range_beg_in_pcm_frames: UInt64 = 0,
+        range_end_in_pcm_frames: UInt64 = 0,
+        loop_point_beg_in_pcm_frames: UInt64 = 0,
+        loop_point_end_in_pcm_frames: UInt64 = 0,
+        is_looping: Bool = False,
+    ) raises:
+        var looping_flag = Int(0)
+        if is_looping:
+            looping_flag = Int(1)
+
+        var result = bridge.resource_data_source_init_ex(
+            self.raw,
+            resource_manager.raw,
+            file_path,
+            flags,
+            initial_seek_point_in_pcm_frames,
+            range_beg_in_pcm_frames,
+            range_end_in_pcm_frames,
+            loop_point_beg_in_pcm_frames,
+            loop_point_end_in_pcm_frames,
+            looping_flag,
+        )
+        if result != 0:
+            raise Error(format_result_error(bridge, "resource data source init ex failed", result))
+        self.initialized = True
+
+    def init_ex_w(
+        mut self,
+        bridge: MiniAudioCtypes,
+        resource_manager: MiniAudioResourceManagerHandle,
+        file_path: String,
+        flags: UInt32,
+        initial_seek_point_in_pcm_frames: UInt64 = 0,
+        range_beg_in_pcm_frames: UInt64 = 0,
+        range_end_in_pcm_frames: UInt64 = 0,
+        loop_point_beg_in_pcm_frames: UInt64 = 0,
+        loop_point_end_in_pcm_frames: UInt64 = 0,
+        is_looping: Bool = False,
+    ) raises:
+        var looping_flag = Int(0)
+        if is_looping:
+            looping_flag = Int(1)
+
+        var result = bridge.resource_data_source_init_ex_w(
+            self.raw,
+            resource_manager.raw,
+            file_path,
+            flags,
+            initial_seek_point_in_pcm_frames,
+            range_beg_in_pcm_frames,
+            range_end_in_pcm_frames,
+            loop_point_beg_in_pcm_frames,
+            loop_point_end_in_pcm_frames,
+            looping_flag,
+        )
+        if result != 0:
+            raise Error(format_result_error(bridge, "resource data source init ex_w failed", result))
+        self.initialized = True
+
+    def init_copy(
+        mut self,
+        bridge: MiniAudioCtypes,
+        resource_manager: MiniAudioResourceManagerHandle,
+        existing_data_source: MiniAudioResourceDataSourceHandle,
+    ) raises:
+        var result = bridge.resource_data_source_init_copy(
+            self.raw,
+            resource_manager.raw,
+            existing_data_source.raw,
+        )
+        if result != 0:
+            raise Error(format_result_error(bridge, "resource data source init copy failed", result))
+        self.initialized = True
+
     def result_code(self, bridge: MiniAudioCtypes) -> Int:
         return bridge.resource_data_source_result(self.raw)
 
@@ -1121,6 +1485,19 @@ struct MiniAudioResourceDataSourceHandle:
                 )
             )
         return length
+
+    def get_available_frames(self, bridge: MiniAudioCtypes) raises -> UInt64:
+        var available = bridge.resource_data_source_get_available_frames(self.raw)
+        if available < 0:
+            var error_code = Int(available)
+            raise Error(
+                format_result_error(
+                    bridge,
+                    "resource data source available frames query failed",
+                    error_code,
+                )
+            )
+        return UInt64(available)
 
     def seek_to_pcm_frame(self, bridge: MiniAudioCtypes, frame_index: UInt64) raises:
         var result = bridge.resource_data_source_seek_to_pcm_frame(self.raw, frame_index)
@@ -1238,8 +1615,6 @@ struct MiniAudioResourceDataSourceHandle:
 
         bridge.resource_data_source_destroy(self.raw)
         self.raw = miniaudio_null_handle()
-
-
 struct MiniAudioDecoderHandle:
     var raw: OpaquePointer[MutExternalOrigin]
     var initialized: Bool
@@ -1284,6 +1659,42 @@ struct MiniAudioDecoderHandle:
         )
         if result != 0:
             raise Error(format_result_error(bridge, "decoder format init failed", result))
+        self.initialized = True
+
+    def init_file_vfs_f32(
+        mut self,
+        bridge: MiniAudioCtypes,
+        file_path: String,
+        output_channels: UInt32,
+        output_sample_rate: UInt32,
+    ) raises:
+        var result = bridge.decoder_init_file_vfs_f32(
+            self.raw,
+            file_path,
+            output_channels,
+            output_sample_rate,
+        )
+        if result != 0:
+            raise Error(format_result_error(bridge, "decoder VFS init failed", result))
+        self.initialized = True
+
+    def init_file_vfs_format(
+        mut self,
+        bridge: MiniAudioCtypes,
+        file_path: String,
+        output_channels: UInt32,
+        output_sample_rate: UInt32,
+        sample_format: Int,
+    ) raises:
+        var result = bridge.decoder_init_file_vfs_format(
+            self.raw,
+            file_path,
+            output_channels,
+            output_sample_rate,
+            sample_format,
+        )
+        if result != 0:
+            raise Error(format_result_error(bridge, "decoder VFS format init failed", result))
         self.initialized = True
 
     def init_memory_f32(
@@ -1331,6 +1742,9 @@ struct MiniAudioDecoderHandle:
         bridge: MiniAudioCtypes,
         frame_index: UInt64,
     ) raises:
+        if not self.initialized:
+            raise Error("decoder handle is not initialized")
+
         var result = bridge.decoder_seek_to_pcm_frame(self.raw, frame_index)
         if result != 0:
             raise Error(format_result_error(bridge, "decoder seek failed", result))
@@ -1340,6 +1754,9 @@ struct MiniAudioDecoderHandle:
         bridge: MiniAudioCtypes,
         frame_count: UInt64,
     ) raises -> Int64:
+        if not self.initialized:
+            raise Error("decoder handle is not initialized")
+
         var frames_read = bridge.decoder_read_probe_f32(self.raw, frame_count)
         if frames_read < 0:
             var error_code = Int(frames_read)
@@ -1358,6 +1775,9 @@ struct MiniAudioDecoderHandle:
         output_buffer: String,
         frame_count: UInt64,
     ) raises:
+        if not self.initialized:
+            raise Error("decoder handle is not initialized")
+
         var result = bridge.decoder_read_pcm_frames_f32(
             self.raw,
             output_buffer,
@@ -1365,6 +1785,31 @@ struct MiniAudioDecoderHandle:
         )
         if result != 0:
             raise Error(format_result_error(bridge, "decoder read frames failed", result))
+
+    def read_frames_f32_count(
+        self,
+        bridge: MiniAudioCtypes,
+        output_buffer: String,
+        frame_count: UInt64,
+    ) raises -> UInt64:
+        if not self.initialized:
+            raise Error("decoder handle is not initialized")
+
+        var frames_read = bridge.decoder_read_pcm_frames_f32_count(
+            self.raw,
+            output_buffer,
+            frame_count,
+        )
+        if frames_read < 0:
+            var error_code = Int(frames_read)
+            raise Error(
+                format_result_error(
+                    bridge,
+                    "decoder read frames failed",
+                    error_code,
+                )
+            )
+        return UInt64(frames_read)
 
     def close(mut self, bridge: MiniAudioCtypes):
         if self.raw == miniaudio_null_handle():
@@ -1414,6 +1859,81 @@ struct MiniAudioDeviceHandle:
         var result = bridge.device_init_playback_f32(self.raw, sample_rate, channels)
         if result != 0:
             raise Error(format_result_error(bridge, "device init playback failed", result))
+        self.initialized = True
+
+    def init_playback_ex_f32(
+        mut self,
+        bridge: MiniAudioCtypes,
+        sample_rate: UInt32,
+        channels: UInt32,
+        period_size_in_frames: UInt32,
+        period_count: UInt32,
+        use_low_latency_profile: Bool,
+    ) raises:
+        var low_latency_flag = Int(0)
+        if use_low_latency_profile:
+            low_latency_flag = Int(1)
+
+        var result = bridge.device_init_playback_ex_f32(
+            self.raw,
+            sample_rate,
+            channels,
+            period_size_in_frames,
+            period_count,
+            low_latency_flag,
+        )
+        if result != 0:
+            raise Error(format_result_error(bridge, "device init playback ex failed", result))
+        self.initialized = True
+
+    def init_capture_ex_f32(
+        mut self,
+        bridge: MiniAudioCtypes,
+        sample_rate: UInt32,
+        channels: UInt32,
+        period_size_in_frames: UInt32,
+        period_count: UInt32,
+        use_low_latency_profile: Bool,
+    ) raises:
+        var low_latency_flag = Int(0)
+        if use_low_latency_profile:
+            low_latency_flag = Int(1)
+
+        var result = bridge.device_init_capture_ex_f32(
+            self.raw,
+            sample_rate,
+            channels,
+            period_size_in_frames,
+            period_count,
+            low_latency_flag,
+        )
+        if result != 0:
+            raise Error(format_result_error(bridge, "device init capture ex failed", result))
+        self.initialized = True
+
+    def init_duplex_ex_f32(
+        mut self,
+        bridge: MiniAudioCtypes,
+        sample_rate: UInt32,
+        channels: UInt32,
+        period_size_in_frames: UInt32,
+        period_count: UInt32,
+        use_low_latency_profile: Bool,
+    ) raises:
+        var low_latency_flag = Int(0)
+        if use_low_latency_profile:
+            low_latency_flag = Int(1)
+
+        var result = bridge.device_init_duplex_ex_f32(
+            self.raw,
+            sample_rate,
+            channels,
+            period_size_in_frames,
+            period_count,
+            low_latency_flag,
+        )
+        if result != 0:
+            raise Error(format_result_error(bridge, "device init duplex ex failed", result))
         self.initialized = True
 
     def init_playback_f32_by_index(
@@ -1640,11 +2160,52 @@ struct MiniAudioEncoderHandle:
         self.initialized = True
         self.channels = channels
 
+    def init_wav_file_vfs_f32(
+        mut self,
+        bridge: MiniAudioCtypes,
+        output_path: String,
+        channels: UInt32,
+        sample_rate: UInt32,
+    ) raises:
+        var result = bridge.encoder_init_wav_file_vfs_f32(
+            self.raw,
+            output_path,
+            channels,
+            sample_rate,
+        )
+        if result != 0:
+            raise Error(format_result_error(bridge, "encoder VFS init failed", result))
+        self.initialized = True
+        self.channels = channels
+
+    def init_wav_file_vfs_format(
+        mut self,
+        bridge: MiniAudioCtypes,
+        output_path: String,
+        channels: UInt32,
+        sample_rate: UInt32,
+        sample_format: Int,
+    ) raises:
+        var result = bridge.encoder_init_wav_file_vfs_format(
+            self.raw,
+            output_path,
+            channels,
+            sample_rate,
+            sample_format,
+        )
+        if result != 0:
+            raise Error(format_result_error(bridge, "encoder VFS format init failed", result))
+        self.initialized = True
+        self.channels = channels
+
     def write_silence_f32(
         self,
         bridge: MiniAudioCtypes,
         frame_count: UInt64,
     ) raises:
+        if not self.initialized:
+            raise Error("encoder handle is not initialized")
+
         var result = bridge.encoder_write_silence_f32(self.raw, frame_count)
         if result != 0:
             raise Error(format_result_error(bridge, "encoder write silence failed", result))
@@ -1655,9 +2216,31 @@ struct MiniAudioEncoderHandle:
         frames: OpaquePointer[MutExternalOrigin],
         frame_count: UInt64,
     ) raises -> UInt64:
+        if not self.initialized:
+            raise Error("encoder handle is not initialized")
+
         var result = bridge.encoder_write_pcm_frames_f32(
             self.raw,
             frames,
+            frame_count,
+        )
+        if result < 0:
+            var error_code = Int(result)
+            raise Error(format_result_error(bridge, "encoder write frames failed", error_code))
+        return UInt64(result)
+
+    def write_pcm_frames_f32_buffer(
+        self,
+        bridge: MiniAudioCtypes,
+        frames_buffer: String,
+        frame_count: UInt64,
+    ) raises -> UInt64:
+        if not self.initialized:
+            raise Error("encoder handle is not initialized")
+
+        var result = bridge.encoder_write_pcm_frames_f32_buffer(
+            self.raw,
+            frames_buffer,
             frame_count,
         )
         if result < 0:
@@ -2116,6 +2699,67 @@ struct MiniAudioChannelConverterHandle:
             self.initialized = False
 
         bridge.channel_converter_destroy(self.raw)
+        self.raw = miniaudio_null_handle()
+
+
+struct MiniAudioWaveformHandle:
+    var raw: OpaquePointer[MutExternalOrigin]
+    var initialized: Bool
+
+    def __init__(out self, bridge: MiniAudioCtypes) raises:
+        self.raw = bridge.waveform_create()
+        self.initialized = False
+        if self.raw == miniaudio_null_handle():
+            raise Error("waveform_create failed")
+
+    def init_f32(
+        mut self,
+        bridge: MiniAudioCtypes,
+        channels: UInt32,
+        sample_rate: UInt32,
+        waveform_type: UInt32,
+        amplitude: Float64,
+        frequency: Float64,
+    ) raises:
+        var result = bridge.waveform_init_f32(
+            self.raw,
+            channels,
+            sample_rate,
+            waveform_type,
+            amplitude,
+            frequency,
+        )
+        if result != 0:
+            raise Error(format_result_error(bridge, "waveform init failed", result))
+        self.initialized = True
+
+    def set_amplitude(
+        self,
+        bridge: MiniAudioCtypes,
+        amplitude: Float64,
+    ) raises:
+        var result = bridge.waveform_set_amplitude(self.raw, amplitude)
+        if result != 0:
+            raise Error(format_result_error(bridge, "waveform set amplitude failed", result))
+
+    def set_frequency(
+        self,
+        bridge: MiniAudioCtypes,
+        frequency: Float64,
+    ) raises:
+        var result = bridge.waveform_set_frequency(self.raw, frequency)
+        if result != 0:
+            raise Error(format_result_error(bridge, "waveform set frequency failed", result))
+
+    def close(mut self, bridge: MiniAudioCtypes):
+        if self.raw == miniaudio_null_handle():
+            return
+
+        if self.initialized:
+            _ = bridge.waveform_uninit(self.raw)
+            self.initialized = False
+
+        bridge.waveform_destroy(self.raw)
         self.raw = miniaudio_null_handle()
 
 
