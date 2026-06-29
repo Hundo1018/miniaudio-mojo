@@ -22,12 +22,12 @@ def _lib() raises -> MaLib:
 
 def test_version_nonempty() raises:
     var lib = _lib()
-    assert_true(len(lib.version()) > 0)
+    assert_true(lib.version().byte_length() > 0)
 
 
 def test_result_description_nonempty() raises:
     var lib = _lib()
-    assert_true(len(lib.result_description(0)) > 0)
+    assert_true(lib.result_description(0).byte_length() > 0)
 
 
 def test_init_memory_read_seek_query() raises:
