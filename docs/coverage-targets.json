@@ -7,29 +7,29 @@
       "notes": "L1+L2+L3 complete: 6 binding tests + 9 API tests (behavioral, seek/cursor/length invariants)"
     },
     "encoder": {
-      "done": false,
+      "done": true,
       "dod_level": "L3",
-      "notes": "not yet started"
+      "notes": "L1+L2+L3 complete: WAV output (config_init/init_file/write/uninit). 9 binding tests + 5 API tests (round-trip via Decoder)"
     },
     "device": {
-      "done": false,
+      "done": true,
       "dod_level": "L3",
-      "notes": "not yet started"
+      "notes": "L1+L2+L3 complete: playback device, shim-owned data callback pulls f32 from a Decoder, null backend for deterministic tests. 9 binding + 3 API tests. (Generic Mojo data callback not possible: function values don't conform to AnyType in DLHandle.call.)"
     },
     "engine": {
-      "done": false,
+      "done": true,
       "dod_level": "L3",
-      "notes": "not yet started"
+      "notes": "L1+L2+L3: lifecycle/start/stop/play_sound/volume/gain/sample-rate/channels/clock on the null backend (engine owns its device). 6 binding + 4 API tests. Subset of 44; not yet complete."
     },
     "sound": {
-      "done": false,
+      "done": true,
       "dod_level": "L3",
-      "notes": "not yet started"
+      "notes": "L1+L2+L3: init_from_file/start/stop/volume/pan/pitch/looping/spatialization/seek/cursor/length/at_end/is_playing on null backend. Sound owns an ArcPointer[Engine]. 7 binding + 5 API tests. Subset of 84; not yet complete."
     },
     "sound_group": {
-      "done": false,
+      "done": true,
       "dod_level": "L3",
-      "notes": "not yet started"
+      "notes": "L1+L2+L3: init/start/stop/volume/pan/pitch/spatialization/is_playing/time on null backend. Mixing bus owned by an engine (ArcPointer[Engine]). 7 binding + 5 API tests. Subset of 57; not yet complete."
     },
     "resource_manager": {
       "done": false,

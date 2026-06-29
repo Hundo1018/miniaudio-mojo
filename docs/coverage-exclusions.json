@@ -1,0 +1,50 @@
+{
+  "_comment": "Functions intentionally excluded from the 100%-of-bindable denominator. Every name here MUST exist in docs/api-inventory.json (the checker typo-guards them). See docs/binding-coverage.md.",
+  "categories": {
+    "internal_preinit": {
+      "rationale": "Non-public implementation details; the public init functions are bound instead.",
+      "functions": [
+        "ma_encoder_init__internal",
+        "ma_encoder_preinit"
+      ]
+    },
+    "wchar_w_variants": {
+      "rationale": "Windows wide-char (const wchar_t*) path APIs. Project is linux-64 only (pixi.toml); the UTF-8 *_file / *_vfs / *_memory siblings cover the need.",
+      "functions": [
+        "ma_copy_string_w",
+        "ma_decoder_init_file_w",
+        "ma_decoder_init_vfs_w",
+        "ma_encoder_init_file_w",
+        "ma_encoder_init_vfs_w",
+        "ma_flac_init_file_w",
+        "ma_mp3_init_file_w",
+        "ma_wav_init_file_w",
+        "ma_sound_init_from_file_w",
+        "ma_resource_manager_data_buffer_init_w",
+        "ma_resource_manager_data_source_init_w",
+        "ma_resource_manager_data_stream_init_w",
+        "ma_resource_manager_register_decoded_data_w",
+        "ma_resource_manager_register_encoded_data_w",
+        "ma_resource_manager_register_file_w",
+        "ma_resource_manager_unregister_data_w",
+        "ma_resource_manager_unregister_file_w",
+        "ma_vfs_open_and_read_file_w",
+        "ma_vfs_open_w",
+        "ma_vfs_or_default_open_w"
+      ]
+    },
+    "custom_callback_or_vtable_ctor": {
+      "rationale": "Take user-supplied function pointers / vtables (custom I/O, custom data source / node). Mojo cannot pass a function value across the FFI (see memory mojo-ffi-callback-limit). Concrete siblings (*_init_file/_memory, built-in nodes, default VFS) ARE bound; callbacks that have a meaningful shim-owned form (sound end, context enumerate, log) are bound, not excluded.",
+      "functions": [
+        "ma_decoder_init",
+        "ma_encoder_init",
+        "ma_wav_init",
+        "ma_flac_init",
+        "ma_mp3_init",
+        "ma_data_source_get_next_callback",
+        "ma_data_source_set_next_callback",
+        "ma_node_init"
+      ]
+    }
+  }
+}

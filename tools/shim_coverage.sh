@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# shim_coverage.sh — build libma_shim_cov.so with gcov instrumentation,
-# run the Mojo test suite against it, then check ma_shim.c line coverage.
+# shim_coverage.sh — build an instrumented libma_shim_cov.so from ALL
+# src/native/ma_shim*.c, run every tests/test_*.mojo against it, then check the
+# AGGREGATE line coverage across the shim translation units.
 #
 # Exit 0 if coverage >= threshold; exit 1 otherwise.
 #
-# Usage: bash tools/shim_coverage.sh [line-threshold]
-#   line-threshold  integer 0-100, default 95
+# Usage: bash tools/shim_coverage.sh [line-threshold]   (default 95)
 #
 set -euo pipefail
 
@@ -16,85 +16,79 @@ COV_LIB="$BUILD_COV/libma_shim_cov.so"
 
 echo "=== shim_coverage.sh (threshold=${THRESHOLD}%) ==="
 
-# ---- 1. Build instrumented objects + .so (two-step for clean gcno names) ---
+# ---- 1. Build instrumented objects + .so -----------------------------------
 mkdir -p "$BUILD_COV"
+rm -f "$BUILD_COV"/*.gcda "$BUILD_COV"/*.gcno "$BUILD_COV"/*.gcov 2>/dev/null || true
 
-echo "  Compiling ma_shim.c -> $BUILD_COV/ma_shim.o (with --coverage) ..."
-cc -O0 -g --coverage -fPIC -c \
-    -o "$BUILD_COV/ma_shim.o" \
-    "$ROOT/src/native/ma_shim.c" \
-    -I"$ROOT/vendor/miniaudio" \
-    -I"$ROOT/src/native"
+OBJS=()
+for c in "$ROOT"/src/native/ma_shim*.c; do
+    obj="$BUILD_COV/$(basename "${c%.c}").o"
+    echo "  Compiling $(basename "$c") -> $(basename "$obj") (with --coverage) ..."
+    cc -O0 -g --coverage -fPIC -c -o "$obj" "$c" \
+        -I"$ROOT/vendor/miniaudio" -I"$ROOT/src/native"
+    OBJS+=("$obj")
+done
 
-echo "  Compiling miniaudio.c -> $BUILD_COV/miniaudio.o ..."
-cc -O0 -g --coverage -fPIC -c \
-    -o "$BUILD_COV/miniaudio.o" \
-    "$ROOT/vendor/miniaudio/miniaudio.c" \
-    -I"$ROOT/vendor/miniaudio"
+echo "  Compiling miniaudio.c -> miniaudio.o ..."
+cc -O0 -g --coverage -fPIC -c -o "$BUILD_COV/miniaudio.o" \
+    "$ROOT/vendor/miniaudio/miniaudio.c" -I"$ROOT/vendor/miniaudio"
 
 echo "  Linking $COV_LIB ..."
-cc --coverage -shared \
-    -o "$COV_LIB" \
-    "$BUILD_COV/ma_shim.o" \
-    "$BUILD_COV/miniaudio.o" \
+cc --coverage -shared -o "$COV_LIB" \
+    "${OBJS[@]}" "$BUILD_COV/miniaudio.o" \
     -lpthread -lm -ldl -latomic
 
-echo "  Objects compiled; .gcno files in $BUILD_COV"
-ls "$BUILD_COV/"*.gcno 2>/dev/null || echo "  (no .gcno yet)"
-
-# ---- 2. Run Mojo test suite against instrumented library --------------------
+# ---- 2. Run the full Mojo test suite against the instrumented library ------
 echo "  Running Mojo tests against instrumented shim ..."
 export MINIAUDIO_MOJO_LIB="$COV_LIB"
-# .gcda files will land alongside .gcno files (same directory as the .o)
-# because GCOV_PREFIX is NOT set — gcov writes next to the .gcno.
-
 cd "$ROOT"
 python3 tools/gen_test_wav.py 2>/dev/null || true
 
-mojo run -I src -I tests tests/test_decoder_binding.mojo
-mojo run -I src -I tests tests/test_decoder_api.mojo
+for t in tests/test_*.mojo; do
+    echo "  -> $t"
+    mojo run -I src -I tests "$t"
+done
 
 # ---- 3. Verify .gcda files were written ------------------------------------
-echo "  Checking for .gcda files ..."
 if ! ls "$BUILD_COV/"*.gcda 2>/dev/null | grep -q .; then
-    echo "  ERROR: no .gcda files in $BUILD_COV — test process may have crashed." >&2
+    echo "  ERROR: no .gcda files in $BUILD_COV — a test process may have crashed." >&2
     exit 1
 fi
-echo "  Found: $(ls "$BUILD_COV/"*.gcda | xargs basename -a | tr '\n' ' ')"
 
-# ---- 4. Run gcov on ma_shim.c only -----------------------------------------
-echo "  Running gcov on ma_shim.c ..."
+# ---- 4. gcov each ma_shim*.c and aggregate line coverage -------------------
 cd "$BUILD_COV"
-GCOV_OUT=$(gcov -b -c -o "$BUILD_COV" "$ROOT/src/native/ma_shim.c" 2>&1)
-echo "$GCOV_OUT"
+for c in "$ROOT"/src/native/ma_shim*.c; do
+    gcov -b -c -o "$BUILD_COV" "$c" >/dev/null 2>&1 || true
+done
 
-# ---- 5. Parse line coverage -------------------------------------------------
-LINE_PCT=$(echo "$GCOV_OUT" | grep -oP "Lines executed:\K[0-9.]+" | head -1)
+read -r EXECUTED TOTAL < <(python3 - "$BUILD_COV"/ma_shim*.c.gcov <<'PY'
+import sys
+ex = tot = 0
+for path in sys.argv[1:]:
+    for line in open(path):
+        parts = line.split(":", 2)
+        if len(parts) < 3:
+            continue
+        c = parts[0].strip()
+        if c in ("-", ""):      # non-executable / header line
+            continue
+        tot += 1
+        if c[0].isdigit():       # numeric count => executed (gcov uses ##### for 0)
+            ex += 1
+print(ex, tot)
+PY
+)
 
-if [ -z "$LINE_PCT" ]; then
-    GCOV_FILE="$BUILD_COV/ma_shim.c.gcov"
-    if [ ! -f "$GCOV_FILE" ]; then
-        # gcov may write to cwd
-        GCOV_FILE="ma_shim.c.gcov"
-    fi
-    if [ -f "$GCOV_FILE" ]; then
-        TOTAL=$(grep -cE "^[[:space:]]+[0-9#]+:" "$GCOV_FILE" || true)
-        EXECUTED=$(grep -cE "^[[:space:]]+[0-9]+:" "$GCOV_FILE" || true)
-        if [ "$TOTAL" -gt 0 ]; then
-            LINE_PCT=$(python3 -c "print(f'{100.0*${EXECUTED}/${TOTAL}:.2f}')")
-        fi
-    fi
-fi
-
-if [ -z "$LINE_PCT" ]; then
-    echo "ERROR: could not parse line coverage from gcov output." >&2
+if [ -z "${TOTAL:-}" ] || [ "$TOTAL" -eq 0 ]; then
+    echo "ERROR: could not parse aggregate line coverage from gcov output." >&2
     exit 1
 fi
 
+LINE_PCT=$(python3 -c "print(f'{100.0*${EXECUTED}/${TOTAL}:.2f}')")
 LINE_INT=$(python3 -c "print(int(float('$LINE_PCT')))")
 
 echo ""
-echo "  ma_shim.c line coverage: ${LINE_PCT}%  (threshold: ${THRESHOLD}%)"
+echo "  shim aggregate line coverage: ${LINE_PCT}%  (${EXECUTED}/${TOTAL} lines, threshold: ${THRESHOLD}%)"
 
 if [ "$LINE_INT" -lt "$THRESHOLD" ]; then
     echo "  FAIL — coverage ${LINE_PCT}% is below threshold ${THRESHOLD}%" >&2

@@ -1,8 +1,8 @@
 """miniaudio — idiomatic Mojo bindings for miniaudio.
 
-Public surface (reference slice): the decoder. Other module groups follow the
-same three-layer pattern (thin C shim -> raw binding layer -> RAII API). See
-docs/binding-architecture.md.
+Public surface (migrated slices): the decoder and encoder. Other module groups
+follow the same three-layer pattern (thin C shim -> raw binding layer -> RAII
+API). See docs/binding-architecture.md.
 """
 
 from miniaudio._lib import MaLib
@@ -24,3 +24,13 @@ from miniaudio.decoder import (
     SAMPLE_FORMAT_S32,
     SAMPLE_FORMAT_F32,
 )
+from miniaudio.encoder import (
+    Encoder,
+    EncodingFormat,
+    ENCODING_FORMAT_UNKNOWN,
+    ENCODING_FORMAT_WAV,
+)
+from miniaudio.device import Device
+from miniaudio.engine import Engine
+from miniaudio.sound import Sound
+from miniaudio.sound_group import SoundGroup

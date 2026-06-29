@@ -65,6 +65,52 @@ unsigned int ma_shim_decoder_output_channels(void* handle);
 unsigned int ma_shim_decoder_output_sample_rate(void* handle);
 int          ma_shim_decoder_output_format(void* handle);
 
+/* ---- encoder (opaque handle; WAV output) ---- */
+void* ma_shim_encoder_alloc(void);
+void  ma_shim_encoder_free(void* handle);
+
+int ma_shim_encoder_init_file(
+    void* handle,
+    const char* file_path,
+    int encoding_format,
+    int format,
+    unsigned int channels,
+    unsigned int sample_rate
+);
+int ma_shim_encoder_uninit(void* handle);
+
+int ma_shim_encoder_write_pcm_frames(
+    void* handle,
+    const void* input,
+    unsigned long long frame_count,
+    unsigned long long* frames_written
+);
+
+/* ---- device (opaque handle; playback pulling from a decoder) ----
+ *
+ * The device's data callback is owned by the shim (C); it pulls f32 PCM from a
+ * decoder handle (an allocation from ma_shim_decoder_alloc that has been
+ * initialised). No Mojo callback crosses the FFI boundary. `use_null_backend`
+ * selects miniaudio's null backend for hardware-independent, deterministic
+ * operation (tests); 0 uses the default backend (real audio output).
+ */
+void* ma_shim_device_alloc(void);
+void  ma_shim_device_free(void* handle);
+
+int ma_shim_device_init_playback_from_decoder(
+    void* handle,
+    void* decoder_handle,
+    unsigned int sample_rate_override,
+    int use_null_backend
+);
+int ma_shim_device_start(void* handle);
+int ma_shim_device_stop(void* handle);
+int ma_shim_device_uninit(void* handle);
+
+unsigned int       ma_shim_device_get_channels(void* handle);
+unsigned int       ma_shim_device_get_sample_rate(void* handle);
+unsigned long long ma_shim_device_get_frames_processed(void* handle);
+
 #ifdef __cplusplus
 }
 #endif

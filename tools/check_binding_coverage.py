@@ -20,13 +20,17 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
 
-SHIM_H = ROOT / "src" / "native" / "ma_shim.h"
-SHIM_C = ROOT / "src" / "native" / "ma_shim.c"
+NATIVE_DIR = ROOT / "src" / "native"
+# The shim is split per family (ma_shim_<family>.{h,c}); the legacy single
+# ma_shim.{h,c} also matches these globs. Scan all of them.
+SHIM_HEADERS = lambda: sorted(NATIVE_DIR.glob("ma_shim*.h"))
+SHIM_SOURCES = lambda: sorted(NATIVE_DIR.glob("ma_shim*.c"))
 FFI_DIR = ROOT / "src" / "miniaudio" / "_ffi"
 SRC_MOJO_DIR = ROOT / "src" / "miniaudio"
 TESTS_DIR = ROOT / "tests"
 INVENTORY = ROOT / "docs" / "api-inventory.json"
 TARGETS = ROOT / "docs" / "coverage-targets.json"
+EXCLUSIONS = ROOT / "docs" / "coverage-exclusions.json"
 
 # ---- helpers ----------------------------------------------------------------
 
@@ -43,8 +47,8 @@ def section(title: str) -> None:
 # ---- 1. Parse shim exports from ma_shim.h -----------------------------------
 
 def shim_exports() -> list[str]:
-    """Return list of ma_shim_* function names declared in ma_shim.h."""
-    text = SHIM_H.read_text()
+    """Return list of ma_shim_* function names declared in any ma_shim*.h."""
+    text = "\n".join(h.read_text() for h in SHIM_HEADERS())
     # Match lines like: int ma_shim_foo(...); or void* ma_shim_bar(void);
     return re.findall(r"\bma_shim_([a-zA-Z0-9_]+)\s*\(", text)
 
@@ -52,8 +56,8 @@ def shim_exports() -> list[str]:
 # ---- 2. Parse @binds from ma_shim.c ----------------------------------------
 
 def shim_binds() -> dict[str, list[str]]:
-    """Return {shim_func_name: [bound_ma_* names]} from @binds comments."""
-    text = SHIM_C.read_text()
+    """Return {shim_func_name: [bound_ma_* names]} from @binds comments across ma_shim*.c."""
+    text = "\n".join(c.read_text() for c in SHIM_SOURCES())
     result: dict[str, list[str]] = {}
 
     # Each @binds comment immediately precedes a shim function definition.
@@ -142,6 +146,17 @@ def load_targets() -> dict:
     return json.loads(TARGETS.read_text())
 
 
+def load_exclusions() -> set[str]:
+    """Functions intentionally excluded from the 100%-of-bindable denominator."""
+    if not EXCLUSIONS.exists():
+        return set()
+    data = json.loads(EXCLUSIONS.read_text())
+    excluded: set[str] = set()
+    for cat in data.get("categories", {}).values():
+        excluded.update(cat.get("functions", []))
+    return excluded
+
+
 # ---- 6. Load API inventory --------------------------------------------------
 
 def load_inventory() -> set[str]:
@@ -162,12 +177,17 @@ def main() -> None:
 
     inventory = load_inventory()
     targets = load_targets()
+    exclusions = load_exclusions()
 
     exports = shim_exports()
     binds = shim_binds()
     l2 = l2_symbols()
     raw_map = raw_functions()  # shim_sym -> {raw_func_names}
     tested = test_symbols()
+
+    bound_fns: set[str] = set()
+    for bound_list in binds.values():
+        bound_fns.update(bound_list)
 
     # ---- Gate 1: completeness (every shim export has L2 binding + test) -----
     section("Gate 1 — shim export completeness")
@@ -202,6 +222,16 @@ def main() -> None:
             else:
                 info(f"{shim_sym} @binds {ma_fn} ✓")
 
+    # ---- Gate 2b: exclusion-list names must exist in inventory (typo guard) --
+    section("Gate 2b — exclusion-list validity")
+    for ex in sorted(exclusions):
+        if ex not in inventory:
+            msg = f"excluded '{ex}' — not found in api-inventory.json (typo or stale)"
+            errors.append(msg)
+            fail(msg)
+        else:
+            info(f"excluded {ex} ✓")
+
     # ---- Gate 3: done families meet their DoD level -------------------------
     section("Gate 3 — done-family DoD compliance")
     if not targets:
@@ -235,31 +265,57 @@ def main() -> None:
                     continue
             info(f"{fam}: done={dod} — test files present")
 
+    inv_data = json.loads(INVENTORY.read_text())
+    inv_families = {f: set(i["functions"]) for f, i in inv_data["families"].items()}
+
+    # ---- Gate 3b: complete families must bind ALL non-excluded functions ----
+    # Opt-in via "complete": true in coverage-targets.json (distinct from "done",
+    # which only claims the *bound subset* is gated). This is the per-family
+    # teeth of the "100% of bindable" goal.
+    section("Gate 3b — family completeness (complete=true)")
+    families = targets.get("families", {})
+    any_complete = False
+    for fam, meta in sorted(families.items()):
+        if not meta.get("complete", False):
+            continue
+        any_complete = True
+        fam_fns = inv_families.get(fam, set())
+        unbound = sorted(fam_fns - bound_fns - exclusions)
+        if unbound:
+            msg = f"{fam}: complete=true but {len(unbound)} non-excluded fn(s) unbound: {unbound[:8]}{'…' if len(unbound) > 8 else ''}"
+            errors.append(msg)
+            fail(msg)
+        else:
+            info(f"{fam}: complete — all {len(fam_fns - exclusions)} bindable fns bound")
+    if not any_complete:
+        print("  (no families marked complete=true yet)")
+
     # ---- Coverage report (informational) ------------------------------------
     section("Coverage summary (informational)")
     total_inventory = len(inventory)
-    bound_fns: set[str] = set()
-    for bound_list in binds.values():
-        bound_fns.update(bound_list)
+    bindable = total_inventory - len(exclusions & inventory)
     pct = 100.0 * len(bound_fns) / total_inventory if total_inventory else 0.0
+    bpct = 100.0 * len(bound_fns) / bindable if bindable else 0.0
     print(f"  Bound {len(bound_fns)} / {total_inventory} core MA_API functions ({pct:.1f}%)")
+    print(f"  Bindable coverage: {len(bound_fns)} / {bindable} "
+          f"(= {total_inventory} - {len(exclusions & inventory)} excluded)  ->  {bpct:.1f}% of bindable")
+    remaining = (inventory - bound_fns) - exclusions
+    print(f"  Remaining unbound (non-excluded): {len(remaining)}")
 
     # Per-family breakdown from inventory
-    if INVENTORY.exists():
-        inv_data = json.loads(INVENTORY.read_text())
-        for fam, fam_info in sorted(inv_data["families"].items()):
-            fam_fns = set(fam_info["functions"])
-            covered = fam_fns & bound_fns
-            if covered:
-                fpct = 100.0 * len(covered) / len(fam_fns)
-                print(f"  {fam:30s} {len(covered):3d}/{len(fam_fns):3d} ({fpct:.0f}%)")
+    for fam, fam_fns in sorted(inv_families.items()):
+        covered = fam_fns & bound_fns
+        if covered:
+            fpct = 100.0 * len(covered) / len(fam_fns)
+            print(f"  {fam:30s} {len(covered):3d}/{len(fam_fns):3d} ({fpct:.0f}%)")
 
     # ---- Result -------------------------------------------------------------
     print()
     if errors:
         print(f"FAIL — {len(errors)} error(s). Fix above and re-run.", file=sys.stderr)
         sys.exit(1)
-    print(f"PASS — all {len(exports)} shim exports complete, @binds valid, DoD gates pass.")
+    print(f"PASS — all {len(exports)} shim exports complete, @binds valid, "
+          f"{len(exclusions)} exclusions valid, DoD/completeness gates pass.")
 
 
 if __name__ == "__main__":

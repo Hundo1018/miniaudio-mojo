@@ -30,12 +30,12 @@ relative to the 1,027-function denominator. Run `pixi run coverage-binding` for 
 
 | Family | Denominator | Bound | % | DoD Target | Status |
 |--------|-------------|-------|---|------------|--------|
-| decoder | 16 | 9 | 56% | L3 | in progress — L2 done, L3 backfill pending |
-| encoder | 10 | 0 | 0% | L3 | not started |
-| device | 25 | 0 | 0% | L3 | not started |
-| engine | 44 | 0 | 0% | L3 | not started |
-| sound | 84 | 0 | 0% | L3 | not started |
-| sound_group | 57 | 0 | 0% | L3 | not started |
+| decoder | 16 | 9 | 56% | L3 | done — L1+L2+L3 (6 binding + 9 API tests) |
+| encoder | 10 | 4 | 40% | L3 | done — L1+L2+L3, WAV output (9 binding + 5 API tests) |
+| device | 25 | 5 | 20% | L3 | done — L1+L2+L3, playback pulls from Decoder via shim-owned cb (9 binding + 3 API tests) |
+| engine | 44 | 13 | 30% | L3 | done (subset) — lifecycle/play_sound/volume/gain/clock (6 binding + 4 API tests) |
+| sound | 84 | 19 | 23% | L3 | done (subset) — init_from_file/control/query/at_end (7 binding + 5 API tests) |
+| sound_group | 57 | 14 | 25% | L3 | done (subset) — bus init/control/query (7 binding + 5 API tests) |
 | resource_manager | 64 | 0 | 0% | L3 | not started |
 | node | 32 | 0 | 0% | L2 | not started |
 | spatializer | 57 | 0 | 0% | L2 | not started |
@@ -49,13 +49,13 @@ relative to the 1,027-function denominator. Run `pixi run coverage-binding` for 
 | biquad | 4 | 0 | 0% | L2 | not started |
 | sync | 24 | 0 | 0% | L2 | not started |
 | log | 12 | 0 | 0% | L2 | not started |
-| context | 13 | 0 | 0% | L2 | not started |
+| context | 9 | 2 | 22% | L2 | partial — context_init/config_init bound via device null-backend |
 | vfs | 11 | 0 | 0% | L2 | not started |
 | audio_buffer | 25 | 0 | 0% | L2 | not started |
 | paged_audio_buffer | 8 | 0 | 0% | L2 | not started |
 | core | 141 | 2 | 1% | — | infrastructure (version, result_description) |
 | *others* | ~280 | 0 | 0% | — | not started |
-| **TOTAL** | **1,027** | **11** | **1.1%** | — | — |
+| **TOTAL** | **1,027** | **68** | **6.6%** (bindable 68/997 = 6.8%) | — | — |
 
 > Coverage percentage is expected to be low until families are migrated. The gates ensure
 > **everything implemented is complete and tested** — not that everything is implemented.
@@ -65,9 +65,16 @@ relative to the 1,027-function denominator. Run `pixi run coverage-binding` for 
 
 Planned migration order (each family follows the three-layer + TDD + gate template):
 
-1. **decoder** ← current (backfilling L3 behavioral tests)
-2. **encoder** ← next: first fully gated family migration
-3. device / playback
+1. **decoder** ← done (L3)
+2. **encoder** ← done (L3): WAV output, round-trips through the decoder
+3. **device / playback** ← done (L3): playback device whose shim-owned data
+   callback pulls f32 from a `Decoder`; null backend for deterministic tests.
+   NOTE: a *generic user-supplied Mojo data callback* is not possible on the
+   pinned nightly — function values do not conform to `AnyType` in
+   `OwnedDLHandle.call`, so the callback must live in C. Revisit if/when the
+   FFI supports passing function pointers.
+4. **engine / sound / sound_group** ← done (L3 subsets): high-level playback API on the null backend
+5. data_source / ring_buffer / audio_buffer ← next
 4. engine / sound
 5. data_source / ring_buffer
 6. converters (resampler / channel / data)

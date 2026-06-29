@@ -10,9 +10,14 @@ run = "pixi run build-native-lib && mojo run -I src/api -I src/ffi -I tests main
 run-mojo-quickstart = "pixi run run-ffi"
 
 # --- Layered rebinding (thin shim + std.testing TDD). See docs/binding-architecture.md ---
-build-shim = "mkdir -p build && cc -O2 -fPIC -shared -o build/libma_shim.so src/native/ma_shim.c vendor/miniaudio/miniaudio.c -Ivendor/miniaudio -Isrc/native -lpthread -lm -ldl -latomic"
+build-shim = "mkdir -p build && cc -O2 -fPIC -shared -o build/libma_shim.so src/native/ma_shim*.c vendor/miniaudio/miniaudio.c -Ivendor/miniaudio -Isrc/native -lpthread -lm -ldl -latomic"
 test-decoder = "pixi run build-shim && pixi run gen-test-wav && mojo run -I src -I tests tests/test_decoder_binding.mojo && mojo run -I src -I tests tests/test_decoder_api.mojo"
-test = "pixi run test-decoder"
+test-encoder = "pixi run build-shim && pixi run gen-test-wav && mojo run -I src -I tests tests/test_encoder_binding.mojo && mojo run -I src -I tests tests/test_encoder_api.mojo"
+test-device = "pixi run build-shim && pixi run gen-test-wav && mojo run -I src -I tests tests/test_device_binding.mojo && mojo run -I src -I tests tests/test_device_api.mojo"
+test-engine = "pixi run build-shim && pixi run gen-test-wav && mojo run -I src -I tests tests/test_engine_binding.mojo && mojo run -I src -I tests tests/test_engine_api.mojo"
+test-sound = "pixi run build-shim && pixi run gen-test-wav && mojo run -I src -I tests tests/test_sound_binding.mojo && mojo run -I src -I tests tests/test_sound_api.mojo"
+test-sound-group = "pixi run build-shim && pixi run gen-test-wav && mojo run -I src -I tests tests/test_sound_group_binding.mojo && mojo run -I src -I tests tests/test_sound_group_api.mojo"
+test = "pixi run test-decoder && pixi run test-encoder && pixi run test-device && pixi run test-engine && pixi run test-sound && pixi run test-sound-group"
 
 # --- Coverage assurance system. See docs/binding-coverage.md ---
 gen-api-inventory = "python3 tools/gen_api_inventory.py"
