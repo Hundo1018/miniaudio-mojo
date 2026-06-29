@@ -34,3 +34,10 @@ from miniaudio.device import Device
 from miniaudio.engine import Engine
 from miniaudio.sound import Sound
 from miniaudio.sound_group import SoundGroup
+from miniaudio.waveform import (
+    Waveform,
+    WaveformTypeSine,
+    WaveformTypeSquare,
+    WaveformTypeTriangle,
+    WaveformTypeSawtooth,
+)
