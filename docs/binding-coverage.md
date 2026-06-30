@@ -23,20 +23,22 @@ Coverage is tracked against the **complete miniaudio public API** as the denomin
 | L3 | L2 + behavioral/stateful tests in `tests/test_*_api.mojo` (RAII API layer) |
 | L4 | L3 + integration / multi-component tests |
 
-## Progress Strategy — `done` vs `complete` (depth-first)
+## Progress Strategy — `dod_met` vs `complete` (depth-first)
 
-Maturity is tracked on **two orthogonal axes**, and the checker has a separate flag for each:
+Maturity is tracked on **two orthogonal axes**, and the checker has a separate flag for each.
+(The maturity flag is named `dod_met`, **not** `done`, on purpose: "done" wrongly reads as "this
+family is finished".)
 
-- **Depth** — `done` + `dod_level` (Gate 3): the functions that *are* bound in a family have
+- **Depth** — `dod_met` + `dod_level` (Gate 3): the functions that *are* bound in a family have
   reached their DoD maturity (L2 = positive + negative tests; L3 = also behavioral tests). This
   says **nothing** about how many of the family's functions are bound.
 - **Breadth** — `complete` (Gate 3b): opt-in `"complete": true` requires that **every**
   non-excluded function in the family is bound.
 
-These are independent. A family can be `done: true, dod_level: L3` while only ~25% of its functions
-are bound (e.g. `sound` 19/84) — the bound slice is fully tested, but the family is **not
-`complete`**. `done` therefore means "this family's implemented slice is mature", **not** "this
-family is finished". Read the `complete` column, not `done`, for breadth.
+These are independent. A family can be `dod_met: true, dod_level: L3` while only ~25% of its
+functions are bound (e.g. `sound` 19/84) — the bound slice is fully tested, but the family is **not
+`complete`**. `dod_met` therefore means "this family's implemented slice is mature", **not** "this
+family is finished". Read `complete`, not `dod_met`, for breadth.
 
 **Current directive: depth-first completion.** Earlier work was breadth-first — bind a representative
 L3 slice of each family to de-risk the layered pattern, then move on. That validated the architecture
@@ -46,24 +48,26 @@ but left the global percentage low and the big families ~70% unbound. Going forw
    inflate the percentage. Only genuinely unbindable functions (user function-pointer / vtable
    constructors, Windows `_w` wide-char variants, internal pre-init helpers) are excluded, each with
    a rationale in `docs/coverage-exclusions.json`.
-2. **Complete a family before starting a new one.** Bind all bindable functions of a `done`-but-not-
-   `complete` family and set `"complete": true`, prioritising the largest families (sound 84,
+2. **Complete a family before starting a new one.** Bind all bindable functions of a `dod_met`-but-
+   not-`complete` family and set `"complete": true`, prioritising the largest families (sound 84,
    sound_group 57, engine 44, device 25) — that is where the percentage lives. Completing the
-   already-`done` families alone is worth roughly +17 percentage points.
+   already-`dod_met` families alone is worth roughly +17 percentage points.
 
 ## Family Status Matrix
 
-All families not yet started are `done=false`; coverage percentage reflects `@binds` annotations
-relative to the 1,027-function denominator. Run `pixi run coverage-binding` for live numbers.
+All families not yet started are `dod_met=false`. The Status column reports the **depth** axis
+(`dod_met`); none are `complete` yet, so the percentage (breadth) is still low. Coverage percentage
+reflects `@binds` annotations relative to the 1,027-function denominator. Run
+`pixi run coverage-binding` for live numbers.
 
 | Family | Denominator | Bound | % | DoD Target | Status |
 |--------|-------------|-------|---|------------|--------|
-| decoder | 16 | 9 | 56% | L3 | done — L1+L2+L3 (6 binding + 9 API tests) |
-| encoder | 10 | 4 | 40% | L3 | done — L1+L2+L3, WAV output (9 binding + 5 API tests) |
-| device | 25 | 5 | 20% | L3 | done — L1+L2+L3, playback pulls from Decoder via shim-owned cb (9 binding + 3 API tests) |
-| engine | 44 | 13 | 30% | L3 | done (subset) — lifecycle/play_sound/volume/gain/clock (6 binding + 4 API tests) |
-| sound | 84 | 19 | 23% | L3 | done (subset) — init_from_file/control/query/at_end (7 binding + 5 API tests) |
-| sound_group | 57 | 14 | 25% | L3 | done (subset) — bus init/control/query (7 binding + 5 API tests) |
+| decoder | 16 | 9 | 56% | L3 | dod_met — L1+L2+L3 (6 binding + 9 API tests) |
+| encoder | 10 | 4 | 40% | L3 | dod_met — L1+L2+L3, WAV output (9 binding + 5 API tests) |
+| device | 25 | 5 | 20% | L3 | dod_met — L1+L2+L3, playback pulls from Decoder via shim-owned cb (9 binding + 3 API tests) |
+| engine | 44 | 13 | 30% | L3 | dod_met (subset) — lifecycle/play_sound/volume/gain/clock (6 binding + 4 API tests) |
+| sound | 84 | 19 | 23% | L3 | dod_met (subset) — init_from_file/control/query/at_end (7 binding + 5 API tests) |
+| sound_group | 57 | 14 | 25% | L3 | dod_met (subset) — bus init/control/query (7 binding + 5 API tests) |
 | resource_manager | 64 | 0 | 0% | L3 | not started |
 | node | 32 | 0 | 0% | L2 | not started |
 | spatializer | 57 | 0 | 0% | L2 | not started |
@@ -72,8 +76,8 @@ relative to the 1,027-function denominator. Run `pixi run coverage-binding` for 
 | channel_converter | 8 | 0 | 0% | L2 | not started |
 | data_converter | 8 | 0 | 0% | L2 | not started |
 | resampler | 10 | 0 | 0% | L2 | not started |
-| waveform | 9 | 9 | 100% | L3 | done — L1+L2+L3 (8 binding + 7 API tests) |
-| noise | 9 | 6 | 67% | L3 | done — L1+L2+L3 (8 binding + 7 API tests). set_type excluded (deprecated, asserts false). get_heap_size/init_preallocated excluded (internal). |
+| waveform | 9 | 9 | 100% | L3 | dod_met — L1+L2+L3 (8 binding + 7 API tests) |
+| noise | 9 | 6 | 67% | L3 | dod_met — L1+L2+L3 (8 binding + 7 API tests). set_type excluded (deprecated, asserts false). get_heap_size/init_preallocated excluded (internal). |
 | biquad | 4 | 0 | 0% | L2 | not started |
 | sync | 24 | 0 | 0% | L2 | not started |
 | log | 12 | 0 | 0% | L2 | not started |
@@ -93,15 +97,15 @@ relative to the 1,027-function denominator. Run `pixi run coverage-binding` for 
 
 Planned migration order (each family follows the three-layer + TDD + gate template):
 
-1. **decoder** ← done (L3)
-2. **encoder** ← done (L3): WAV output, round-trips through the decoder
-3. **device / playback** ← done (L3): playback device whose shim-owned data
+1. **decoder** ← dod_met (L3)
+2. **encoder** ← dod_met (L3): WAV output, round-trips through the decoder
+3. **device / playback** ← dod_met (L3): playback device whose shim-owned data
    callback pulls f32 from a `Decoder`; null backend for deterministic tests.
    NOTE: a *generic user-supplied Mojo data callback* is not possible on the
    pinned nightly — function values do not conform to `AnyType` in
    `OwnedDLHandle.call`, so the callback must live in C. Revisit if/when the
    FFI supports passing function pointers.
-4. **engine / sound / sound_group** ← done (L3 subsets): high-level playback API on the null backend
+4. **engine / sound / sound_group** ← dod_met (L3 subsets): high-level playback API on the null backend
 5. data_source / ring_buffer / audio_buffer ← next
 4. engine / sound
 5. data_source / ring_buffer
@@ -116,7 +120,8 @@ On completion of each family:
 - Add `_ffi/*_raw.mojo` (Layer 2 free functions)
 - Add RAII type under `src/miniaudio/` (Layer 3)
 - Add `tests/test_*_binding.mojo` + `tests/test_*_api.mojo`
-- Update `docs/coverage-targets.json`: `done=true, dod_level=L2|L3`
+- Update `docs/coverage-targets.json`: `dod_met=true, dod_level=L2|L3` (and `complete=true` once
+  every non-excluded function in the family is bound)
 - Run `pixi run gate` to green
 - Retire matching legacy `src/api/` module and fat-shim section
 
@@ -139,4 +144,5 @@ Key invariants enforced by the checker (`tools/check_binding_coverage.py`):
 1. Every `ma_shim_*` export has an L2 raw binding AND ≥1 test reference.
 2. Every `@binds ma_foo` names a function that actually exists in the 1,027-function
    denominator (typo guard).
-3. Families marked `done=true` in `coverage-targets.json` meet their stated DoD level.
+3. Families marked `dod_met=true` in `coverage-targets.json` meet their stated DoD level.
+4. Families marked `complete=true` have **every** non-excluded function in the family bound.

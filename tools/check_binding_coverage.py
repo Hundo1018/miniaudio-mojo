@@ -7,7 +7,7 @@ Checks:
        b. A reference to the raw function in some tests/test_*.mojo (test exists).
   2. Every @binds declaration in ma_shim.c names a function that exists in
      docs/api-inventory.json (typo / non-existent symbol guard).
-  3. Every family declared done=true in docs/coverage-targets.json meets its
+  3. Every family declared dod_met=true in docs/coverage-targets.json meets its
      stated dod_level (L2: positive + negative test; L3: also behavioral tests).
 
 Exits 0 only when all gates pass. Reports all failures before exiting.
@@ -232,22 +232,22 @@ def main() -> None:
         else:
             info(f"excluded {ex} ✓")
 
-    # ---- Gate 3: done families meet their DoD level -------------------------
-    section("Gate 3 — done-family DoD compliance")
+    # ---- Gate 3: dod_met families meet their DoD level ----------------------
+    section("Gate 3 — DoD-met compliance")
     if not targets:
         print("  (no coverage-targets.json — skipping DoD gate)")
     else:
         families = targets.get("families", {})
         for fam, meta in sorted(families.items()):
-            if not meta.get("done", False):
-                print(f"  skip  {fam}: not yet done")
+            if not meta.get("dod_met", False):
+                print(f"  skip  {fam}: DoD not yet met")
                 continue
             dod = meta.get("dod_level", "L2")
             # For now, presence of the family's test files is checked structurally.
             # Detailed L3 behavioral test presence is checked by name convention.
             test_files = list(TESTS_DIR.glob(f"test_{fam}*.mojo"))
             if not test_files:
-                msg = f"{fam}: marked done={dod} but no tests/test_{fam}*.mojo found"
+                msg = f"{fam}: marked dod_met={dod} but no tests/test_{fam}*.mojo found"
                 errors.append(msg)
                 fail(msg)
                 continue
@@ -263,14 +263,14 @@ def main() -> None:
                     errors.append(msg)
                     fail(msg)
                     continue
-            info(f"{fam}: done={dod} — test files present")
+            info(f"{fam}: dod_met={dod} — test files present")
 
     inv_data = json.loads(INVENTORY.read_text())
     inv_families = {f: set(i["functions"]) for f, i in inv_data["families"].items()}
 
     # ---- Gate 3b: complete families must bind ALL non-excluded functions ----
-    # Opt-in via "complete": true in coverage-targets.json (distinct from "done",
-    # which only claims the *bound subset* is gated). This is the per-family
+    # Opt-in via "complete": true in coverage-targets.json (distinct from "dod_met",
+    # which only claims the *bound subset* meets its DoD level). This is the per-family
     # teeth of the "100% of bindable" goal.
     section("Gate 3b — family completeness (complete=true)")
     families = targets.get("families", {})

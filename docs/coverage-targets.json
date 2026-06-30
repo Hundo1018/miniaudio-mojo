@@ -2,117 +2,117 @@
   "shim_line_coverage_threshold": 95,
   "families": {
     "decoder": {
-      "done": true,
+      "dod_met": true,
       "dod_level": "L3",
       "notes": "L1+L2+L3 complete: 6 binding tests + 9 API tests (behavioral, seek/cursor/length invariants)"
     },
     "encoder": {
-      "done": true,
+      "dod_met": true,
       "dod_level": "L3",
       "notes": "L1+L2+L3 complete: WAV output (config_init/init_file/write/uninit). 9 binding tests + 5 API tests (round-trip via Decoder)"
     },
     "device": {
-      "done": true,
+      "dod_met": true,
       "dod_level": "L3",
       "notes": "L1+L2+L3 complete: playback device, shim-owned data callback pulls f32 from a Decoder, null backend for deterministic tests. 9 binding + 3 API tests. (Generic Mojo data callback not possible: function values don't conform to AnyType in DLHandle.call.)"
     },
     "engine": {
-      "done": true,
+      "dod_met": true,
       "dod_level": "L3",
       "notes": "L1+L2+L3: lifecycle/start/stop/play_sound/volume/gain/sample-rate/channels/clock on the null backend (engine owns its device). 6 binding + 4 API tests. Subset of 44; not yet complete."
     },
     "sound": {
-      "done": true,
+      "dod_met": true,
       "dod_level": "L3",
       "notes": "L1+L2+L3: init_from_file/start/stop/volume/pan/pitch/looping/spatialization/seek/cursor/length/at_end/is_playing on null backend. Sound owns an ArcPointer[Engine]. 7 binding + 5 API tests. Subset of 84; not yet complete."
     },
     "sound_group": {
-      "done": true,
+      "dod_met": true,
       "dod_level": "L3",
       "notes": "L1+L2+L3: init/start/stop/volume/pan/pitch/spatialization/is_playing/time on null backend. Mixing bus owned by an engine (ArcPointer[Engine]). 7 binding + 5 API tests. Subset of 57; not yet complete."
     },
     "resource_manager": {
-      "done": false,
+      "dod_met": false,
       "dod_level": "L3",
       "notes": "not yet started"
     },
     "node": {
-      "done": false,
+      "dod_met": false,
       "dod_level": "L2",
       "notes": "not yet started"
     },
     "spatializer": {
-      "done": false,
+      "dod_met": false,
       "dod_level": "L2",
       "notes": "not yet started"
     },
     "data_source": {
-      "done": false,
+      "dod_met": false,
       "dod_level": "L2",
       "notes": "not yet started"
     },
     "ring_buffer": {
-      "done": false,
+      "dod_met": false,
       "dod_level": "L2",
       "notes": "not yet started"
     },
     "channel_converter": {
-      "done": false,
+      "dod_met": false,
       "dod_level": "L2",
       "notes": "not yet started"
     },
     "data_converter": {
-      "done": false,
+      "dod_met": false,
       "dod_level": "L2",
       "notes": "not yet started"
     },
     "resampler": {
-      "done": false,
+      "dod_met": false,
       "dod_level": "L2",
       "notes": "not yet started"
     },
     "waveform": {
-      "done": true,
+      "dod_met": true,
       "dod_level": "L3",
       "notes": "L1+L2+L3 complete: all 9 MA_API functions bound (config_init/init/uninit/read_pcm_frames/seek_to_pcm_frame/set_amplitude/set_frequency/set_type/set_sample_rate). 8 binding tests + 7 API tests (silence, amplitude change, seek-restart, stereo)."
     },
     "noise": {
-      "done": true,
+      "dod_met": true,
       "dod_level": "L3",
       "notes": "L1+L2+L3 complete: 6 of 9 MA_API functions bound (config_init+init/uninit/read_pcm_frames/set_amplitude/set_seed). set_type excluded (deprecated, asserts false in miniaudio). get_heap_size/init_preallocated excluded (internal allocator helpers). 8 binding tests + 7 API tests (white/pink/brownian, amplitude change, stereo)."
     },
     "biquad": {
-      "done": false,
+      "dod_met": false,
       "dod_level": "L2",
       "notes": "not yet started"
     },
     "sync": {
-      "done": false,
+      "dod_met": false,
       "dod_level": "L2",
       "notes": "not yet started"
     },
     "log": {
-      "done": false,
+      "dod_met": false,
       "dod_level": "L2",
       "notes": "not yet started"
     },
     "context": {
-      "done": false,
+      "dod_met": false,
       "dod_level": "L2",
       "notes": "not yet started"
     },
     "vfs": {
-      "done": false,
+      "dod_met": false,
       "dod_level": "L2",
       "notes": "not yet started"
     },
     "audio_buffer": {
-      "done": false,
+      "dod_met": false,
       "dod_level": "L2",
       "notes": "not yet started"
     },
     "paged_audio_buffer": {
-      "done": false,
+      "dod_met": false,
       "dod_level": "L2",
       "notes": "not yet started"
     }
