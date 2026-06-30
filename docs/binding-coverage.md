@@ -45,7 +45,7 @@ relative to the 1,027-function denominator. Run `pixi run coverage-binding` for 
 | data_converter | 8 | 0 | 0% | L2 | not started |
 | resampler | 10 | 0 | 0% | L2 | not started |
 | waveform | 9 | 9 | 100% | L3 | done — L1+L2+L3 (8 binding + 7 API tests) |
-| noise | 6 | 0 | 0% | L2 | not started |
+| noise | 9 | 6 | 67% | L3 | done — L1+L2+L3 (8 binding + 7 API tests). set_type excluded (deprecated, asserts false). get_heap_size/init_preallocated excluded (internal). |
 | biquad | 4 | 0 | 0% | L2 | not started |
 | sync | 24 | 0 | 0% | L2 | not started |
 | log | 12 | 0 | 0% | L2 | not started |
@@ -55,7 +55,7 @@ relative to the 1,027-function denominator. Run `pixi run coverage-binding` for 
 | paged_audio_buffer | 8 | 0 | 0% | L2 | not started |
 | core | 141 | 2 | 1% | — | infrastructure (version, result_description) |
 | *others* | ~280 | 0 | 0% | — | not started |
-| **TOTAL** | **1,027** | **77** | **7.5%** (bindable 77/997 = 7.7%) | — | — |
+| **TOTAL** | **1,027** | **83** | **8.1%** (bindable 83/994 = 8.4%) | — | — |
 
 > Coverage percentage is expected to be low until families are migrated. The gates ensure
 > **everything implemented is complete and tested** — not that everything is implemented.

@@ -77,9 +77,9 @@
       "notes": "L1+L2+L3 complete: all 9 MA_API functions bound (config_init/init/uninit/read_pcm_frames/seek_to_pcm_frame/set_amplitude/set_frequency/set_type/set_sample_rate). 8 binding tests + 7 API tests (silence, amplitude change, seek-restart, stereo)."
     },
     "noise": {
-      "done": false,
-      "dod_level": "L2",
-      "notes": "not yet started"
+      "done": true,
+      "dod_level": "L3",
+      "notes": "L1+L2+L3 complete: 6 of 9 MA_API functions bound (config_init+init/uninit/read_pcm_frames/set_amplitude/set_seed). set_type excluded (deprecated, asserts false in miniaudio). get_heap_size/init_preallocated excluded (internal allocator helpers). 8 binding tests + 7 API tests (white/pink/brownian, amplitude change, stereo)."
     },
     "biquad": {
       "done": false,

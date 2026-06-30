@@ -41,3 +41,9 @@ from miniaudio.waveform import (
     WaveformTypeTriangle,
     WaveformTypeSawtooth,
 )
+from miniaudio.noise import (
+    Noise,
+    NoiseTypeWhite,
+    NoiseTypePink,
+    NoiseTypeBrownian,
+)

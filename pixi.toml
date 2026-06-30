@@ -18,7 +18,8 @@ test-engine = "pixi run build-shim && pixi run gen-test-wav && mojo run -I src -
 test-sound = "pixi run build-shim && pixi run gen-test-wav && mojo run -I src -I tests tests/test_sound_binding.mojo && mojo run -I src -I tests tests/test_sound_api.mojo"
 test-sound-group = "pixi run build-shim && pixi run gen-test-wav && mojo run -I src -I tests tests/test_sound_group_binding.mojo && mojo run -I src -I tests tests/test_sound_group_api.mojo"
 test-waveform = "pixi run build-shim && mojo run -I src -I tests tests/test_waveform_binding.mojo && mojo run -I src -I tests tests/test_waveform_api.mojo"
-test = "pixi run test-decoder && pixi run test-encoder && pixi run test-device && pixi run test-engine && pixi run test-sound && pixi run test-sound-group && pixi run test-waveform"
+test-noise = "pixi run build-shim && mojo run -I src -I tests tests/test_noise_binding.mojo && mojo run -I src -I tests tests/test_noise_api.mojo"
+test = "pixi run test-decoder && pixi run test-encoder && pixi run test-device && pixi run test-engine && pixi run test-sound && pixi run test-sound-group && pixi run test-waveform && pixi run test-noise"
 
 # --- Coverage assurance system. See docs/binding-coverage.md ---
 gen-api-inventory = "python3 tools/gen_api_inventory.py"

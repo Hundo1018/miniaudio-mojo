@@ -33,6 +33,19 @@
         "ma_vfs_or_default_open_w"
       ]
     },
+    "deprecated_assert_false": {
+      "rationale": "Deprecated miniaudio functions that assert(false) at runtime and are scheduled for removal. Not safe to call.",
+      "functions": [
+        "ma_noise_set_type"
+      ]
+    },
+    "heap_preallocated": {
+      "rationale": "Internal heap-sizing and preallocated-init helpers for advanced custom allocators. The standard init (which internally calls these) is bound instead.",
+      "functions": [
+        "ma_noise_get_heap_size",
+        "ma_noise_init_preallocated"
+      ]
+    },
     "custom_callback_or_vtable_ctor": {
       "rationale": "Take user-supplied function pointers / vtables (custom I/O, custom data source / node). Mojo cannot pass a function value across the FFI (see memory mojo-ffi-callback-limit). Concrete siblings (*_init_file/_memory, built-in nodes, default VFS) ARE bound; callbacks that have a meaningful shim-owned form (sound end, context enumerate, log) are bound, not excluded.",
       "functions": [
