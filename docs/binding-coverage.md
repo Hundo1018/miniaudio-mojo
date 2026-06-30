@@ -23,6 +23,34 @@ Coverage is tracked against the **complete miniaudio public API** as the denomin
 | L3 | L2 + behavioral/stateful tests in `tests/test_*_api.mojo` (RAII API layer) |
 | L4 | L3 + integration / multi-component tests |
 
+## Progress Strategy — `done` vs `complete` (depth-first)
+
+Maturity is tracked on **two orthogonal axes**, and the checker has a separate flag for each:
+
+- **Depth** — `done` + `dod_level` (Gate 3): the functions that *are* bound in a family have
+  reached their DoD maturity (L2 = positive + negative tests; L3 = also behavioral tests). This
+  says **nothing** about how many of the family's functions are bound.
+- **Breadth** — `complete` (Gate 3b): opt-in `"complete": true` requires that **every**
+  non-excluded function in the family is bound.
+
+These are independent. A family can be `done: true, dod_level: L3` while only ~25% of its functions
+are bound (e.g. `sound` 19/84) — the bound slice is fully tested, but the family is **not
+`complete`**. `done` therefore means "this family's implemented slice is mature", **not** "this
+family is finished". Read the `complete` column, not `done`, for breadth.
+
+**Current directive: depth-first completion.** Earlier work was breadth-first — bind a representative
+L3 slice of each family to de-risk the layered pattern, then move on. That validated the architecture
+but left the global percentage low and the big families ~70% unbound. Going forward:
+
+1. Keep the **honest 1,027-function denominator** — do not shrink it or add low-value exclusions to
+   inflate the percentage. Only genuinely unbindable functions (user function-pointer / vtable
+   constructors, Windows `_w` wide-char variants, internal pre-init helpers) are excluded, each with
+   a rationale in `docs/coverage-exclusions.json`.
+2. **Complete a family before starting a new one.** Bind all bindable functions of a `done`-but-not-
+   `complete` family and set `"complete": true`, prioritising the largest families (sound 84,
+   sound_group 57, engine 44, device 25) — that is where the percentage lives. Completing the
+   already-`done` families alone is worth roughly +17 percentage points.
+
 ## Family Status Matrix
 
 All families not yet started are `done=false`; coverage percentage reflects `@binds` annotations
