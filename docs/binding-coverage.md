@@ -66,7 +66,7 @@ reflects `@binds` annotations relative to the 1,027-function denominator. Run
 | encoder | 10 | 4 | 40% | L3 | dod_met — L1+L2+L3, WAV output (9 binding + 5 API tests) |
 | device | 25 | 5 | 20% | L3 | dod_met — L1+L2+L3, playback pulls from Decoder via shim-owned cb (9 binding + 3 API tests) |
 | engine | 44 | 13 | 30% | L3 | dod_met (subset) — lifecycle/play_sound/volume/gain/clock (6 binding + 4 API tests) |
-| sound | 84 | 19 | 23% | L3 | dod_met (subset) — init_from_file/control/query/at_end (7 binding + 5 API tests) |
+| sound | 84 | 75 | 89% | L3 | **complete** — L1+L2+L3, full control/spatialization/fade/scheduling/seconds-API/init_copy (12 binding + 9 API tests) |
 | sound_group | 57 | 14 | 25% | L3 | dod_met (subset) — bus init/control/query (7 binding + 5 API tests) |
 | resource_manager | 64 | 0 | 0% | L3 | not started |
 | node | 32 | 0 | 0% | L2 | not started |
@@ -76,8 +76,8 @@ reflects `@binds` annotations relative to the 1,027-function denominator. Run
 | channel_converter | 8 | 0 | 0% | L2 | not started |
 | data_converter | 8 | 0 | 0% | L2 | not started |
 | resampler | 10 | 0 | 0% | L2 | not started |
-| waveform | 9 | 9 | 100% | L3 | dod_met — L1+L2+L3 (8 binding + 7 API tests) |
-| noise | 9 | 6 | 67% | L3 | dod_met — L1+L2+L3 (8 binding + 7 API tests). set_type excluded (deprecated, asserts false). get_heap_size/init_preallocated excluded (internal). |
+| waveform | 9 | 9 | 100% | L3 | **complete** — L1+L2+L3 (8 binding + 7 API tests) |
+| noise | 9 | 6 | 67% | L3 | **complete** — L1+L2+L3, all bindable fns bound (8 binding + 7 API tests). set_type excluded (deprecated, asserts false). get_heap_size/init_preallocated excluded (internal). |
 | biquad | 4 | 0 | 0% | L2 | not started |
 | sync | 24 | 0 | 0% | L2 | not started |
 | log | 12 | 0 | 0% | L2 | not started |
@@ -87,7 +87,7 @@ reflects `@binds` annotations relative to the 1,027-function denominator. Run
 | paged_audio_buffer | 8 | 0 | 0% | L2 | not started |
 | core | 141 | 2 | 1% | — | infrastructure (version, result_description) |
 | *others* | ~280 | 0 | 0% | — | not started |
-| **TOTAL** | **1,027** | **83** | **8.1%** (bindable 83/994 = 8.4%) | — | — |
+| **TOTAL** | **1,027** | **139** | **13.5%** (bindable 139/986 = 14.1%) | — | — |
 
 > Coverage percentage is expected to be low until families are migrated. The gates ensure
 > **everything implemented is complete and tested** — not that everything is implemented.

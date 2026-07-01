@@ -47,7 +47,7 @@
       ]
     },
     "custom_callback_or_vtable_ctor": {
-      "rationale": "Take user-supplied function pointers / vtables (custom I/O, custom data source / node). Mojo cannot pass a function value across the FFI (see memory mojo-ffi-callback-limit). Concrete siblings (*_init_file/_memory, built-in nodes, default VFS) ARE bound; callbacks that have a meaningful shim-owned form (sound end, context enumerate, log) are bound, not excluded.",
+      "rationale": "Take user-supplied function pointers / vtables (custom I/O, custom data source / node). Mojo cannot pass a function value across the FFI (see memory mojo-ffi-callback-limit). Concrete siblings (*_init_file/_memory, built-in nodes, default VFS) ARE bound; callbacks that have a meaningful shim-owned form (context enumerate, log) are bound, not excluded.",
       "functions": [
         "ma_decoder_init",
         "ma_encoder_init",
@@ -56,7 +56,25 @@
         "ma_mp3_init",
         "ma_data_source_get_next_callback",
         "ma_data_source_set_next_callback",
-        "ma_node_init"
+        "ma_node_init",
+        "ma_sound_set_end_callback"
+      ]
+    },
+    "config_struct_ctor": {
+      "rationale": "Config-struct constructors and *_ex/_internal init variants that require building/passing an ma_sound_config (or ma_sound_group_config) by value across the FFI. The concrete init paths (ma_sound_init_from_file, ma_sound_init_copy) are bound instead and internally build the config; modeling the full config struct in Mojo is not yet warranted.",
+      "functions": [
+        "ma_sound_config_init",
+        "ma_sound_config_init_2",
+        "ma_sound_init_ex",
+        "ma_sound_init_from_file_internal"
+      ]
+    },
+    "opaque_accessor_or_unbound_family": {
+      "rationale": "Return or consume an opaque handle to a family that is not yet modeled in Mojo. ma_sound_init_from_data_source and ma_sound_get_data_source need the data_source family (not yet bound). ma_sound_get_engine returns a raw, non-owning ma_engine*: in the RAII model a Sound already owns its Engine via an ArcPointer, so exposing a bare pointer is redundant and unsafe.",
+      "functions": [
+        "ma_sound_init_from_data_source",
+        "ma_sound_get_data_source",
+        "ma_sound_get_engine"
       ]
     }
   }
