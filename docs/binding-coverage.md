@@ -35,23 +35,23 @@ family is finished".)
 - **Breadth** — `complete` (Gate 3b): opt-in `"complete": true` requires that **every**
   non-excluded function in the family is bound.
 
-These are independent. A family can be `dod_met: true, dod_level: L3` while only ~25% of its
-functions are bound (e.g. `sound` 19/84) — the bound slice is fully tested, but the family is **not
+These are independent. A family can be `dod_met: true, dod_level: L3` while only ~30% of its
+functions are bound (e.g. `engine` 13/44) — the bound slice is fully tested, but the family is **not
 `complete`**. `dod_met` therefore means "this family's implemented slice is mature", **not** "this
 family is finished". Read `complete`, not `dod_met`, for breadth.
 
 **Current directive: depth-first completion.** Earlier work was breadth-first — bind a representative
 L3 slice of each family to de-risk the layered pattern, then move on. That validated the architecture
-but left the global percentage low and the big families ~70% unbound. Going forward:
+but left the global percentage low and the big families mostly unbound. Going forward:
 
 1. Keep the **honest 1,027-function denominator** — do not shrink it or add low-value exclusions to
    inflate the percentage. Only genuinely unbindable functions (user function-pointer / vtable
    constructors, Windows `_w` wide-char variants, internal pre-init helpers) are excluded, each with
    a rationale in `docs/coverage-exclusions.json`.
 2. **Complete a family before starting a new one.** Bind all bindable functions of a `dod_met`-but-
-   not-`complete` family and set `"complete": true`, prioritising the largest families (sound 84,
-   sound_group 57, engine 44, device 25) — that is where the percentage lives. Completing the
-   already-`dod_met` families alone is worth roughly +17 percentage points.
+   not-`complete` family and set `"complete": true`, prioritising the largest remaining families
+   (engine 44, device 25) — that is where the percentage lives. `sound` (84) and `sound_group` (57)
+   are already `complete`.
 
 ## Family Status Matrix
 
@@ -67,7 +67,7 @@ reflects `@binds` annotations relative to the 1,027-function denominator. Run
 | device | 25 | 5 | 20% | L3 | dod_met — L1+L2+L3, playback pulls from Decoder via shim-owned cb (9 binding + 3 API tests) |
 | engine | 44 | 13 | 30% | L3 | dod_met (subset) — lifecycle/play_sound/volume/gain/clock (6 binding + 4 API tests) |
 | sound | 84 | 75 | 89% | L3 | **complete** — L1+L2+L3, full control/spatialization/fade/scheduling/seconds-API/init_copy (12 binding + 9 API tests) |
-| sound_group | 57 | 14 | 25% | L3 | dod_met (subset) — bus init/control/query (7 binding + 5 API tests) |
+| sound_group | 57 | 53 | 93% | L3 | **complete** — L1+L2+L3, full control/spatialization/fade/scheduling (10 binding + 7 API tests) |
 | resource_manager | 64 | 0 | 0% | L3 | not started |
 | node | 32 | 0 | 0% | L2 | not started |
 | spatializer | 57 | 0 | 0% | L2 | not started |
@@ -87,7 +87,7 @@ reflects `@binds` annotations relative to the 1,027-function denominator. Run
 | paged_audio_buffer | 8 | 0 | 0% | L2 | not started |
 | core | 141 | 2 | 1% | — | infrastructure (version, result_description) |
 | *others* | ~280 | 0 | 0% | — | not started |
-| **TOTAL** | **1,027** | **139** | **13.5%** (bindable 139/986 = 14.1%) | — | — |
+| **TOTAL** | **1,027** | **178** | **17.3%** (bindable 178/982 = 18.1%) | — | — |
 
 > Coverage percentage is expected to be low until families are migrated. The gates ensure
 > **everything implemented is complete and tested** — not that everything is implemented.

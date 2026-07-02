@@ -30,7 +30,8 @@
     "sound_group": {
       "dod_met": true,
       "dod_level": "L3",
-      "notes": "L1+L2+L3: init/start/stop/volume/pan/pitch/spatialization/is_playing/time on null backend. Mixing bus owned by an engine (ArcPointer[Engine]). 7 binding + 5 API tests. Subset of 57; not yet complete."
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 53 bindable of 57 functions bound. Full control (start/stop/volume/pan/pitch), spatialization (position/direction/velocity/attenuation/positioning/rolloff/gains/distances/cone/doppler/pan-mode/listener), fade (set_fade_in_pcm_frames/milliseconds + get_current_fade_volume), start/stop-time scheduling. 10 binding + 7 API tests. 4 excluded: config-struct ctors (config_init/config_init_2/init_ex), get_engine (raw non-owning ptr, mirrors sound's exclusion)."
     },
     "resource_manager": {
       "dod_met": false,

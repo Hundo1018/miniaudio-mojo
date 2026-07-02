@@ -61,20 +61,24 @@
       ]
     },
     "config_struct_ctor": {
-      "rationale": "Config-struct constructors and *_ex/_internal init variants that require building/passing an ma_sound_config (or ma_sound_group_config) by value across the FFI. The concrete init paths (ma_sound_init_from_file, ma_sound_init_copy) are bound instead and internally build the config; modeling the full config struct in Mojo is not yet warranted.",
+      "rationale": "Config-struct constructors and *_ex/_internal init variants that require building/passing an ma_sound_config (or ma_sound_group_config) by value across the FFI. The concrete init paths (ma_sound_init_from_file, ma_sound_init_copy, ma_sound_group_init) are bound instead and internally build the config; modeling the full config struct in Mojo is not yet warranted.",
       "functions": [
         "ma_sound_config_init",
         "ma_sound_config_init_2",
         "ma_sound_init_ex",
-        "ma_sound_init_from_file_internal"
+        "ma_sound_init_from_file_internal",
+        "ma_sound_group_config_init",
+        "ma_sound_group_config_init_2",
+        "ma_sound_group_init_ex"
       ]
     },
     "opaque_accessor_or_unbound_family": {
-      "rationale": "Return or consume an opaque handle to a family that is not yet modeled in Mojo. ma_sound_init_from_data_source and ma_sound_get_data_source need the data_source family (not yet bound). ma_sound_get_engine returns a raw, non-owning ma_engine*: in the RAII model a Sound already owns its Engine via an ArcPointer, so exposing a bare pointer is redundant and unsafe.",
+      "rationale": "Return or consume an opaque handle to a family that is not yet modeled in Mojo. ma_sound_init_from_data_source and ma_sound_get_data_source need the data_source family (not yet bound). ma_sound_get_engine / ma_sound_group_get_engine return a raw, non-owning ma_engine*: in the RAII model a Sound/SoundGroup already owns its Engine via an ArcPointer, so exposing a bare pointer is redundant and unsafe.",
       "functions": [
         "ma_sound_init_from_data_source",
         "ma_sound_get_data_source",
-        "ma_sound_get_engine"
+        "ma_sound_get_engine",
+        "ma_sound_group_get_engine"
       ]
     }
   }
