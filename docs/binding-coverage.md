@@ -50,13 +50,15 @@ but left the global percentage low and the big families mostly unbound. Going fo
    a rationale in `docs/coverage-exclusions.json`.
 2. **Complete a family before starting a new one.** Bind all bindable functions of a `dod_met`-but-
    not-`complete` family and set `"complete": true`, prioritising the largest remaining families
-   (engine 44, device 25) — that is where the percentage lives. `sound` (84) and `sound_group` (57)
-   are already `complete`.
+   (device 25, decoder 16) — that is where the percentage lives. `engine` (44), `sound` (84) and
+   `sound_group` (57) are already `complete`.
 
 ## Family Status Matrix
 
 All families not yet started are `dod_met=false`. The Status column reports the **depth** axis
-(`dod_met`); none are `complete` yet, so the percentage (breadth) is still low. Coverage percentage
+(`dod_met`) and, where reached, the **breadth** axis (`complete`). Five families are now `complete`
+(engine, sound, sound_group, waveform, noise); the remaining `dod_met` families (decoder, encoder,
+device) are still subsets, so the overall percentage (breadth) is still climbing. Coverage percentage
 reflects `@binds` annotations relative to the 1,027-function denominator. Run
 `pixi run coverage-binding` for live numbers.
 
@@ -65,7 +67,7 @@ reflects `@binds` annotations relative to the 1,027-function denominator. Run
 | decoder | 16 | 9 | 56% | L3 | dod_met — L1+L2+L3 (6 binding + 9 API tests) |
 | encoder | 10 | 4 | 40% | L3 | dod_met — L1+L2+L3, WAV output (9 binding + 5 API tests) |
 | device | 25 | 5 | 20% | L3 | dod_met — L1+L2+L3, playback pulls from Decoder via shim-owned cb (9 binding + 3 API tests) |
-| engine | 44 | 13 | 30% | L3 | dod_met (subset) — lifecycle/play_sound/volume/gain/clock (6 binding + 4 API tests) |
+| engine | 44 | 32 | 73% | L3 | **complete** — L1+L2+L3, lifecycle/play_sound(_ex)/volume/gain/read/clock/listener-spatialization (10 binding + 8 API tests). 12 excluded: get_time/set_time (deprecated), get_device/node_graph/endpoint/log/resource_manager (raw handles), 5 engine_node_* (node subtype). |
 | sound | 84 | 75 | 89% | L3 | **complete** — L1+L2+L3, full control/spatialization/fade/scheduling/seconds-API/init_copy (12 binding + 9 API tests) |
 | sound_group | 57 | 53 | 93% | L3 | **complete** — L1+L2+L3, full control/spatialization/fade/scheduling (10 binding + 7 API tests) |
 | resource_manager | 64 | 0 | 0% | L3 | not started |
@@ -87,7 +89,7 @@ reflects `@binds` annotations relative to the 1,027-function denominator. Run
 | paged_audio_buffer | 8 | 0 | 0% | L2 | not started |
 | core | 141 | 2 | 1% | — | infrastructure (version, result_description) |
 | *others* | ~280 | 0 | 0% | — | not started |
-| **TOTAL** | **1,027** | **178** | **17.3%** (bindable 178/982 = 18.1%) | — | — |
+| **TOTAL** | **1,027** | **197** | **19.2%** (bindable 197/970 = 20.3%) | — | — |
 
 > Coverage percentage is expected to be low until families are migrated. The gates ensure
 > **everything implemented is complete and tested** — not that everything is implemented.

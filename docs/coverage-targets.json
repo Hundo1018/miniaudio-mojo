@@ -19,7 +19,8 @@
     "engine": {
       "dod_met": true,
       "dod_level": "L3",
-      "notes": "L1+L2+L3: lifecycle/start/stop/play_sound/volume/gain/sample-rate/channels/clock on the null backend (engine owns its device). 6 binding + 4 API tests. Subset of 44; not yet complete."
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 32 bindable of 44 functions bound. Lifecycle/start/stop, play_sound + play_sound_ex, volume/gain/sample-rate/channels, read_pcm_frames (offline node-graph read), global clock (get/set time in pcm-frames + milliseconds), and full index-based listener spatialization (count/find_closest, position/direction/velocity/world_up, cone, enabled). 10 binding + 8 API tests on the null backend. 12 excluded: get_time/set_time (deprecated, superseded by _in_pcm_frames variants), get_device/get_node_graph/get_endpoint/get_log/get_resource_manager (raw non-owning handles to owned/unmodeled families), and the 5 ma_engine_node_* (node-graph node subtype needs the node family)."
     },
     "sound": {
       "dod_met": true,

@@ -73,12 +73,34 @@
       ]
     },
     "opaque_accessor_or_unbound_family": {
-      "rationale": "Return or consume an opaque handle to a family that is not yet modeled in Mojo. ma_sound_init_from_data_source and ma_sound_get_data_source need the data_source family (not yet bound). ma_sound_get_engine / ma_sound_group_get_engine return a raw, non-owning ma_engine*: in the RAII model a Sound/SoundGroup already owns its Engine via an ArcPointer, so exposing a bare pointer is redundant and unsafe.",
+      "rationale": "Return or consume an opaque handle to a family that is not yet modeled in Mojo. ma_sound_init_from_data_source and ma_sound_get_data_source need the data_source family (not yet bound). ma_sound_get_engine / ma_sound_group_get_engine return a raw, non-owning ma_engine*: in the RAII model a Sound/SoundGroup already owns its Engine via an ArcPointer, so exposing a bare pointer is redundant and unsafe. The ma_engine_get_* accessors return raw, non-owning handles to families the engine owns internally (its ma_device) or that are not yet modeled (ma_node_graph, ma_node endpoint, ma_log, ma_resource_manager); exposing bare pointers is redundant/unsafe, mirroring the get_engine exclusion.",
       "functions": [
         "ma_sound_init_from_data_source",
         "ma_sound_get_data_source",
         "ma_sound_get_engine",
-        "ma_sound_group_get_engine"
+        "ma_sound_group_get_engine",
+        "ma_engine_get_device",
+        "ma_engine_get_node_graph",
+        "ma_engine_get_endpoint",
+        "ma_engine_get_log",
+        "ma_engine_get_resource_manager"
+      ]
+    },
+    "deprecated_superseded": {
+      "rationale": "Deprecated aliases documented for removal in miniaudio 0.12; the canonical replacements are bound instead. ma_engine_get_time/set_time forward to ma_engine_get_time_in_pcm_frames/set_time_in_pcm_frames (both bound).",
+      "functions": [
+        "ma_engine_get_time",
+        "ma_engine_set_time"
+      ]
+    },
+    "engine_node_subtype": {
+      "rationale": "The ma_engine_node_* functions construct/destroy an ma_engine_node — a node-graph node that ma_sound wraps internally. Binding it requires the node family (ma_node base/vtable + ma_node_graph), which is not yet modeled, plus a by-value ma_engine_node_config (config_init) and advanced heap-sizing / preallocated-init helpers. ma_sound (which owns an engine_node) is already bound and covers the user-facing need.",
+      "functions": [
+        "ma_engine_node_config_init",
+        "ma_engine_node_get_heap_size",
+        "ma_engine_node_init",
+        "ma_engine_node_init_preallocated",
+        "ma_engine_node_uninit"
       ]
     }
   }
