@@ -50,15 +50,15 @@ but left the global percentage low and the big families mostly unbound. Going fo
    a rationale in `docs/coverage-exclusions.json`.
 2. **Complete a family before starting a new one.** Bind all bindable functions of a `dod_met`-but-
    not-`complete` family and set `"complete": true`, prioritising the largest remaining families
-   (device 25, decoder 16) — that is where the percentage lives. `engine` (44), `sound` (84) and
-   `sound_group` (57) are already `complete`.
+   (decoder 16, encoder 10) — that is where the percentage lives. `engine` (44), `sound` (84),
+   `sound_group` (57) and `device` (25) are already `complete`.
 
 ## Family Status Matrix
 
 All families not yet started are `dod_met=false`. The Status column reports the **depth** axis
-(`dod_met`) and, where reached, the **breadth** axis (`complete`). Five families are now `complete`
-(engine, sound, sound_group, waveform, noise); the remaining `dod_met` families (decoder, encoder,
-device) are still subsets, so the overall percentage (breadth) is still climbing. Coverage percentage
+(`dod_met`) and, where reached, the **breadth** axis (`complete`). Six families are now `complete`
+(engine, sound, sound_group, waveform, noise, device); the remaining `dod_met` families (decoder,
+encoder) are still subsets, so the overall percentage (breadth) is still climbing. Coverage percentage
 reflects `@binds` annotations relative to the 1,027-function denominator. Run
 `pixi run coverage-binding` for live numbers.
 
@@ -66,7 +66,7 @@ reflects `@binds` annotations relative to the 1,027-function denominator. Run
 |--------|-------------|-------|---|------------|--------|
 | decoder | 16 | 9 | 56% | L3 | dod_met — L1+L2+L3 (6 binding + 9 API tests) |
 | encoder | 10 | 4 | 40% | L3 | dod_met — L1+L2+L3, WAV output (9 binding + 5 API tests) |
-| device | 25 | 5 | 20% | L3 | dod_met — L1+L2+L3, playback pulls from Decoder via shim-owned cb (9 binding + 3 API tests) |
+| device | 25 | 24 | 96% | L3 | **complete** — L1+L2+L3, playback lifecycle (init/init_ex/start/stop) + offline pump, state, master volume (linear+dB), name, info snapshot + native-data-formats, id_equal, context/log queries, and the job-thread family via a `DeviceJobThread` RAII type (35 binding + 11 API tests). 1 excluded: post_init (custom-backend authoring hook, 'Unsafe'). |
 | engine | 44 | 32 | 73% | L3 | **complete** — L1+L2+L3, lifecycle/play_sound(_ex)/volume/gain/read/clock/listener-spatialization (10 binding + 8 API tests). 12 excluded: get_time/set_time (deprecated), get_device/node_graph/endpoint/log/resource_manager (raw handles), 5 engine_node_* (node subtype). |
 | sound | 84 | 75 | 89% | L3 | **complete** — L1+L2+L3, full control/spatialization/fade/scheduling/seconds-API/init_copy (12 binding + 9 API tests) |
 | sound_group | 57 | 53 | 93% | L3 | **complete** — L1+L2+L3, full control/spatialization/fade/scheduling (10 binding + 7 API tests) |
@@ -89,7 +89,7 @@ reflects `@binds` annotations relative to the 1,027-function denominator. Run
 | paged_audio_buffer | 8 | 0 | 0% | L2 | not started |
 | core | 141 | 2 | 1% | — | infrastructure (version, result_description) |
 | *others* | ~280 | 0 | 0% | — | not started |
-| **TOTAL** | **1,027** | **197** | **19.2%** (bindable 197/970 = 20.3%) | — | — |
+| **TOTAL** | **1,027** | **217** | **21.1%** (bindable 217/969 = 22.4%) | — | — |
 
 > Coverage percentage is expected to be low until families are migrated. The gates ensure
 > **everything implemented is complete and tested** — not that everything is implemented.
@@ -101,8 +101,10 @@ Planned migration order (each family follows the three-layer + TDD + gate templa
 
 1. **decoder** ← dod_met (L3)
 2. **encoder** ← dod_met (L3): WAV output, round-trips through the decoder
-3. **device / playback** ← dod_met (L3): playback device whose shim-owned data
-   callback pulls f32 from a `Decoder`; null backend for deterministic tests.
+3. **device / playback** ← **complete** (L3, 24/25): playback device whose shim-owned
+   data callback pulls f32 from a `Decoder`; null backend for deterministic tests.
+   Also state/master-volume/name/info/id_equal/context+log queries, offline `pump`,
+   and the job-thread family via `DeviceJobThread`.
    NOTE: a *generic user-supplied Mojo data callback* is not possible on the
    pinned nightly — function values do not conform to `AnyType` in
    `OwnedDLHandle.call`, so the callback must live in C. Revisit if/when the

@@ -53,10 +53,10 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/traitlets-5.15.1-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/tzdata-2025c-hc9c84f9_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/zipp-4.1.0-pyhcf101f3_0.conda
-      - conda: https://conda.modular.com/max-nightly/linux-64/mojo-1.0.0b3.dev2026070806-release.conda
-      - conda: https://conda.modular.com/max-nightly/linux-64/mojo-compiler-1.0.0b3.dev2026070806-release.conda
-      - conda: https://conda.modular.com/max-nightly/noarch/mblack-26.5.0.dev2026070806-release.conda
-      - conda: https://conda.modular.com/max-nightly/noarch/mojo-python-1.0.0b3.dev2026070806-release.conda
+      - conda: https://conda.modular.com/max-nightly/linux-64/mojo-1.0.0b3.dev2026071505-release.conda
+      - conda: https://conda.modular.com/max-nightly/linux-64/mojo-compiler-1.0.0b3.dev2026071505-release.conda
+      - conda: https://conda.modular.com/max-nightly/noarch/mblack-26.5.0.dev2026071505-release.conda
+      - conda: https://conda.modular.com/max-nightly/noarch/mojo-python-1.0.0b3.dev2026071505-release.conda
 packages:
 - conda: https://conda.anaconda.org/conda-forge/linux-64/_openmp_mutex-4.5-20_gnu.conda
   build_number: 20
@@ -648,31 +648,31 @@ packages:
   run_exports: {}
   size: 24190
   timestamp: 1779159948016
-- conda: https://conda.modular.com/max-nightly/linux-64/mojo-1.0.0b3.dev2026070806-release.conda
-  sha256: 0b86e4adb10d714347df56da20abce0881d2b982ad68fe1b804c7a9f0a3964bb
-  md5: 9eb7ae6dcf150c5cda90e5b503b796c3
+- conda: https://conda.modular.com/max-nightly/linux-64/mojo-1.0.0b3.dev2026071505-release.conda
+  sha256: 3791890a6d528f532ce615f7e9b7bc985e2e70574a0c22a069d10f1c67caf0eb
+  md5: 166a6d53f945888ad756e49409add54d
   depends:
   - python >=3.10
-  - mojo-compiler ==1.0.0b3.dev2026070806
-  - mblack ==26.5.0.dev2026070806
+  - mojo-compiler ==1.0.0b3.dev2026071505
+  - mblack ==26.5.0.dev2026071505
   - jupyter_client >=8.6.2,<8.7
   license: LicenseRef-Modular-Proprietary
   run_exports: {}
-  size: 114609545
-  timestamp: 1783491159813
-- conda: https://conda.modular.com/max-nightly/linux-64/mojo-compiler-1.0.0b3.dev2026070806-release.conda
-  sha256: 4dedc2c35796efa4d151f9b9a63d84614371fe1a24109e746d3e9e4b9bfb5d4b
-  md5: a881dfd560f74a225443cabe12dd975a
+  size: 114214533
+  timestamp: 1784095247495
+- conda: https://conda.modular.com/max-nightly/linux-64/mojo-compiler-1.0.0b3.dev2026071505-release.conda
+  sha256: 5a4a74104a833d263501f840a0a2f53cb6a193b465c1521ea84dc4ec366fe6bb
+  md5: c9d367b9e0d09a2bbec34fa7710bf174
   depends:
-  - mojo-python ==1.0.0b3.dev2026070806
+  - mojo-python ==1.0.0b3.dev2026071505
   license: LicenseRef-Modular-Proprietary
   run_exports: {}
-  size: 81556865
-  timestamp: 1783491187190
-- conda: https://conda.modular.com/max-nightly/noarch/mblack-26.5.0.dev2026070806-release.conda
+  size: 81520821
+  timestamp: 1784095269810
+- conda: https://conda.modular.com/max-nightly/noarch/mblack-26.5.0.dev2026071505-release.conda
   noarch: python
-  sha256: 579de740ad95c0e26f32be8504565340596f37eae18e6b151b89583a46e75ac1
-  md5: 294ed1438de74dc55a881df4a12e7c83
+  sha256: e8a5ca867d5c2ed7e792e55e02e0823431ac2a754f331d864aa8ae42c018dd27
+  md5: 8898e2b16174879dffcb56d327e8143a
   depends:
   - python >=3.10
   - click >=8.0.0
@@ -683,15 +683,15 @@ packages:
   - tomli >=1.1.0
   license: LicenseRef-Modular-Proprietary
   run_exports: {}
-  size: 135772
-  timestamp: 1783490987802
-- conda: https://conda.modular.com/max-nightly/noarch/mojo-python-1.0.0b3.dev2026070806-release.conda
+  size: 135928
+  timestamp: 1784095099246
+- conda: https://conda.modular.com/max-nightly/noarch/mojo-python-1.0.0b3.dev2026071505-release.conda
   noarch: python
-  sha256: e558939e007df3307b73f3f8526530d6d9b79653d7007c4be48d64a444906d53
-  md5: 8cf934f90be3273375faf1faabb76c83
+  sha256: bccdffb277d6db1d75b5367be3e93042eeffaa35b8f592a093be9dd67ad78aff
+  md5: 07f38dcb5d809e36d26a9692e55097ec
   depends:
   - python >=3.10
   license: LicenseRef-Modular-Proprietary
   run_exports: {}
   size: 24101
-  timestamp: 1783490987720
+  timestamp: 1784095098880

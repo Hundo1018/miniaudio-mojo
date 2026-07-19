@@ -13,7 +13,9 @@ comptime MA_DOES_NOT_EXIST = Int(-7)
 comptime MA_AT_END = Int(-17)
 comptime MA_BUSY = Int(-19)
 comptime MA_IO_ERROR = Int(-20)
+comptime MA_NO_DATA_AVAILABLE = Int(-32)
 comptime MA_INVALID_DATA = Int(-33)
+comptime MA_CANCELLED = Int(-51)
 
 
 def result_name(code: Int) -> String:
@@ -35,8 +37,12 @@ def result_name(code: Int) -> String:
         return "MA_BUSY"
     if code == MA_IO_ERROR:
         return "MA_IO_ERROR"
+    if code == MA_NO_DATA_AVAILABLE:
+        return "MA_NO_DATA_AVAILABLE"
     if code == MA_INVALID_DATA:
         return "MA_INVALID_DATA"
+    if code == MA_CANCELLED:
+        return "MA_CANCELLED"
     return "MA_UNKNOWN(" + String(code) + ")"
 
 

@@ -30,7 +30,25 @@ from miniaudio.encoder import (
     ENCODING_FORMAT_UNKNOWN,
     ENCODING_FORMAT_WAV,
 )
-from miniaudio.device import Device
+from miniaudio.device import (
+    Device,
+    DeviceInfo,
+    NativeDataFormat,
+    DeviceJobThread,
+    JobResult,
+    DEVICE_TYPE_PLAYBACK,
+    DEVICE_TYPE_CAPTURE,
+    DEVICE_TYPE_DUPLEX,
+    DEVICE_TYPE_LOOPBACK,
+    DEVICE_STATE_UNINITIALIZED,
+    DEVICE_STATE_STOPPED,
+    DEVICE_STATE_STARTED,
+    DEVICE_STATE_STARTING,
+    DEVICE_STATE_STOPPING,
+    JOB_TYPE_QUIT,
+    JOB_TYPE_CUSTOM,
+    JOB_QUEUE_FLAG_NON_BLOCKING,
+)
 from miniaudio.engine import Engine
 from miniaudio.sound import Sound
 from miniaudio.sound_group import SoundGroup

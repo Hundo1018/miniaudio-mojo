@@ -93,6 +93,12 @@
         "ma_engine_set_time"
       ]
     },
+    "custom_backend_authoring": {
+      "rationale": "Only meaningful when implementing a custom ma_backend. ma_device_post_init is a step *within* backend device-init: it takes an ma_device_descriptor the backend negotiates (there is no valid descriptor to fabricate from pure Mojo) and miniaudio documents it as 'You do not need to call this manually unless you are doing a custom backend' and 'Unsafe' (it reinitializes internal data converters that may be in use). The two callers are inside miniaudio's own ma_device_init. Custom backends require function-pointer/vtable callbacks that cannot cross the Mojo FFI (see custom_callback_or_vtable_ctor); the standard ma_device_init / ma_device_init_ex paths ARE bound.",
+      "functions": [
+        "ma_device_post_init"
+      ]
+    },
     "engine_node_subtype": {
       "rationale": "The ma_engine_node_* functions construct/destroy an ma_engine_node — a node-graph node that ma_sound wraps internally. Binding it requires the node family (ma_node base/vtable + ma_node_graph), which is not yet modeled, plus a by-value ma_engine_node_config (config_init) and advanced heap-sizing / preallocated-init helpers. ma_sound (which owns an engine_node) is already bound and covers the user-facing need.",
       "functions": [

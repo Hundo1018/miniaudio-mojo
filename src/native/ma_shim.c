@@ -3,6 +3,7 @@
 #include "miniaudio.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 /*
  * Bookkeeping wrapper: the raw ma_decoder plus an `initialized` flag so that
@@ -362,6 +363,18 @@ int ma_shim_encoder_write_pcm_frames(
 
 /* ---- device (playback pulling from a decoder) ---- */
 
+/* miniaudio defines ma_device_info_add_native_data_format as MA_API (= extern)
+ * but only inside its MINIAUDIO_IMPLEMENTATION block, so no prototype reaches
+ * consumers of miniaudio.h. The symbol is exported and stable, so declare it
+ * here rather than leaving the function unbindable. */
+MA_API void ma_device_info_add_native_data_format(
+    ma_device_info* pDeviceInfo,
+    ma_format format,
+    ma_uint32 channels,
+    ma_uint32 sampleRate,
+    ma_uint32 flags
+);
+
 typedef struct ma_shim_device {
     ma_device device;
     ma_context context;
@@ -370,6 +383,8 @@ typedef struct ma_shim_device {
     ma_shim_decoder* source;          /* decoder to pull from; NOT owned by the device */
     unsigned int channels;
     unsigned long long frames_processed;  /* observable: frames pulled in the callback */
+    ma_device_info info;              /* snapshot filled by ma_shim_device_info_load */
+    int has_info;                     /* whether `info` holds a successful snapshot */
 } ma_shim_device;
 
 /* Shim-owned data callback: pull f32 frames from the source decoder into the
@@ -471,6 +486,7 @@ int ma_shim_device_init_playback_from_decoder(
     h->source = src;
     h->channels = channels;
     h->frames_processed = 0;
+    h->has_info = 0;
 
     result = ma_device_init(pContext, &config, &h->device);
     if (result == MA_SUCCESS) {
@@ -511,6 +527,7 @@ int ma_shim_device_uninit(void* handle) {
     }
     ma_device_uninit(&h->device);
     h->initialized = 0;
+    h->has_info = 0;
     if (h->has_context) {
         ma_context_uninit(&h->context);
         h->has_context = 0;
@@ -540,4 +557,419 @@ unsigned long long ma_shim_device_get_frames_processed(void* handle) {
         return 0;
     }
     return h->frames_processed;
+}
+
+/* @binds ma_device_init_ex, ma_device_config_init, ma_context_config_init */
+int ma_shim_device_init_ex_playback_from_decoder(
+    void* handle,
+    void* decoder_handle,
+    const int* backends,
+    unsigned int backend_count,
+    unsigned int sample_rate_override
+) {
+    ma_shim_device* h = (ma_shim_device*)handle;
+    ma_shim_decoder* src = (ma_shim_decoder*)decoder_handle;
+    ma_device_config config;
+    ma_context_config context_config;
+    ma_backend backend_list[MA_BACKEND_COUNT];
+    ma_format format = ma_format_f32;
+    ma_uint32 channels = 0;
+    ma_uint32 sample_rate = 0;
+    ma_uint32 i;
+    ma_result result;
+
+    if (h == NULL || src == NULL || !src->initialized) {
+        return MA_INVALID_ARGS;
+    }
+    if (backend_count > MA_BACKEND_COUNT || (backend_count > 0 && backends == NULL)) {
+        return MA_INVALID_ARGS;
+    }
+    if (ma_decoder_get_data_format(&src->decoder, &format, &channels, &sample_rate, NULL, 0) != MA_SUCCESS) {
+        return MA_INVALID_OPERATION;
+    }
+    if (sample_rate_override != 0) {
+        sample_rate = sample_rate_override;
+    }
+    for (i = 0; i < backend_count; i++) {
+        backend_list[i] = (ma_backend)backends[i];
+    }
+
+    if (h->initialized) {
+        ma_device_uninit(&h->device);
+        h->initialized = 0;
+    }
+    if (h->has_context) {
+        ma_context_uninit(&h->context);
+        h->has_context = 0;
+    }
+    h->has_info = 0;
+
+    context_config = ma_context_config_init();
+
+    config = ma_device_config_init(ma_device_type_playback);
+    config.playback.format = format;
+    config.playback.channels = channels;
+    config.sampleRate = sample_rate;
+    config.dataCallback = ma_shim_device__on_data;
+    config.pUserData = h;
+
+    h->source = src;
+    h->channels = channels;
+    h->frames_processed = 0;
+
+    /* ma_device_init_ex allocates a context internally and marks the device as
+     * its owner, so ma_device_uninit frees it; has_context stays 0 here. */
+    result = ma_device_init_ex(
+        (backend_count > 0) ? backend_list : NULL,
+        backend_count,
+        &context_config,
+        &config,
+        &h->device
+    );
+    if (result == MA_SUCCESS) {
+        h->initialized = 1;
+    }
+    return (int)result;
+}
+
+/* @binds ma_device_get_state */
+int ma_shim_device_get_state(void* handle) {
+    ma_shim_device* h = (ma_shim_device*)handle;
+    if (h == NULL || !h->initialized) {
+        return (int)ma_device_state_uninitialized;
+    }
+    return (int)ma_device_get_state(&h->device);
+}
+
+/* @binds ma_device_is_started */
+int ma_shim_device_is_started(void* handle) {
+    ma_shim_device* h = (ma_shim_device*)handle;
+    if (h == NULL || !h->initialized) {
+        return 0;
+    }
+    return ma_device_is_started(&h->device) ? 1 : 0;
+}
+
+/* @binds ma_device_set_master_volume */
+int ma_shim_device_set_master_volume(void* handle, float volume) {
+    ma_shim_device* h = (ma_shim_device*)handle;
+    if (h == NULL || !h->initialized) {
+        return MA_INVALID_ARGS;
+    }
+    return (int)ma_device_set_master_volume(&h->device, volume);
+}
+
+/* @binds ma_device_get_master_volume */
+int ma_shim_device_get_master_volume(void* handle, float* out_volume) {
+    ma_shim_device* h = (ma_shim_device*)handle;
+    if (h == NULL || !h->initialized || out_volume == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    return (int)ma_device_get_master_volume(&h->device, out_volume);
+}
+
+/* @binds ma_device_set_master_volume_db */
+int ma_shim_device_set_master_volume_db(void* handle, float gain_db) {
+    ma_shim_device* h = (ma_shim_device*)handle;
+    if (h == NULL || !h->initialized) {
+        return MA_INVALID_ARGS;
+    }
+    return (int)ma_device_set_master_volume_db(&h->device, gain_db);
+}
+
+/* @binds ma_device_get_master_volume_db */
+int ma_shim_device_get_master_volume_db(void* handle, float* out_gain_db) {
+    ma_shim_device* h = (ma_shim_device*)handle;
+    if (h == NULL || !h->initialized || out_gain_db == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    return (int)ma_device_get_master_volume_db(&h->device, out_gain_db);
+}
+
+/* @binds ma_device_get_name */
+int ma_shim_device_get_name(
+    void* handle,
+    int device_type,
+    char* out_name,
+    size_t name_cap,
+    size_t* out_length
+) {
+    ma_shim_device* h = (ma_shim_device*)handle;
+    if (h == NULL || !h->initialized) {
+        return MA_INVALID_ARGS;
+    }
+    return (int)ma_device_get_name(
+        &h->device, (ma_device_type)device_type, out_name, name_cap, out_length
+    );
+}
+
+/* @binds ma_device_get_info */
+int ma_shim_device_info_load(void* handle, int device_type) {
+    ma_shim_device* h = (ma_shim_device*)handle;
+    ma_result result;
+    if (h == NULL || !h->initialized) {
+        return MA_INVALID_ARGS;
+    }
+    result = ma_device_get_info(&h->device, (ma_device_type)device_type, &h->info);
+    h->has_info = (result == MA_SUCCESS) ? 1 : 0;
+    return (int)result;
+}
+
+/* Copies the loaded snapshot's name out, always null-terminating and truncating
+ * to name_cap. out_length excludes the null terminator. */
+int ma_shim_device_info_name(
+    void* handle,
+    char* out_name,
+    size_t name_cap,
+    size_t* out_length
+) {
+    ma_shim_device* h = (ma_shim_device*)handle;
+    size_t len;
+    if (h == NULL || !h->has_info || out_name == NULL || name_cap == 0) {
+        return MA_INVALID_ARGS;
+    }
+    len = strlen(h->info.name);
+    if (len >= name_cap) {
+        len = name_cap - 1;
+    }
+    memcpy(out_name, h->info.name, len);
+    out_name[len] = '\0';
+    if (out_length != NULL) {
+        *out_length = len;
+    }
+    return MA_SUCCESS;
+}
+
+int ma_shim_device_info_is_default(void* handle, int* out_is_default) {
+    ma_shim_device* h = (ma_shim_device*)handle;
+    if (h == NULL || !h->has_info || out_is_default == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    *out_is_default = (h->info.isDefault != 0) ? 1 : 0;
+    return MA_SUCCESS;
+}
+
+int ma_shim_device_info_native_data_format_count(void* handle, unsigned int* out_count) {
+    ma_shim_device* h = (ma_shim_device*)handle;
+    if (h == NULL || !h->has_info || out_count == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    *out_count = (unsigned int)h->info.nativeDataFormatCount;
+    return MA_SUCCESS;
+}
+
+int ma_shim_device_info_native_data_format(
+    void* handle,
+    unsigned int index,
+    int* out_format,
+    unsigned int* out_channels,
+    unsigned int* out_sample_rate,
+    unsigned int* out_flags
+) {
+    ma_shim_device* h = (ma_shim_device*)handle;
+    if (h == NULL || !h->has_info) {
+        return MA_INVALID_ARGS;
+    }
+    if (index >= h->info.nativeDataFormatCount) {
+        return MA_INVALID_ARGS;
+    }
+    if (out_format != NULL) {
+        *out_format = (int)h->info.nativeDataFormats[index].format;
+    }
+    if (out_channels != NULL) {
+        *out_channels = (unsigned int)h->info.nativeDataFormats[index].channels;
+    }
+    if (out_sample_rate != NULL) {
+        *out_sample_rate = (unsigned int)h->info.nativeDataFormats[index].sampleRate;
+    }
+    if (out_flags != NULL) {
+        *out_flags = (unsigned int)h->info.nativeDataFormats[index].flags;
+    }
+    return MA_SUCCESS;
+}
+
+/* @binds ma_device_info_add_native_data_format */
+int ma_shim_device_info_add_native_data_format(
+    void* handle,
+    int format,
+    unsigned int channels,
+    unsigned int sample_rate,
+    unsigned int flags
+) {
+    ma_shim_device* h = (ma_shim_device*)handle;
+    if (h == NULL || !h->has_info) {
+        return MA_INVALID_ARGS;
+    }
+    /* miniaudio silently ignores the append once the array is full; report that
+     * to the caller instead of pretending it landed. */
+    if (h->info.nativeDataFormatCount
+        >= (ma_uint32)(sizeof(h->info.nativeDataFormats) / sizeof(h->info.nativeDataFormats[0]))) {
+        return MA_OUT_OF_RANGE;
+    }
+    ma_device_info_add_native_data_format(
+        &h->info, (ma_format)format, (ma_uint32)channels, (ma_uint32)sample_rate, (ma_uint32)flags
+    );
+    return MA_SUCCESS;
+}
+
+/* @binds ma_device_id_equal, ma_device_get_info */
+int ma_shim_device_id_equal(
+    void* handle_a,
+    void* handle_b,
+    int device_type,
+    int* out_equal
+) {
+    ma_shim_device* a = (ma_shim_device*)handle_a;
+    ma_shim_device* b = (ma_shim_device*)handle_b;
+    ma_device_info info_a;
+    ma_device_info info_b;
+
+    if (a == NULL || b == NULL || !a->initialized || !b->initialized || out_equal == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    if (ma_device_get_info(&a->device, (ma_device_type)device_type, &info_a) != MA_SUCCESS) {
+        return MA_INVALID_OPERATION;
+    }
+    if (ma_device_get_info(&b->device, (ma_device_type)device_type, &info_b) != MA_SUCCESS) {
+        return MA_INVALID_OPERATION;
+    }
+    *out_equal = ma_device_id_equal(&info_a.id, &info_b.id) ? 1 : 0;
+    return MA_SUCCESS;
+}
+
+/* @binds ma_device_get_context */
+int ma_shim_device_get_context_backend(void* handle, int* out_backend) {
+    ma_shim_device* h = (ma_shim_device*)handle;
+    ma_context* pContext;
+    if (h == NULL || !h->initialized || out_backend == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    pContext = ma_device_get_context(&h->device);
+    if (pContext == NULL) {
+        return MA_INVALID_OPERATION;
+    }
+    *out_backend = (int)pContext->backend;
+    return MA_SUCCESS;
+}
+
+/* @binds ma_device_get_log */
+int ma_shim_device_has_log(void* handle, int* out_has_log) {
+    ma_shim_device* h = (ma_shim_device*)handle;
+    if (h == NULL || !h->initialized || out_has_log == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    *out_has_log = (ma_device_get_log(&h->device) != NULL) ? 1 : 0;
+    return MA_SUCCESS;
+}
+
+/* @binds ma_device_handle_backend_data_callback */
+int ma_shim_device_handle_backend_data_callback(
+    void* handle,
+    void* output,
+    const void* input,
+    unsigned int frame_count
+) {
+    ma_shim_device* h = (ma_shim_device*)handle;
+    if (h == NULL || !h->initialized) {
+        return MA_INVALID_ARGS;
+    }
+    return (int)ma_device_handle_backend_data_callback(
+        &h->device, output, input, (ma_uint32)frame_count
+    );
+}
+
+/* ---- device job thread ---- */
+
+typedef struct ma_shim_device_job_thread {
+    ma_device_job_thread job_thread;
+    int initialized;
+} ma_shim_device_job_thread;
+
+void* ma_shim_device_job_thread_alloc(void) {
+    return calloc(1, sizeof(ma_shim_device_job_thread));
+}
+
+/* @binds ma_device_job_thread_uninit */
+void ma_shim_device_job_thread_free(void* handle) {
+    ma_shim_device_job_thread* h = (ma_shim_device_job_thread*)handle;
+    if (h == NULL) {
+        return;
+    }
+    if (h->initialized) {
+        ma_device_job_thread_uninit(&h->job_thread, NULL);
+        h->initialized = 0;
+    }
+    free(h);
+}
+
+/* @binds ma_device_job_thread_init, ma_device_job_thread_config_init */
+int ma_shim_device_job_thread_init(
+    void* handle,
+    int no_thread,
+    unsigned int job_queue_capacity,
+    unsigned int job_queue_flags
+) {
+    ma_shim_device_job_thread* h = (ma_shim_device_job_thread*)handle;
+    ma_device_job_thread_config config;
+    ma_result result;
+
+    if (h == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    if (h->initialized) {
+        ma_device_job_thread_uninit(&h->job_thread, NULL);
+        h->initialized = 0;
+    }
+    config = ma_device_job_thread_config_init();
+    config.noThread = no_thread ? MA_TRUE : MA_FALSE;
+    if (job_queue_capacity != 0) {
+        config.jobQueueCapacity = (ma_uint32)job_queue_capacity;
+    }
+    config.jobQueueFlags = (ma_uint32)job_queue_flags;
+
+    result = ma_device_job_thread_init(&config, NULL, &h->job_thread);
+    if (result == MA_SUCCESS) {
+        h->initialized = 1;
+    }
+    return (int)result;
+}
+
+/* @binds ma_device_job_thread_uninit */
+int ma_shim_device_job_thread_uninit(void* handle) {
+    ma_shim_device_job_thread* h = (ma_shim_device_job_thread*)handle;
+    if (h == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    if (!h->initialized) {
+        return MA_SUCCESS;
+    }
+    ma_device_job_thread_uninit(&h->job_thread, NULL);
+    h->initialized = 0;
+    return MA_SUCCESS;
+}
+
+/* @binds ma_device_job_thread_post, ma_job_init */
+int ma_shim_device_job_thread_post(void* handle, unsigned short job_code) {
+    ma_shim_device_job_thread* h = (ma_shim_device_job_thread*)handle;
+    ma_job job;
+    if (h == NULL || !h->initialized) {
+        return MA_INVALID_ARGS;
+    }
+    job = ma_job_init((ma_uint16)job_code);
+    return (int)ma_device_job_thread_post(&h->job_thread, &job);
+}
+
+/* @binds ma_device_job_thread_next */
+int ma_shim_device_job_thread_next(void* handle, unsigned short* out_job_code) {
+    ma_shim_device_job_thread* h = (ma_shim_device_job_thread*)handle;
+    ma_job job;
+    ma_result result;
+    if (h == NULL || !h->initialized || out_job_code == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    result = ma_device_job_thread_next(&h->job_thread, &job);
+    if (result == MA_SUCCESS) {
+        *out_job_code = (unsigned short)job.toc.breakup.code;
+    }
+    return (int)result;
 }

@@ -14,7 +14,8 @@
     "device": {
       "dod_met": true,
       "dod_level": "L3",
-      "notes": "L1+L2+L3 complete: playback device, shim-owned data callback pulls f32 from a Decoder, null backend for deterministic tests. 9 binding + 3 API tests. (Generic Mojo data callback not possible: function values don't conform to AnyType in DLHandle.call.)"
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 24 bindable of 25 functions bound. Playback lifecycle (init/init_ex/start/stop/uninit), shim-owned data callback pulls f32 from a Decoder on the null backend, plus offline pump via handle_backend_data_callback. State (get_state/is_started), master volume (linear + dB get/set), device name, device info snapshot (get_info + is_default + native-data-format list + add_native_data_format), id_equal, context backend + log presence. Job-thread family (config_init/init/uninit/post/next via a DeviceJobThread RAII type; no_thread + NON_BLOCKING for determinism). 35 binding + 11 API tests. 1 excluded: ma_device_post_init (custom-backend authoring hook; 'Unsafe', needs a backend-negotiated ma_device_descriptor). (Generic Mojo data callback not possible: function values don't conform to AnyType in DLHandle.call.)"
     },
     "engine": {
       "dod_met": true,
