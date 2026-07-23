@@ -13,6 +13,7 @@ from support.wav_fixtures import embedded_wav_stereo_2frames
 
 
 comptime FMT_F32 = 5
+comptime FMT_S16 = 2  # native format of the generated test WAV (16-bit PCM)
 comptime WAV_PATH = "./build/test_assets/sine_440_stereo.wav"
 
 
@@ -159,6 +160,105 @@ def test_reinit_memory_on_initialized_handle() raises:
     var data = embedded_wav_stereo_2frames()
     assert_equal(raw.decoder_init_memory(lib, dec, data, FMT_F32, 2, 8000), MA_SUCCESS)
     assert_equal(raw.decoder_output_sample_rate(lib, dec), UInt32(8000))
+    raw.decoder_free(lib, dec)
+
+
+def test_init_file_default_preserves_native_format() raises:
+    """init_file_default: default config preserves the file's native format (S16)."""
+    var lib = _lib()
+    var dec = raw.decoder_alloc(lib)
+    assert_equal(raw.decoder_init_file_default(lib, dec, WAV_PATH), MA_SUCCESS)
+    # Default config = native format; the test WAV is 16-bit PCM stereo @ 48kHz.
+    assert_equal(raw.decoder_output_channels(lib, dec), UInt32(2))
+    assert_equal(raw.decoder_output_sample_rate(lib, dec), UInt32(48000))
+    assert_equal(raw.decoder_output_format(lib, dec), FMT_S16)
+    raw.decoder_free(lib, dec)
+
+
+def test_init_file_default_negative_and_reinit() raises:
+    """init_file_default: null handle, missing file, and re-init auto-uninit branch."""
+    var lib = _lib()
+    assert_equal(raw.decoder_init_file_default(lib, null_handle(), WAV_PATH), MA_INVALID_ARGS)
+
+    var dec = raw.decoder_alloc(lib)
+    assert_true(
+        raw.decoder_init_file_default(lib, dec, "/tmp/mmj-does-not-exist.wav") != MA_SUCCESS
+    )
+    # Re-init on the same handle: shim must uninit the previous decoder first.
+    assert_equal(raw.decoder_init_file_default(lib, dec, WAV_PATH), MA_SUCCESS)
+    assert_equal(raw.decoder_init_file_default(lib, dec, WAV_PATH), MA_SUCCESS)
+    raw.decoder_free(lib, dec)
+
+
+def test_init_file_vfs_positive() raises:
+    """init_file_vfs: NULL-VFS path decodes a file like init_file (default VFS)."""
+    var lib = _lib()
+    var dec = raw.decoder_alloc(lib)
+    assert_equal(
+        raw.decoder_init_file_vfs(lib, dec, WAV_PATH, FMT_F32, 2, 48000), MA_SUCCESS
+    )
+    var buf = List[Float32]()
+    buf.resize(256 * 2, Float32(0))
+    var rr = raw.decoder_read_pcm_frames(lib, dec, buf, 256)
+    assert_true(rr.result == MA_SUCCESS or rr.result == MA_AT_END)
+    assert_true(rr.value > 0)
+    assert_equal(raw.decoder_output_channels(lib, dec), UInt32(2))
+    raw.decoder_free(lib, dec)
+
+
+def test_init_file_vfs_negative_and_reinit() raises:
+    """init_file_vfs: null handle, invalid format, missing file, and re-init branch."""
+    var lib = _lib()
+    assert_equal(
+        raw.decoder_init_file_vfs(lib, null_handle(), WAV_PATH, FMT_F32, 2, 48000),
+        MA_INVALID_ARGS,
+    )
+    var dec = raw.decoder_alloc(lib)
+    assert_equal(
+        raw.decoder_init_file_vfs(lib, dec, WAV_PATH, 999, 2, 48000), MA_INVALID_ARGS
+    )
+    assert_true(
+        raw.decoder_init_file_vfs(lib, dec, "/tmp/mmj-does-not-exist.wav", FMT_F32, 2, 48000)
+        != MA_SUCCESS
+    )
+    assert_equal(
+        raw.decoder_init_file_vfs(lib, dec, WAV_PATH, FMT_F32, 2, 48000), MA_SUCCESS
+    )
+    # Re-init on the same initialized handle: shim uninits first.
+    assert_equal(
+        raw.decoder_init_file_vfs(lib, dec, WAV_PATH, FMT_F32, 2, 48000), MA_SUCCESS
+    )
+    raw.decoder_free(lib, dec)
+
+
+def test_get_available_frames() raises:
+    """get_available_frames: equals length at cursor 0, decreases after a read."""
+    var lib = _lib()
+    var dec = raw.decoder_alloc(lib)
+    assert_equal(raw.decoder_init_file(lib, dec, WAV_PATH, FMT_F32, 2, 48000), MA_SUCCESS)
+
+    var length = raw.decoder_get_length_in_pcm_frames(lib, dec)
+    assert_equal(length.result, MA_SUCCESS)
+    var avail0 = raw.decoder_get_available_frames(lib, dec)
+    assert_equal(avail0.result, MA_SUCCESS)
+    assert_equal(avail0.value, length.value)
+
+    var buf = List[Float32]()
+    buf.resize(128 * 2, Float32(0))
+    _ = raw.decoder_read_pcm_frames(lib, dec, buf, 128)
+    var avail1 = raw.decoder_get_available_frames(lib, dec)
+    assert_equal(avail1.result, MA_SUCCESS)
+    assert_true(avail1.value < avail0.value)
+    raw.decoder_free(lib, dec)
+
+
+def test_get_available_frames_invalid() raises:
+    """get_available_frames: null handle and before-init both return MA_INVALID_ARGS."""
+    var lib = _lib()
+    assert_equal(raw.decoder_get_available_frames(lib, null_handle()).result, MA_INVALID_ARGS)
+    var dec = raw.decoder_alloc(lib)
+    # Allocated but not initialized -> !initialized guard.
+    assert_equal(raw.decoder_get_available_frames(lib, dec).result, MA_INVALID_ARGS)
     raw.decoder_free(lib, dec)
 
 

@@ -4,12 +4,14 @@
     "decoder": {
       "dod_met": true,
       "dod_level": "L3",
-      "notes": "L1+L2+L3 complete: 6 binding tests + 9 API tests (behavioral, seek/cursor/length invariants)"
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 13 bindable of 16 functions bound. init_file/init_memory/init_file_default (native-format-preserving default config, exercises config_init_default + config_init_copy)/init_file_vfs (NULL-VFS default-stdio path), read/seek, length/cursor/available-frames queries, data-format accessors, uninit. 18 binding + 14 API tests (native-format preservation, VFS==file equivalence, available==length-cursor invariant). 3 excluded: ma_decoder_init (custom read/seek callback ctor), init_file_w/init_vfs_w (Windows wchar variants)."
     },
     "encoder": {
       "dod_met": true,
       "dod_level": "L3",
-      "notes": "L1+L2+L3 complete: WAV output (config_init/init_file/write/uninit). 9 binding tests + 5 API tests (round-trip via Decoder)"
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 5 bindable of 10 functions bound. WAV output: config_init/init_file/init_file_vfs (NULL-VFS default-stdio path)/write/uninit. 11 binding + 7 API tests (round-trip via Decoder, VFS round-trip). 5 excluded: ma_encoder_init (custom write/seek callback ctor), init__internal/preinit (internal pre-init helpers), init_file_w/init_vfs_w (Windows wchar variants)."
     },
     "device": {
       "dod_met": true,

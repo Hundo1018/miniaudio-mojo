@@ -14,6 +14,7 @@ from miniaudio._lib import MaLib
 
 comptime ROUNDTRIP_PATH = "./build/test_assets/encoder_api_roundtrip.wav"
 comptime MONO_PATH = "./build/test_assets/encoder_api_mono.wav"
+comptime VFS_PATH = "./build/test_assets/encoder_api_vfs.wav"
 comptime BAD_PATH = "/tmp/mmj-no-such-dir-xyz/encoder_api.wav"
 
 
@@ -87,6 +88,28 @@ def test_write_decodes_back_to_same_samples() raises:
     var read = dec.read(buf, 256)
     assert_equal(read, UInt64(256))
     assert_equal(len(buf), 256 * 2)
+
+
+def test_to_file_vfs_round_trip_via_decoder() raises:
+    """L3 behavioral: encode through the default-VFS path, decode it back intact."""
+    var lib = _lib()
+    var enc = Encoder.to_file_vfs(lib, VFS_PATH, channels=2, sample_rate=8000)
+    var written = enc.write(_silence(100, 2))
+    assert_equal(written, UInt64(100))
+    # Destroy the encoder to finalise (flush) the WAV before reading it back.
+    _ = enc^
+
+    var dec = Decoder.from_file(lib, VFS_PATH)
+    assert_equal(dec.channels(), UInt32(2))
+    assert_equal(dec.sample_rate(), UInt32(8000))
+    assert_equal(dec.length_in_frames(), UInt64(100))
+
+
+def test_to_file_vfs_bad_dir_raises() raises:
+    var lib = _lib()
+    with assert_raises():
+        var enc = Encoder.to_file_vfs(lib, BAD_PATH, channels=2, sample_rate=8000)
+        _ = enc.write(_silence(1, 2))
 
 
 def main() raises:

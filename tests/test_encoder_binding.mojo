@@ -140,5 +140,54 @@ def test_reinit_resets_and_free_initialized() raises:
     raw.encoder_free(lib, enc)
 
 
+def test_init_file_vfs_write_uninit() raises:
+    """init_file_vfs: NULL-VFS path writes a WAV like init_file (default VFS)."""
+    var lib = _lib()
+    var enc = raw.encoder_alloc(lib)
+    assert_true(enc != null_handle())
+    assert_equal(
+        raw.encoder_init_file_vfs(lib, enc, OUT_PATH, ENC_WAV, FMT_F32, 2, 8000),
+        MA_SUCCESS,
+    )
+    var frames = _silence(8, 2)
+    var wr = raw.encoder_write_pcm_frames(lib, enc, frames, 8)
+    assert_equal(wr.result, MA_SUCCESS)
+    assert_equal(wr.value, UInt64(8))
+    assert_equal(raw.encoder_uninit(lib, enc), MA_SUCCESS)
+    raw.encoder_free(lib, enc)
+
+
+def test_init_file_vfs_negative_and_reinit() raises:
+    """init_file_vfs: null handle, bad encoding/format, bad path, and re-init branch."""
+    var lib = _lib()
+    assert_equal(
+        raw.encoder_init_file_vfs(lib, null_handle(), OUT_PATH, ENC_WAV, FMT_F32, 2, 8000),
+        MA_INVALID_ARGS,
+    )
+    var enc = raw.encoder_alloc(lib)
+    assert_equal(
+        raw.encoder_init_file_vfs(lib, enc, OUT_PATH, 999, FMT_F32, 2, 8000),
+        MA_INVALID_ARGS,
+    )
+    assert_equal(
+        raw.encoder_init_file_vfs(lib, enc, OUT_PATH, ENC_WAV, 999, 2, 8000),
+        MA_INVALID_ARGS,
+    )
+    assert_true(
+        raw.encoder_init_file_vfs(lib, enc, BAD_PATH, ENC_WAV, FMT_F32, 2, 8000)
+        != MA_SUCCESS
+    )
+    assert_equal(
+        raw.encoder_init_file_vfs(lib, enc, OUT_PATH, ENC_WAV, FMT_F32, 2, 8000),
+        MA_SUCCESS,
+    )
+    # Re-init on the same initialized handle: shim uninits the previous encoder first.
+    assert_equal(
+        raw.encoder_init_file_vfs(lib, enc, OUT_PATH, ENC_WAV, FMT_F32, 1, 44100),
+        MA_SUCCESS,
+    )
+    raw.encoder_free(lib, enc)
+
+
 def main() raises:
     TestSuite.discover_tests[__functions_in_module()]().run()

@@ -254,6 +254,99 @@ int ma_shim_decoder_output_format(void* handle) {
     return (int)format;
 }
 
+/* ma_decoder_config_init_copy is MA_API but defined only inside miniaudio's
+ * MINIAUDIO_IMPLEMENTATION block, so no prototype reaches consumers of
+ * miniaudio.h. The symbol is exported and stable, so declare it here rather
+ * than leaving it unbindable (mirrors ma_device_info_add_native_data_format). */
+MA_API ma_decoder_config ma_decoder_config_init_copy(const ma_decoder_config* pConfig);
+
+/*
+ * Init a decoder from a file using the DEFAULT decoder config: native output
+ * format / channels / sample-rate are preserved (no conversion). Builds the
+ * default config via ma_decoder_config_init_default, then round-trips it through
+ * ma_decoder_config_init_copy (proving the copy constructor) before init_file.
+ */
+/* @binds ma_decoder_init_file, ma_decoder_config_init_default, ma_decoder_config_init_copy */
+int ma_shim_decoder_init_file_default(void* handle, const char* file_path) {
+    ma_shim_decoder* h = (ma_shim_decoder*)handle;
+    ma_decoder_config base;
+    ma_decoder_config config;
+    ma_result result;
+
+    if (h == NULL || file_path == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    if (h->initialized) {
+        ma_decoder_uninit(&h->decoder);
+        h->initialized = 0;
+    }
+
+    base = ma_decoder_config_init_default();
+    config = ma_decoder_config_init_copy(&base);
+    result = ma_decoder_init_file(file_path, &config, &h->decoder);
+    if (result == MA_SUCCESS) {
+        h->initialized = 1;
+    }
+    return (int)result;
+}
+
+/*
+ * Init a decoder from a file path through the VFS API, passing a NULL ma_vfs so
+ * miniaudio falls back to its default (stdio) VFS. The dedicated VFS family is
+ * not yet modeled; this NULL-VFS path is the honest bindable slice and behaves
+ * like init_file via the default filesystem.
+ */
+/* @binds ma_decoder_init_vfs, ma_decoder_config_init */
+int ma_shim_decoder_init_file_vfs(
+    void* handle,
+    const char* file_path,
+    int output_format,
+    unsigned int output_channels,
+    unsigned int output_sample_rate
+) {
+    ma_shim_decoder* h = (ma_shim_decoder*)handle;
+    ma_decoder_config config;
+    ma_format format;
+    ma_result result;
+
+    if (h == NULL || file_path == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    if (ma_shim_resolve_format(output_format, &format) != MA_SUCCESS) {
+        return MA_INVALID_ARGS;
+    }
+    if (h->initialized) {
+        ma_decoder_uninit(&h->decoder);
+        h->initialized = 0;
+    }
+
+    config = ma_decoder_config_init(format, output_channels, output_sample_rate);
+    result = ma_decoder_init_vfs(NULL, file_path, &config, &h->decoder);
+    if (result == MA_SUCCESS) {
+        h->initialized = 1;
+    }
+    return (int)result;
+}
+
+/* @binds ma_decoder_get_available_frames */
+int ma_shim_decoder_get_available_frames(void* handle, unsigned long long* out_available) {
+    ma_shim_decoder* h = (ma_shim_decoder*)handle;
+    ma_uint64 available = 0;
+    ma_result result;
+
+    if (out_available != NULL) {
+        *out_available = 0;
+    }
+    if (h == NULL || !h->initialized) {
+        return MA_INVALID_ARGS;
+    }
+    result = ma_decoder_get_available_frames(&h->decoder, &available);
+    if (result == MA_SUCCESS && out_available != NULL) {
+        *out_available = (unsigned long long)available;
+    }
+    return (int)result;
+}
+
 /* ---- encoder ---- */
 
 /*
@@ -357,6 +450,48 @@ int ma_shim_encoder_write_pcm_frames(
     result = ma_encoder_write_pcm_frames(&h->encoder, input, (ma_uint64)frame_count, &local_written);
     if (frames_written != NULL) {
         *frames_written = (unsigned long long)local_written;
+    }
+    return (int)result;
+}
+
+/*
+ * Init an encoder to a file path through the VFS API with a NULL ma_vfs so
+ * miniaudio uses its default (stdio) VFS. Mirrors ma_shim_decoder_init_file_vfs;
+ * the VFS family is not yet modeled, so the NULL-VFS path is the bindable slice.
+ */
+/* @binds ma_encoder_init_vfs, ma_encoder_config_init */
+int ma_shim_encoder_init_file_vfs(
+    void* handle,
+    const char* file_path,
+    int encoding_format,
+    int format,
+    unsigned int channels,
+    unsigned int sample_rate
+) {
+    ma_shim_encoder* h = (ma_shim_encoder*)handle;
+    ma_encoder_config config;
+    ma_format ma_fmt;
+    ma_result result;
+
+    if (h == NULL || file_path == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    if (encoding_format < 0 || encoding_format > ma_encoding_format_vorbis) {
+        return MA_INVALID_ARGS;
+    }
+    if (ma_shim_resolve_format(format, &ma_fmt) != MA_SUCCESS) {
+        return MA_INVALID_ARGS;
+    }
+    if (h->initialized) {
+        ma_encoder_uninit(&h->encoder);
+        h->initialized = 0;
+    }
+
+    config = ma_encoder_config_init(
+        (ma_encoding_format)encoding_format, ma_fmt, channels, sample_rate);
+    result = ma_encoder_init_vfs(NULL, file_path, &config, &h->encoder);
+    if (result == MA_SUCCESS) {
+        h->initialized = 1;
     }
     return (int)result;
 }

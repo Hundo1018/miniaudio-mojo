@@ -70,6 +70,48 @@ struct Decoder(Movable):
         return Self(lib.copy(), ptr, List[UInt8]())
 
     @staticmethod
+    def from_file_native(lib: ArcPointer[MaLib], path: String) raises -> Self:
+        """Open a file preserving its native format/channels/sample-rate.
+
+        Uses miniaudio's default decoder config (no output conversion), unlike
+        `from_file` which defaults to f32 output.
+        """
+        var ptr = raw.decoder_alloc(lib[])
+        if ptr == null_handle():
+            raise Error("decoder_alloc failed (out of memory)")
+        var code = raw.decoder_init_file_default(lib[], ptr, path)
+        if code != MA_SUCCESS:
+            raw.decoder_free(lib[], ptr)
+            raise Error(lib[].describe("decoder init from file (native) failed", code))
+        return Self(lib.copy(), ptr, List[UInt8]())
+
+    @staticmethod
+    def from_file_vfs(
+        lib: ArcPointer[MaLib],
+        path: String,
+        *,
+        format: SampleFormat = SAMPLE_FORMAT_F32,
+        channels: UInt32 = 0,
+        sample_rate: UInt32 = 0,
+    ) raises -> Self:
+        """Open a file through miniaudio's default (stdio) VFS.
+
+        Behaves like `from_file` but routes I/O through the VFS abstraction with
+        a NULL ma_vfs (default filesystem). The dedicated VFS family is not yet
+        modeled; this is the bindable slice of ma_decoder_init_vfs.
+        """
+        var ptr = raw.decoder_alloc(lib[])
+        if ptr == null_handle():
+            raise Error("decoder_alloc failed (out of memory)")
+        var code = raw.decoder_init_file_vfs(
+            lib[], ptr, path, format.code, channels, sample_rate
+        )
+        if code != MA_SUCCESS:
+            raw.decoder_free(lib[], ptr)
+            raise Error(lib[].describe("decoder init from file (vfs) failed", code))
+        return Self(lib.copy(), ptr, List[UInt8]())
+
+    @staticmethod
     def from_memory(
         lib: ArcPointer[MaLib],
         var data: List[UInt8],
@@ -109,6 +151,13 @@ struct Decoder(Movable):
         var c = raw.decoder_get_cursor_in_pcm_frames(self._lib[], self._ptr)
         if c.result != MA_SUCCESS:
             raise Error(self._lib[].describe("decoder cursor query failed", c.result))
+        return c.value
+
+    def available_frames(self) raises -> UInt64:
+        """Frames still available to read from the current cursor position."""
+        var c = raw.decoder_get_available_frames(self._lib[], self._ptr)
+        if c.result != MA_SUCCESS:
+            raise Error(self._lib[].describe("decoder available-frames query failed", c.result))
         return c.value
 
     def seek(mut self, frame_index: UInt64) raises:

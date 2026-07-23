@@ -59,6 +59,18 @@ int ma_shim_decoder_read_pcm_frames(
 int ma_shim_decoder_seek_to_pcm_frame(void* handle, unsigned long long frame_index);
 int ma_shim_decoder_get_length_in_pcm_frames(void* handle, unsigned long long* out_length);
 int ma_shim_decoder_get_cursor_in_pcm_frames(void* handle, unsigned long long* out_cursor);
+int ma_shim_decoder_get_available_frames(void* handle, unsigned long long* out_available);
+
+/* Init from file preserving the file's native format (default decoder config). */
+int ma_shim_decoder_init_file_default(void* handle, const char* file_path);
+/* Init from a file path through the VFS API (NULL ma_vfs -> default stdio VFS). */
+int ma_shim_decoder_init_file_vfs(
+    void* handle,
+    const char* file_path,
+    int output_format,
+    unsigned int output_channels,
+    unsigned int output_sample_rate
+);
 
 /* Field accessors via ma_decoder_get_data_format; return 0 on any error. */
 unsigned int ma_shim_decoder_output_channels(void* handle);
@@ -84,6 +96,15 @@ int ma_shim_encoder_write_pcm_frames(
     const void* input,
     unsigned long long frame_count,
     unsigned long long* frames_written
+);
+/* Init to a file path through the VFS API (NULL ma_vfs -> default stdio VFS). */
+int ma_shim_encoder_init_file_vfs(
+    void* handle,
+    const char* file_path,
+    int encoding_format,
+    int format,
+    unsigned int channels,
+    unsigned int sample_rate
 );
 
 /* ---- device (opaque handle; playback pulling from a decoder) ----

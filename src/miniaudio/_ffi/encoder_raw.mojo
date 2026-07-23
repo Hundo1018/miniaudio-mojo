@@ -42,6 +42,29 @@ def encoder_init_file(
     )
 
 
+def encoder_init_file_vfs(
+    lib: MaLib,
+    enc: OpaquePointer[MutUntrackedOrigin],
+    path: String,
+    encoding_format: Int,
+    format: Int,
+    channels: UInt32,
+    sample_rate: UInt32,
+) -> Int:
+    """Init to a file path through the VFS API (default stdio VFS)."""
+    var path_c = path + "\x00"
+    return Int(
+        lib.handle.call["ma_shim_encoder_init_file_vfs", Int32](
+            enc,
+            path_c.as_bytes().unsafe_ptr(),
+            Int32(encoding_format),
+            Int32(format),
+            channels,
+            sample_rate,
+        )
+    )
+
+
 def encoder_uninit(lib: MaLib, enc: OpaquePointer[MutUntrackedOrigin]) -> Int:
     return Int(lib.handle.call["ma_shim_encoder_uninit", Int32](enc))
 

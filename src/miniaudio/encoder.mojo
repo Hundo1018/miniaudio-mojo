@@ -68,6 +68,33 @@ struct Encoder(Movable):
             raise Error(lib[].describe("encoder init to file failed", code))
         return Self(lib.copy(), ptr, channels)
 
+    @staticmethod
+    def to_file_vfs(
+        lib: ArcPointer[MaLib],
+        path: String,
+        *,
+        channels: UInt32,
+        sample_rate: UInt32,
+        format: SampleFormat = SAMPLE_FORMAT_F32,
+        encoding_format: EncodingFormat = ENCODING_FORMAT_WAV,
+    ) raises -> Self:
+        """Open an output file through miniaudio's default (stdio) VFS.
+
+        Behaves like `to_file` but routes I/O through the VFS abstraction with a
+        NULL ma_vfs (default filesystem). The dedicated VFS family is not yet
+        modeled; this is the bindable slice of ma_encoder_init_vfs.
+        """
+        var ptr = raw.encoder_alloc(lib[])
+        if ptr == null_handle():
+            raise Error("encoder_alloc failed (out of memory)")
+        var code = raw.encoder_init_file_vfs(
+            lib[], ptr, path, encoding_format.code, format.code, channels, sample_rate
+        )
+        if code != MA_SUCCESS:
+            raw.encoder_free(lib[], ptr)
+            raise Error(lib[].describe("encoder init to file (vfs) failed", code))
+        return Self(lib.copy(), ptr, channels)
+
     def channels(self) -> UInt32:
         return self._channels
 

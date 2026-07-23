@@ -67,6 +67,42 @@ def decoder_init_memory(
     )
 
 
+def decoder_init_file_default(
+    lib: MaLib,
+    dec: OpaquePointer[MutUntrackedOrigin],
+    path: String,
+) -> Int:
+    """Init from a file with the default (native-format-preserving) config."""
+    var path_c = path + "\x00"
+    return Int(
+        lib.handle.call["ma_shim_decoder_init_file_default", Int32](
+            dec,
+            path_c.as_bytes().unsafe_ptr(),
+        )
+    )
+
+
+def decoder_init_file_vfs(
+    lib: MaLib,
+    dec: OpaquePointer[MutUntrackedOrigin],
+    path: String,
+    format: Int,
+    channels: UInt32,
+    sample_rate: UInt32,
+) -> Int:
+    """Init from a file path through the VFS API (default stdio VFS)."""
+    var path_c = path + "\x00"
+    return Int(
+        lib.handle.call["ma_shim_decoder_init_file_vfs", Int32](
+            dec,
+            path_c.as_bytes().unsafe_ptr(),
+            Int32(format),
+            channels,
+            sample_rate,
+        )
+    )
+
+
 def decoder_uninit(lib: MaLib, dec: OpaquePointer[MutUntrackedOrigin]) -> Int:
     return Int(lib.handle.call["ma_shim_decoder_uninit", Int32](dec))
 
@@ -122,6 +158,19 @@ def decoder_get_cursor_in_pcm_frames(
     var holder = [UInt64(0)]
     var code = Int(
         lib.handle.call["ma_shim_decoder_get_cursor_in_pcm_frames", Int32](
+            dec, holder.unsafe_ptr()
+        )
+    )
+    return MaCount(code, holder[0])
+
+
+def decoder_get_available_frames(
+    lib: MaLib, dec: OpaquePointer[MutUntrackedOrigin]
+) -> MaCount:
+    """Frames still available to read from the current cursor position."""
+    var holder = [UInt64(0)]
+    var code = Int(
+        lib.handle.call["ma_shim_decoder_get_available_frames", Int32](
             dec, holder.unsafe_ptr()
         )
     )
