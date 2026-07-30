@@ -41,7 +41,7 @@ struct MaLib(Movable):
         ]()
         if raw == null_handle():
             raise Error("ma_shim_version returned null")
-        return String(unsafe_from_utf8_ptr=raw.bitcast[UInt8]())
+        return String(unsafe_from_utf8_ptr=raw.unsafe_bitcast[UInt8]())
 
     def result_description(self, code: Int) -> String:
         var raw = self.handle.call[
@@ -49,7 +49,7 @@ struct MaLib(Movable):
         ](Int32(code))
         if raw == null_handle():
             return result_name(code)
-        return String(unsafe_from_utf8_ptr=raw.bitcast[UInt8]())
+        return String(unsafe_from_utf8_ptr=raw.unsafe_bitcast[UInt8]())
 
     def describe(self, action: String, code: Int) -> String:
         return (

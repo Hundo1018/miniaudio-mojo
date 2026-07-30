@@ -12,7 +12,7 @@ struct MiniAudioCtypes:
         var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0))
         if raw == null_ptr:
             raise Error("mmj_miniaudio_version returned null")
-        var ptr = raw.bitcast[UInt8]()
+        var ptr = raw.unsafe_bitcast[UInt8]()
         return String(unsafe_from_utf8_ptr=ptr)
 
     def result_description(self, result: Int) raises -> String:
@@ -20,7 +20,7 @@ struct MiniAudioCtypes:
         var null_ptr = OpaquePointer[MutExternalOrigin](unsafe_from_address=Int(0))
         if raw == null_ptr:
             return String("unknown error")
-        var ptr = raw.bitcast[UInt8]()
+        var ptr = raw.unsafe_bitcast[UInt8]()
         return String(unsafe_from_utf8_ptr=ptr)
 
     def play_sine(
