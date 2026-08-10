@@ -86,7 +86,7 @@ def test_device_owns_decoder_and_cleans_up() raises:
 def test_play_ex_selects_backend() raises:
     var lib = _lib()
     var dec = Decoder.from_file(lib, WAV_PATH)
-    var backends = [BACKEND_NULL]
+    var backends: List[Int32] = [BACKEND_NULL]
     var dev = Device.play_ex(lib, dec^, backends^)
     assert_equal(dev.channels(), UInt32(2))
     # The device is running on the backend we requested.

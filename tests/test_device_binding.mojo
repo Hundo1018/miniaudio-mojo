@@ -196,7 +196,7 @@ def test_init_ex_selects_null_backend() raises:
     var lib = _lib()
     var dec = _file_decoder(lib)
     var dev = raw.device_alloc(lib)
-    var backends = [BACKEND_NULL]
+    var backends: List[Int32] = [BACKEND_NULL]
     assert_equal(
         raw.device_init_ex_playback_from_decoder(lib, dev, dec, backends, 0),
         MA_SUCCESS,
@@ -217,7 +217,7 @@ def test_init_ex_sample_rate_override() raises:
     var lib = _lib()
     var dec = _file_decoder(lib)
     var dev = raw.device_alloc(lib)
-    var backends = [BACKEND_NULL]
+    var backends: List[Int32] = [BACKEND_NULL]
     assert_equal(
         raw.device_init_ex_playback_from_decoder(lib, dev, dec, backends, 22050),
         MA_SUCCESS,
@@ -230,7 +230,7 @@ def test_init_ex_sample_rate_override() raises:
 def test_init_ex_invalid_args() raises:
     var lib = _lib()
     var dec = _file_decoder(lib)
-    var backends = [BACKEND_NULL]
+    var backends: List[Int32] = [BACKEND_NULL]
     # Null device handle.
     assert_equal(
         raw.device_init_ex_playback_from_decoder(
@@ -497,7 +497,7 @@ def test_init_ex_reinit_same_handle() raises:
     var lib = _lib()
     var dec = _file_decoder(lib)
     var dev = raw.device_alloc(lib)
-    var backends = [BACKEND_NULL]
+    var backends: List[Int32] = [BACKEND_NULL]
     assert_equal(
         raw.device_init_ex_playback_from_decoder(lib, dev, dec, backends, 0),
         MA_SUCCESS,
