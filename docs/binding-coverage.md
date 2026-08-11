@@ -50,15 +50,16 @@ but left the global percentage low and the big families mostly unbound. Going fo
    a rationale in `docs/coverage-exclusions.json`.
 2. **Complete a family before starting a new one.** Bind all bindable functions of a `dod_met`-but-
    not-`complete` family and set `"complete": true`, prioritising the largest remaining families —
-   that is where the percentage lives. All eight `dod_met` families are now `complete`: `decoder`
+   that is where the percentage lives. All nine `dod_met` families are now `complete`: `decoder`
    (16), `encoder` (10), `engine` (44), `sound` (84), `sound_group` (57), `device` (25), `waveform`
-   (9) and `noise` (9). The next lever is starting (and completing) a new family per the roadmap.
+   (9), `noise` (9) and `data_source` (30). The next lever is starting (and completing) a new family
+   per the roadmap.
 
 ## Family Status Matrix
 
 All families not yet started are `dod_met=false`. The Status column reports the **depth** axis
-(`dod_met`) and, where reached, the **breadth** axis (`complete`). Eight families are now `complete`
-(decoder, encoder, engine, sound, sound_group, waveform, noise, device); every `dod_met` family is
+(`dod_met`) and, where reached, the **breadth** axis (`complete`). Nine families are now `complete`
+(decoder, encoder, engine, sound, sound_group, waveform, noise, device, data_source); every `dod_met` family is
 now also `complete`, so the overall percentage (breadth) now advances only when a new family is
 started and bound out. Coverage percentage reflects `@binds` annotations relative to the
 1,027-function denominator. Run `pixi run coverage-binding` for live numbers.
@@ -74,7 +75,7 @@ started and bound out. Coverage percentage reflects `@binds` annotations relativ
 | resource_manager | 64 | 0 | 0% | L3 | not started |
 | node | 32 | 0 | 0% | L2 | not started |
 | spatializer | 57 | 0 | 0% | L2 | not started |
-| data_source | 30 | 0 | 0% | L2 | not started |
+| data_source | 30 | 30 | 100% | L3 | **complete** — L1+L2+L3, all 30 bound with 0 exclusions. Shim owns the concrete vtable implementation (a buffer data source over a copied f32 buffer), so read/seek/queries/looping/range/loop-point/chaining are all reachable with no device or file; `get_current`/`get_next` bind as identity comparisons, `set/get_next_callback` via a shim-owned C callback; the 5 `data_source_node_*` init against an engine node graph (17 binding + 19 API tests). |
 | ring_buffer | 38 | 0 | 0% | L2 | not started |
 | channel_converter | 8 | 0 | 0% | L2 | not started |
 | data_converter | 8 | 0 | 0% | L2 | not started |
@@ -90,7 +91,7 @@ started and bound out. Coverage percentage reflects `@binds` annotations relativ
 | paged_audio_buffer | 8 | 0 | 0% | L2 | not started |
 | core | 141 | 2 | 1% | — | infrastructure (version, result_description) |
 | *others* | ~280 | 0 | 0% | — | not started |
-| **TOTAL** | **1,027** | **222** | **21.6%** (bindable 222/969 = 22.9%) | — | — |
+| **TOTAL** | **1,027** | **252** | **24.5%** (bindable 252/971 = 26.0%) | — | — |
 
 > Coverage percentage is expected to be low until families are migrated. The gates ensure
 > **everything implemented is complete and tested** — not that everything is implemented.
@@ -111,7 +112,11 @@ Planned migration order (each family follows the three-layer + TDD + gate templa
    `OwnedDLHandle.call`, so the callback must live in C. Revisit if/when the
    FFI supports passing function pointers.
 4. **engine / sound / sound_group** ← dod_met (L3 subsets): high-level playback API on the null backend
-5. data_source / ring_buffer / audio_buffer ← next
+5. **data_source** ← **complete** (L3, 30/30): the abstract source interface, made
+   reachable by a shim-owned concrete vtable (buffer data source over a copied f32
+   buffer). Same C-callback constraint as the device family applies to the
+   next-callback, which is therefore shim-owned rather than user-supplied.
+6. ring_buffer / audio_buffer ← next
 4. engine / sound
 5. data_source / ring_buffer
 6. converters (resampler / channel / data)

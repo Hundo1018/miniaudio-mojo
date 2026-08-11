@@ -52,6 +52,12 @@ from miniaudio.device import (
 from miniaudio.engine import Engine
 from miniaudio.sound import Sound
 from miniaudio.sound_group import SoundGroup
+from miniaudio.data_source import (
+    DataSource,
+    DataSourceNode,
+    DataFormat,
+    FrameRange,
+)
 from miniaudio.waveform import (
     Waveform,
     WaveformTypeSine,

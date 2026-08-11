@@ -54,8 +54,6 @@
         "ma_wav_init",
         "ma_flac_init",
         "ma_mp3_init",
-        "ma_data_source_get_next_callback",
-        "ma_data_source_set_next_callback",
         "ma_node_init",
         "ma_sound_set_end_callback"
       ]

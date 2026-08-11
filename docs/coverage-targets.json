@@ -53,9 +53,10 @@
       "notes": "not yet started"
     },
     "data_source": {
-      "dod_met": false,
-      "dod_level": "L2",
-      "notes": "not yet started"
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 30 of 30 functions bound, 0 excluded. ma_data_source is an abstract vtable interface, so the shim owns the concrete implementation -- a buffer data source over an f32 PCM buffer copied into the handle at init (config_init + init + uninit) -- making the whole generic surface reachable with no device, engine, or file. Covers read/seek (read_pcm_frames, seek_pcm_frames, seek_to_pcm_frame, seek_seconds, seek_to_second), format/position/length queries in both frames and seconds, looping, range and loop point, and chaining (set/get current + next). get_current/get_next are bound as identity comparisons against a caller-supplied handle rather than returning the raw non-owning ma_data_source*; set/get_next_callback via a shim-owned C callback. The 5 ma_data_source_node_* functions init against an engine's node graph. 17 binding + 19 API tests on the null backend (sample round-trip, seek-rewind equivalence, range restriction, buffer-ownership-after-caller-drop)."
     },
     "ring_buffer": {
       "dod_met": false,
