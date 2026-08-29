@@ -58,6 +58,11 @@ from miniaudio.data_source import (
     DataFormat,
     FrameRange,
 )
+from miniaudio.ring_buffer import (
+    RingBuffer,
+    PcmRingBuffer,
+    PcmRingBufferFormat,
+)
 from miniaudio.waveform import (
     Waveform,
     WaveformTypeSine,

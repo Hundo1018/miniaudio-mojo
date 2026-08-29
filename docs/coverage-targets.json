@@ -59,9 +59,10 @@
       "notes": "L1+L2+L3 COMPLETE: all 30 of 30 functions bound, 0 excluded. ma_data_source is an abstract vtable interface, so the shim owns the concrete implementation -- a buffer data source over an f32 PCM buffer copied into the handle at init (config_init + init + uninit) -- making the whole generic surface reachable with no device, engine, or file. Covers read/seek (read_pcm_frames, seek_pcm_frames, seek_to_pcm_frame, seek_seconds, seek_to_second), format/position/length queries in both frames and seconds, looping, range and loop point, and chaining (set/get current + next). get_current/get_next are bound as identity comparisons against a caller-supplied handle rather than returning the raw non-owning ma_data_source*; set/get_next_callback via a shim-owned C callback. The 5 ma_data_source_node_* functions init against an engine's node graph. 17 binding + 19 API tests on the null backend (sample round-trip, seek-rewind equivalence, range restriction, buffer-ownership-after-caller-drop)."
     },
     "ring_buffer": {
-      "dod_met": false,
-      "dod_level": "L2",
-      "notes": "not yet started"
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 38 of 38 functions bound, 0 excluded. Two lock-free SPSC ring buffers, both purely in-memory (no device, engine, or file): ma_rb (untyped, bytes) via a RingBuffer RAII type and ma_pcm_rb (PCM-aware, frames) via PcmRingBuffer. miniaudio's acquire/commit pair hands out an interior pointer into the ring that Mojo has no safe home for, so the shim owns the acquire -> memcpy -> commit loop and exposes copy-in/copy-out write/read instead; the loop stitches requests that span the wrap point back together, so acquire_read/acquire_write/commit_read/commit_write are bound through it. get_subbuffer_ptr returns an absolute address, bound as that pointer's byte offset from the ring's own backing store (the only part Mojo can assert on) -- note the pcm variant's offset is frame-valued while its ptr offset is byte-valued, matching miniaudio. init_ex covers both the miniaudio-owned allocation (requested stride ignored in favour of a SIMD-aligned one) and the preallocated path (stride honoured) with a shim-owned backing store. 24 binding + 18 API tests (byte and frame round-trips, wrap-point contiguity, short write at capacity / short read when empty, available_read+available_write==subbuffer_size invariant, seek_read/seek_write, and a 100-frame producer/consumer stream through a 16-frame ring)."
     },
     "channel_converter": {
       "dod_met": false,
