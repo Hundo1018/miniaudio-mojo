@@ -9,7 +9,7 @@ point, chaining) reachable from Mojo with no device, engine, or file involved.
 
 `DataSourceNode` attaches a data source to an `Engine`'s node graph. It holds
 `ArcPointer`s to both the engine and the source so neither is dropped while the
-node is alive; `__del__` uninits the node first.
+node is alive; `__deinit__` uninits the node first.
 """
 
 from std.memory import ArcPointer
@@ -319,7 +319,7 @@ struct DataSource(Movable):
             )
         return rc.value
 
-    def __del__(deinit self):
+    def __deinit__(deinit self):
         if self._ptr != null_handle():
             raw.data_source_free(self._lib[], self._ptr)
 
@@ -375,6 +375,6 @@ struct DataSourceNode(Movable):
     def is_looping(self) -> Bool:
         return raw.data_source_node_is_looping(self._lib[], self._ptr)
 
-    def __del__(deinit self):
+    def __deinit__(deinit self):
         if self._ptr != null_handle():
             raw.data_source_node_free(self._lib[], self._ptr)

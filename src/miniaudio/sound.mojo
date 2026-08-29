@@ -5,7 +5,7 @@
 volume/pan/pitch, looping, spatialization, seeking, and cursor/length queries.
 
 A sound must not outlive its engine, so `Sound` holds an `ArcPointer[Engine]`
-that keeps the engine alive; `__del__` uninits the sound (while the engine is
+that keeps the engine alive; `__deinit__` uninits the sound (while the engine is
 still valid) before releasing that reference. `at_end()` polls completion (the
 constrained, shim-friendly stand-in for ma_sound_set_end_callback).
 """
@@ -439,7 +439,7 @@ struct Sound(Movable):
             raise Error(lib[].describe("sound init_copy failed", code))
         return Self(lib^, existing._engine.copy(), ptr)
 
-    def __del__(deinit self):
+    def __deinit__(deinit self):
         # Uninit the sound while the engine (held via _engine) is still valid.
         if self._ptr != null_handle():
             raw.sound_free(self._lib[], self._ptr)

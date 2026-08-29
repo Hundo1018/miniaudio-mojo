@@ -2,7 +2,7 @@
 
 `Engine` is an RAII wrapper around ma_engine — the high-level audio engine that
 owns its own device and node graph. It plays sound files fire-and-forget, mixes
-them, and exposes volume/gain and a running clock. Cleans up in `__del__`,
+them, and exposes volume/gain and a running clock. Cleans up in `__deinit__`,
 raises `Error` on failure, shares the library via `ArcPointer[MaLib]`.
 
 `use_null_backend=True` runs on miniaudio's null backend (no hardware) for
@@ -183,6 +183,6 @@ struct Engine(Movable):
     def listener_is_enabled(self, index: UInt32) -> Bool:
         return raw.engine_listener_is_enabled(self._lib[], self._ptr, index) != 0
 
-    def __del__(deinit self):
+    def __deinit__(deinit self):
         if self._ptr != null_handle():
             raw.engine_free(self._lib[], self._ptr)

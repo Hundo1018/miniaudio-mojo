@@ -3,7 +3,7 @@
 `SoundGroup` is an RAII wrapper around ma_sound_group — a mixing bus owned by an
 `Engine`, attached to the engine endpoint. It shares volume/pan/pitch/
 spatialization across sounds routed through it. Like `Sound`, it holds an
-`ArcPointer[Engine]` so the engine outlives it; `__del__` uninits the group
+`ArcPointer[Engine]` so the engine outlives it; `__deinit__` uninits the group
 (while the engine is still valid).
 """
 
@@ -230,6 +230,6 @@ struct SoundGroup(Movable):
     def set_stop_time_in_milliseconds(mut self, abs_time: UInt64):
         raw.sound_group_set_stop_time_in_milliseconds(self._lib[], self._ptr, abs_time)
 
-    def __del__(deinit self):
+    def __deinit__(deinit self):
         if self._ptr != null_handle():
             raw.sound_group_free(self._lib[], self._ptr)

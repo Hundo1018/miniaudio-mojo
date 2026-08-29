@@ -2,7 +2,7 @@
 
 `Noise` is an RAII wrapper around ma_noise — a PCM generator that produces
 white, pink, or Brownian noise in-memory without any audio device or engine.
-Useful for synthesis, testing, and procedural audio. `__del__` uninits the
+Useful for synthesis, testing, and procedural audio. `__deinit__` uninits the
 noise generator automatically.
 """
 
@@ -79,6 +79,6 @@ struct Noise(Movable):
         if raw.noise_set_seed(self._lib[], self._ptr, seed) != MA_SUCCESS:
             raise Error("noise set_seed on uninitialized noise")
 
-    def __del__(deinit self):
+    def __deinit__(deinit self):
         if self._ptr != null_handle():
             raw.noise_free(self._lib[], self._ptr)

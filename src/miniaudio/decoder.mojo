@@ -1,7 +1,7 @@
 """Idiomatic decoder API (Layer 3).
 
 `Decoder` is an RAII wrapper: it owns the underlying ma_decoder, cleans up in
-`__del__`, raises `Error` on failure (with rich messages), reads into
+`__deinit__`, raises `Error` on failure (with rich messages), reads into
 `List[Float32]`, and shares the loaded library via `ArcPointer[MaLib]` so no
 `bridge` argument is ever threaded through.
 """
@@ -182,6 +182,6 @@ struct Decoder(Movable):
         out.resize(Int(c.value) * ch, Float32(0))
         return c.value
 
-    def __del__(deinit self):
+    def __deinit__(deinit self):
         if self._ptr != null_handle():
             raw.decoder_free(self._lib[], self._ptr)

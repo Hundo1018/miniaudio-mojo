@@ -3,7 +3,7 @@
 `Device` is an RAII wrapper around a miniaudio playback device whose data
 callback (owned by the C shim) pulls f32 PCM from a `Decoder`. Because the
 audio thread reads the decoder for the device's lifetime, `Device` takes
-ownership of the `Decoder` and keeps it alive; `__del__` uninits the device
+ownership of the `Decoder` and keeps it alive; `__deinit__` uninits the device
 (which stops and joins the audio thread) before the decoder is destroyed.
 
 NOTE on the callback: the pinned Mojo nightly cannot pass a Mojo function value
@@ -260,7 +260,7 @@ struct Device(Movable):
         if code != MA_SUCCESS:
             raise Error(self._lib[].describe("device handle_backend_data_callback failed", code))
 
-    def __del__(deinit self):
+    def __deinit__(deinit self):
         # Uninit the device first (stops + joins the audio thread) so the
         # callback is no longer reading the decoder when `_source` is destroyed.
         if self._ptr != null_handle():
@@ -341,6 +341,6 @@ struct DeviceJobThread(Movable):
         var r = raw.device_job_thread_next(self._lib[], self._ptr)
         return JobResult(r.result, UInt16(r.value))
 
-    def __del__(deinit self):
+    def __deinit__(deinit self):
         if self._ptr != null_handle():
             raw.device_job_thread_free(self._lib[], self._ptr)

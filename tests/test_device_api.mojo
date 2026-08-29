@@ -77,7 +77,7 @@ def test_device_owns_decoder_and_cleans_up() raises:
     var lib = _lib()
     var frames1 = _play_briefly(lib, Decoder.from_file(lib, WAV_PATH))
     assert_true(frames1 > 0)
-    # First device fully torn down (its __del__ joined the audio thread); a
+    # First device fully torn down (its __deinit__ joined the audio thread); a
     # fresh device over a new decoder still works.
     var frames2 = _play_briefly(lib, Decoder.from_file(lib, WAV_PATH))
     assert_true(frames2 > 0)

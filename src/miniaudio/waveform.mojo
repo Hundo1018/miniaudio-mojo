@@ -3,7 +3,7 @@
 `Waveform` is an RAII wrapper around ma_waveform — a PCM generator that
 produces sine, square, triangle, or sawtooth audio frames in-memory without
 any audio device or engine. Useful for synthesis, testing, and procedural audio.
-`__del__` uninits the waveform automatically.
+`__deinit__` uninits the waveform automatically.
 """
 
 from std.memory import ArcPointer
@@ -95,6 +95,6 @@ struct Waveform(Movable):
         if raw.waveform_set_sample_rate(self._lib[], self._ptr, sample_rate) != MA_SUCCESS:
             raise Error("waveform set_sample_rate on uninitialized waveform")
 
-    def __del__(deinit self):
+    def __deinit__(deinit self):
         if self._ptr != null_handle():
             raw.waveform_free(self._lib[], self._ptr)

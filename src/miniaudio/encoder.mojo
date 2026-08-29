@@ -1,7 +1,7 @@
 """Idiomatic encoder API (Layer 3).
 
 `Encoder` is an RAII wrapper around ma_encoder (WAV output): it owns the
-underlying handle, cleans up in `__del__` (which flushes/finalises the file),
+underlying handle, cleans up in `__deinit__` (which flushes/finalises the file),
 raises `Error` on failure, and writes interleaved `List[Float32]` frames. The
 loaded library is shared via `ArcPointer[MaLib]` — no `bridge` argument is
 threaded through. Mirrors the decoder slice (decoder.mojo).
@@ -113,6 +113,6 @@ struct Encoder(Movable):
             raise Error(self._lib[].describe("encoder write failed", c.result))
         return c.value
 
-    def __del__(deinit self):
+    def __deinit__(deinit self):
         if self._ptr != null_handle():
             raw.encoder_free(self._lib[], self._ptr)
