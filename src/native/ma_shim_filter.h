@@ -226,6 +226,184 @@ int ma_shim_hpf_node_reinit(
     double cutoff, unsigned int order);
 int ma_shim_hpf_node_uninit(void* handle);
 
+/* ================= band-pass, notch and the shelving/peaking filters ================= */
+
+/* Same lifecycle as above; only the tuning differs.
+ *   bpf2 / bpf   — band-pass, second order and compound
+ *   notch2       — a notch at `frequency`, width set by `q`
+ *   peak2        — a peaking EQ band: `gain_db` at `frequency`, width by `q`
+ *   loshelf2 / hishelf2 — shelving filters: `gain_db` below / above `frequency`,
+ *                  with `shelf_slope` setting how steeply the shelf turns
+ * None of these has a clear_cache entry point upstream. */
+
+void* ma_shim_bpf2_alloc(void);
+void  ma_shim_bpf2_free(void* handle);
+int ma_shim_bpf2_get_heap_size(
+    int format, unsigned int channels, unsigned int sample_rate, double cutoff, double q,
+    unsigned long long* out_heap_size);
+int ma_shim_bpf2_init(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate,
+    double cutoff, double q);
+int ma_shim_bpf2_init_preallocated(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate,
+    double cutoff, double q);
+int ma_shim_bpf2_reinit(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate,
+    double cutoff, double q);
+int ma_shim_bpf2_uninit(void* handle);
+int ma_shim_bpf2_process(
+    void* handle, void* frames_out, const void* frames_in, unsigned long long frame_count);
+int ma_shim_bpf2_get_latency(void* handle, unsigned int* out_latency);
+
+void* ma_shim_bpf_alloc(void);
+void  ma_shim_bpf_free(void* handle);
+int ma_shim_bpf_get_heap_size(
+    int format, unsigned int channels, unsigned int sample_rate, double cutoff,
+    unsigned int order, unsigned long long* out_heap_size);
+int ma_shim_bpf_init(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate,
+    double cutoff, unsigned int order);
+int ma_shim_bpf_init_preallocated(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate,
+    double cutoff, unsigned int order);
+int ma_shim_bpf_reinit(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate,
+    double cutoff, unsigned int order);
+int ma_shim_bpf_uninit(void* handle);
+int ma_shim_bpf_process(
+    void* handle, void* frames_out, const void* frames_in, unsigned long long frame_count);
+int ma_shim_bpf_get_latency(void* handle, unsigned int* out_latency);
+
+void* ma_shim_notch2_alloc(void);
+void  ma_shim_notch2_free(void* handle);
+int ma_shim_notch2_get_heap_size(
+    int format, unsigned int channels, unsigned int sample_rate, double q, double frequency,
+    unsigned long long* out_heap_size);
+int ma_shim_notch2_init(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate,
+    double q, double frequency);
+int ma_shim_notch2_init_preallocated(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate,
+    double q, double frequency);
+int ma_shim_notch2_reinit(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate,
+    double q, double frequency);
+int ma_shim_notch2_uninit(void* handle);
+int ma_shim_notch2_process(
+    void* handle, void* frames_out, const void* frames_in, unsigned long long frame_count);
+int ma_shim_notch2_get_latency(void* handle, unsigned int* out_latency);
+
+void* ma_shim_peak2_alloc(void);
+void  ma_shim_peak2_free(void* handle);
+int ma_shim_peak2_get_heap_size(
+    int format, unsigned int channels, unsigned int sample_rate,
+    double gain_db, double q, double frequency, unsigned long long* out_heap_size);
+int ma_shim_peak2_init(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate,
+    double gain_db, double q, double frequency);
+int ma_shim_peak2_init_preallocated(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate,
+    double gain_db, double q, double frequency);
+int ma_shim_peak2_reinit(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate,
+    double gain_db, double q, double frequency);
+int ma_shim_peak2_uninit(void* handle);
+int ma_shim_peak2_process(
+    void* handle, void* frames_out, const void* frames_in, unsigned long long frame_count);
+int ma_shim_peak2_get_latency(void* handle, unsigned int* out_latency);
+
+void* ma_shim_loshelf2_alloc(void);
+void  ma_shim_loshelf2_free(void* handle);
+int ma_shim_loshelf2_get_heap_size(
+    int format, unsigned int channels, unsigned int sample_rate,
+    double gain_db, double shelf_slope, double frequency, unsigned long long* out_heap_size);
+int ma_shim_loshelf2_init(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate,
+    double gain_db, double shelf_slope, double frequency);
+int ma_shim_loshelf2_init_preallocated(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate,
+    double gain_db, double shelf_slope, double frequency);
+int ma_shim_loshelf2_reinit(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate,
+    double gain_db, double shelf_slope, double frequency);
+int ma_shim_loshelf2_uninit(void* handle);
+int ma_shim_loshelf2_process(
+    void* handle, void* frames_out, const void* frames_in, unsigned long long frame_count);
+int ma_shim_loshelf2_get_latency(void* handle, unsigned int* out_latency);
+
+void* ma_shim_hishelf2_alloc(void);
+void  ma_shim_hishelf2_free(void* handle);
+int ma_shim_hishelf2_get_heap_size(
+    int format, unsigned int channels, unsigned int sample_rate,
+    double gain_db, double shelf_slope, double frequency, unsigned long long* out_heap_size);
+int ma_shim_hishelf2_init(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate,
+    double gain_db, double shelf_slope, double frequency);
+int ma_shim_hishelf2_init_preallocated(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate,
+    double gain_db, double shelf_slope, double frequency);
+int ma_shim_hishelf2_reinit(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate,
+    double gain_db, double shelf_slope, double frequency);
+int ma_shim_hishelf2_uninit(void* handle);
+int ma_shim_hishelf2_process(
+    void* handle, void* frames_out, const void* frames_in, unsigned long long frame_count);
+int ma_shim_hishelf2_get_latency(void* handle, unsigned int* out_latency);
+
+/* ---- their node-graph variants ---- */
+
+void* ma_shim_bpf_node_alloc(void);
+void  ma_shim_bpf_node_free(void* handle);
+int ma_shim_bpf_node_init(
+    void* handle, void* engine_handle, unsigned int channels, unsigned int sample_rate,
+    double cutoff, unsigned int order);
+int ma_shim_bpf_node_reinit(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate,
+    double cutoff, unsigned int order);
+int ma_shim_bpf_node_uninit(void* handle);
+
+void* ma_shim_notch_node_alloc(void);
+void  ma_shim_notch_node_free(void* handle);
+int ma_shim_notch_node_init(
+    void* handle, void* engine_handle, unsigned int channels, unsigned int sample_rate,
+    double q, double frequency);
+int ma_shim_notch_node_reinit(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate,
+    double q, double frequency);
+int ma_shim_notch_node_uninit(void* handle);
+
+void* ma_shim_peak_node_alloc(void);
+void  ma_shim_peak_node_free(void* handle);
+int ma_shim_peak_node_init(
+    void* handle, void* engine_handle, unsigned int channels, unsigned int sample_rate,
+    double gain_db, double q, double frequency);
+int ma_shim_peak_node_reinit(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate,
+    double gain_db, double q, double frequency);
+int ma_shim_peak_node_uninit(void* handle);
+
+/* The shelf *nodes* take a q where the standalone shelf filters take a shelf
+ * slope; that is miniaudio's own asymmetry, kept as-is. */
+void* ma_shim_loshelf_node_alloc(void);
+void  ma_shim_loshelf_node_free(void* handle);
+int ma_shim_loshelf_node_init(
+    void* handle, void* engine_handle, unsigned int channels, unsigned int sample_rate,
+    double gain_db, double q, double frequency);
+int ma_shim_loshelf_node_reinit(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate,
+    double gain_db, double shelf_slope, double frequency);
+int ma_shim_loshelf_node_uninit(void* handle);
+
+void* ma_shim_hishelf_node_alloc(void);
+void  ma_shim_hishelf_node_free(void* handle);
+int ma_shim_hishelf_node_init(
+    void* handle, void* engine_handle, unsigned int channels, unsigned int sample_rate,
+    double gain_db, double q, double frequency);
+int ma_shim_hishelf_node_reinit(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate,
+    double gain_db, double shelf_slope, double frequency);
+int ma_shim_hishelf_node_uninit(void* handle);
+
 #ifdef __cplusplus
 }
 #endif

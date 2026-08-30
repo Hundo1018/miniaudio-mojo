@@ -781,3 +781,552 @@ int ma_shim_hpf_node_reinit(
 
 /* @binds ma_hpf_node_uninit */
 int ma_shim_hpf_node_uninit(void* handle) { return hpf_node_uninit_state(handle); }
+
+/* ================= band-pass, notch and the shelving/peaking filters =================
+ *
+ * Same lifecycle as the filters above, generated the same way; only the
+ * tuning parameters differ. None of these has a clear_cache upstream. */
+
+MA_SHIM_FILTER_HANDLE(bpf2, ma_bpf2)
+
+MA_SHIM_FILTER_HANDLE(bpf, ma_bpf)
+
+MA_SHIM_FILTER_HANDLE(notch2, ma_notch2)
+
+MA_SHIM_FILTER_HANDLE(peak2, ma_peak2)
+
+MA_SHIM_FILTER_HANDLE(loshelf2, ma_loshelf2)
+
+MA_SHIM_FILTER_HANDLE(hishelf2, ma_hishelf2)
+
+/* ---- ma_bpf2 ---- */
+
+void* ma_shim_bpf2_alloc(void) { return bpf2_alloc_state(); }
+
+/* @binds ma_bpf2_uninit */
+void ma_shim_bpf2_free(void* handle) { bpf2_free_state(handle); }
+
+/* @binds ma_bpf2_config_init, ma_bpf2_get_heap_size */
+int ma_shim_bpf2_get_heap_size(
+    int format, unsigned int channels, unsigned int sample_rate, double cutoff, double q, unsigned long long* out_heap_size
+) {
+    MA_SHIM_FILTER_HEAPSIZE_BODY(bpf2, ma_bpf2_config, ma_bpf2_config_init((ma_format)format, channels, sample_rate, cutoff, q));
+}
+
+/* @binds ma_bpf2_config_init, ma_bpf2_init */
+int ma_shim_bpf2_init(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate, double cutoff, double q
+) {
+    MA_SHIM_FILTER_INIT_BODY(bpf2, ma_bpf2_config, ma_bpf2_config_init((ma_format)format, channels, sample_rate, cutoff, q));
+}
+
+/* @binds ma_bpf2_config_init, ma_bpf2_get_heap_size, ma_bpf2_init_preallocated */
+int ma_shim_bpf2_init_preallocated(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate, double cutoff, double q
+) {
+    MA_SHIM_FILTER_PREALLOC_BODY(bpf2, ma_bpf2_config, ma_bpf2_config_init((ma_format)format, channels, sample_rate, cutoff, q));
+}
+
+/* @binds ma_bpf2_config_init, ma_bpf2_reinit */
+int ma_shim_bpf2_reinit(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate, double cutoff, double q
+) {
+    MA_SHIM_FILTER_REINIT_BODY(bpf2, ma_bpf2_config, ma_bpf2_config_init((ma_format)format, channels, sample_rate, cutoff, q));
+}
+
+/* @binds ma_bpf2_uninit */
+int ma_shim_bpf2_uninit(void* handle) { return bpf2_uninit_state(handle); }
+
+/* @binds ma_bpf2_process_pcm_frames */
+int ma_shim_bpf2_process(
+    void* handle, void* frames_out, const void* frames_in, unsigned long long frame_count
+) {
+    return bpf2_process_state(handle, frames_out, frames_in, frame_count);
+}
+
+/* @binds ma_bpf2_get_latency */
+int ma_shim_bpf2_get_latency(void* handle, unsigned int* out_latency) {
+    return bpf2_latency_state(handle, out_latency);
+}
+
+/* ---- ma_bpf ---- */
+
+void* ma_shim_bpf_alloc(void) { return bpf_alloc_state(); }
+
+/* @binds ma_bpf_uninit */
+void ma_shim_bpf_free(void* handle) { bpf_free_state(handle); }
+
+/* @binds ma_bpf_config_init, ma_bpf_get_heap_size */
+int ma_shim_bpf_get_heap_size(
+    int format, unsigned int channels, unsigned int sample_rate, double cutoff, unsigned int order, unsigned long long* out_heap_size
+) {
+    MA_SHIM_FILTER_HEAPSIZE_BODY(bpf, ma_bpf_config, ma_bpf_config_init((ma_format)format, channels, sample_rate, cutoff, order));
+}
+
+/* @binds ma_bpf_config_init, ma_bpf_init */
+int ma_shim_bpf_init(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate, double cutoff, unsigned int order
+) {
+    MA_SHIM_FILTER_INIT_BODY(bpf, ma_bpf_config, ma_bpf_config_init((ma_format)format, channels, sample_rate, cutoff, order));
+}
+
+/* @binds ma_bpf_config_init, ma_bpf_get_heap_size, ma_bpf_init_preallocated */
+int ma_shim_bpf_init_preallocated(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate, double cutoff, unsigned int order
+) {
+    MA_SHIM_FILTER_PREALLOC_BODY(bpf, ma_bpf_config, ma_bpf_config_init((ma_format)format, channels, sample_rate, cutoff, order));
+}
+
+/* @binds ma_bpf_config_init, ma_bpf_reinit */
+int ma_shim_bpf_reinit(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate, double cutoff, unsigned int order
+) {
+    MA_SHIM_FILTER_REINIT_BODY(bpf, ma_bpf_config, ma_bpf_config_init((ma_format)format, channels, sample_rate, cutoff, order));
+}
+
+/* @binds ma_bpf_uninit */
+int ma_shim_bpf_uninit(void* handle) { return bpf_uninit_state(handle); }
+
+/* @binds ma_bpf_process_pcm_frames */
+int ma_shim_bpf_process(
+    void* handle, void* frames_out, const void* frames_in, unsigned long long frame_count
+) {
+    return bpf_process_state(handle, frames_out, frames_in, frame_count);
+}
+
+/* @binds ma_bpf_get_latency */
+int ma_shim_bpf_get_latency(void* handle, unsigned int* out_latency) {
+    return bpf_latency_state(handle, out_latency);
+}
+
+/* ---- ma_notch2 ---- */
+
+void* ma_shim_notch2_alloc(void) { return notch2_alloc_state(); }
+
+/* @binds ma_notch2_uninit */
+void ma_shim_notch2_free(void* handle) { notch2_free_state(handle); }
+
+/* @binds ma_notch2_config_init, ma_notch2_get_heap_size */
+int ma_shim_notch2_get_heap_size(
+    int format, unsigned int channels, unsigned int sample_rate, double q, double frequency, unsigned long long* out_heap_size
+) {
+    MA_SHIM_FILTER_HEAPSIZE_BODY(notch2, ma_notch2_config, ma_notch2_config_init((ma_format)format, channels, sample_rate, q, frequency));
+}
+
+/* @binds ma_notch2_config_init, ma_notch2_init */
+int ma_shim_notch2_init(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate, double q, double frequency
+) {
+    MA_SHIM_FILTER_INIT_BODY(notch2, ma_notch2_config, ma_notch2_config_init((ma_format)format, channels, sample_rate, q, frequency));
+}
+
+/* @binds ma_notch2_config_init, ma_notch2_get_heap_size, ma_notch2_init_preallocated */
+int ma_shim_notch2_init_preallocated(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate, double q, double frequency
+) {
+    MA_SHIM_FILTER_PREALLOC_BODY(notch2, ma_notch2_config, ma_notch2_config_init((ma_format)format, channels, sample_rate, q, frequency));
+}
+
+/* @binds ma_notch2_config_init, ma_notch2_reinit */
+int ma_shim_notch2_reinit(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate, double q, double frequency
+) {
+    MA_SHIM_FILTER_REINIT_BODY(notch2, ma_notch2_config, ma_notch2_config_init((ma_format)format, channels, sample_rate, q, frequency));
+}
+
+/* @binds ma_notch2_uninit */
+int ma_shim_notch2_uninit(void* handle) { return notch2_uninit_state(handle); }
+
+/* @binds ma_notch2_process_pcm_frames */
+int ma_shim_notch2_process(
+    void* handle, void* frames_out, const void* frames_in, unsigned long long frame_count
+) {
+    return notch2_process_state(handle, frames_out, frames_in, frame_count);
+}
+
+/* @binds ma_notch2_get_latency */
+int ma_shim_notch2_get_latency(void* handle, unsigned int* out_latency) {
+    return notch2_latency_state(handle, out_latency);
+}
+
+/* ---- ma_peak2 ---- */
+
+void* ma_shim_peak2_alloc(void) { return peak2_alloc_state(); }
+
+/* @binds ma_peak2_uninit */
+void ma_shim_peak2_free(void* handle) { peak2_free_state(handle); }
+
+/* @binds ma_peak2_config_init, ma_peak2_get_heap_size */
+int ma_shim_peak2_get_heap_size(
+    int format, unsigned int channels, unsigned int sample_rate, double gain_db, double q, double frequency, unsigned long long* out_heap_size
+) {
+    MA_SHIM_FILTER_HEAPSIZE_BODY(peak2, ma_peak2_config, ma_peak2_config_init((ma_format)format, channels, sample_rate, gain_db, q, frequency));
+}
+
+/* @binds ma_peak2_config_init, ma_peak2_init */
+int ma_shim_peak2_init(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate, double gain_db, double q, double frequency
+) {
+    MA_SHIM_FILTER_INIT_BODY(peak2, ma_peak2_config, ma_peak2_config_init((ma_format)format, channels, sample_rate, gain_db, q, frequency));
+}
+
+/* @binds ma_peak2_config_init, ma_peak2_get_heap_size, ma_peak2_init_preallocated */
+int ma_shim_peak2_init_preallocated(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate, double gain_db, double q, double frequency
+) {
+    MA_SHIM_FILTER_PREALLOC_BODY(peak2, ma_peak2_config, ma_peak2_config_init((ma_format)format, channels, sample_rate, gain_db, q, frequency));
+}
+
+/* @binds ma_peak2_config_init, ma_peak2_reinit */
+int ma_shim_peak2_reinit(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate, double gain_db, double q, double frequency
+) {
+    MA_SHIM_FILTER_REINIT_BODY(peak2, ma_peak2_config, ma_peak2_config_init((ma_format)format, channels, sample_rate, gain_db, q, frequency));
+}
+
+/* @binds ma_peak2_uninit */
+int ma_shim_peak2_uninit(void* handle) { return peak2_uninit_state(handle); }
+
+/* @binds ma_peak2_process_pcm_frames */
+int ma_shim_peak2_process(
+    void* handle, void* frames_out, const void* frames_in, unsigned long long frame_count
+) {
+    return peak2_process_state(handle, frames_out, frames_in, frame_count);
+}
+
+/* @binds ma_peak2_get_latency */
+int ma_shim_peak2_get_latency(void* handle, unsigned int* out_latency) {
+    return peak2_latency_state(handle, out_latency);
+}
+
+/* ---- ma_loshelf2 ---- */
+
+void* ma_shim_loshelf2_alloc(void) { return loshelf2_alloc_state(); }
+
+/* @binds ma_loshelf2_uninit */
+void ma_shim_loshelf2_free(void* handle) { loshelf2_free_state(handle); }
+
+/* @binds ma_loshelf2_config_init, ma_loshelf2_get_heap_size */
+int ma_shim_loshelf2_get_heap_size(
+    int format, unsigned int channels, unsigned int sample_rate, double gain_db, double shelf_slope, double frequency, unsigned long long* out_heap_size
+) {
+    MA_SHIM_FILTER_HEAPSIZE_BODY(loshelf2, ma_loshelf2_config, ma_loshelf2_config_init((ma_format)format, channels, sample_rate, gain_db, shelf_slope, frequency));
+}
+
+/* @binds ma_loshelf2_config_init, ma_loshelf2_init */
+int ma_shim_loshelf2_init(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate, double gain_db, double shelf_slope, double frequency
+) {
+    MA_SHIM_FILTER_INIT_BODY(loshelf2, ma_loshelf2_config, ma_loshelf2_config_init((ma_format)format, channels, sample_rate, gain_db, shelf_slope, frequency));
+}
+
+/* @binds ma_loshelf2_config_init, ma_loshelf2_get_heap_size, ma_loshelf2_init_preallocated */
+int ma_shim_loshelf2_init_preallocated(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate, double gain_db, double shelf_slope, double frequency
+) {
+    MA_SHIM_FILTER_PREALLOC_BODY(loshelf2, ma_loshelf2_config, ma_loshelf2_config_init((ma_format)format, channels, sample_rate, gain_db, shelf_slope, frequency));
+}
+
+/* @binds ma_loshelf2_config_init, ma_loshelf2_reinit */
+int ma_shim_loshelf2_reinit(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate, double gain_db, double shelf_slope, double frequency
+) {
+    MA_SHIM_FILTER_REINIT_BODY(loshelf2, ma_loshelf2_config, ma_loshelf2_config_init((ma_format)format, channels, sample_rate, gain_db, shelf_slope, frequency));
+}
+
+/* @binds ma_loshelf2_uninit */
+int ma_shim_loshelf2_uninit(void* handle) { return loshelf2_uninit_state(handle); }
+
+/* @binds ma_loshelf2_process_pcm_frames */
+int ma_shim_loshelf2_process(
+    void* handle, void* frames_out, const void* frames_in, unsigned long long frame_count
+) {
+    return loshelf2_process_state(handle, frames_out, frames_in, frame_count);
+}
+
+/* @binds ma_loshelf2_get_latency */
+int ma_shim_loshelf2_get_latency(void* handle, unsigned int* out_latency) {
+    return loshelf2_latency_state(handle, out_latency);
+}
+
+/* ---- ma_hishelf2 ---- */
+
+void* ma_shim_hishelf2_alloc(void) { return hishelf2_alloc_state(); }
+
+/* @binds ma_hishelf2_uninit */
+void ma_shim_hishelf2_free(void* handle) { hishelf2_free_state(handle); }
+
+/* @binds ma_hishelf2_config_init, ma_hishelf2_get_heap_size */
+int ma_shim_hishelf2_get_heap_size(
+    int format, unsigned int channels, unsigned int sample_rate, double gain_db, double shelf_slope, double frequency, unsigned long long* out_heap_size
+) {
+    MA_SHIM_FILTER_HEAPSIZE_BODY(hishelf2, ma_hishelf2_config, ma_hishelf2_config_init((ma_format)format, channels, sample_rate, gain_db, shelf_slope, frequency));
+}
+
+/* @binds ma_hishelf2_config_init, ma_hishelf2_init */
+int ma_shim_hishelf2_init(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate, double gain_db, double shelf_slope, double frequency
+) {
+    MA_SHIM_FILTER_INIT_BODY(hishelf2, ma_hishelf2_config, ma_hishelf2_config_init((ma_format)format, channels, sample_rate, gain_db, shelf_slope, frequency));
+}
+
+/* @binds ma_hishelf2_config_init, ma_hishelf2_get_heap_size, ma_hishelf2_init_preallocated */
+int ma_shim_hishelf2_init_preallocated(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate, double gain_db, double shelf_slope, double frequency
+) {
+    MA_SHIM_FILTER_PREALLOC_BODY(hishelf2, ma_hishelf2_config, ma_hishelf2_config_init((ma_format)format, channels, sample_rate, gain_db, shelf_slope, frequency));
+}
+
+/* @binds ma_hishelf2_config_init, ma_hishelf2_reinit */
+int ma_shim_hishelf2_reinit(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate, double gain_db, double shelf_slope, double frequency
+) {
+    MA_SHIM_FILTER_REINIT_BODY(hishelf2, ma_hishelf2_config, ma_hishelf2_config_init((ma_format)format, channels, sample_rate, gain_db, shelf_slope, frequency));
+}
+
+/* @binds ma_hishelf2_uninit */
+int ma_shim_hishelf2_uninit(void* handle) { return hishelf2_uninit_state(handle); }
+
+/* @binds ma_hishelf2_process_pcm_frames */
+int ma_shim_hishelf2_process(
+    void* handle, void* frames_out, const void* frames_in, unsigned long long frame_count
+) {
+    return hishelf2_process_state(handle, frames_out, frames_in, frame_count);
+}
+
+/* @binds ma_hishelf2_get_latency */
+int ma_shim_hishelf2_get_latency(void* handle, unsigned int* out_latency) {
+    return hishelf2_latency_state(handle, out_latency);
+}
+
+/* ---- their node-graph variants ---- */
+
+MA_SHIM_FILTER_NODE_HANDLE(bpf_node, ma_bpf_node)
+
+MA_SHIM_FILTER_NODE_HANDLE(notch_node, ma_notch_node)
+
+MA_SHIM_FILTER_NODE_HANDLE(peak_node, ma_peak_node)
+
+MA_SHIM_FILTER_NODE_HANDLE(loshelf_node, ma_loshelf_node)
+
+MA_SHIM_FILTER_NODE_HANDLE(hishelf_node, ma_hishelf_node)
+
+void* ma_shim_bpf_node_alloc(void) { return bpf_node_alloc_state(); }
+
+/* @binds ma_bpf_node_uninit */
+void ma_shim_bpf_node_free(void* handle) { bpf_node_free_state(handle); }
+
+/* @binds ma_bpf_node_config_init, ma_bpf_node_init */
+int ma_shim_bpf_node_init(
+    void* handle, void* engine_handle, unsigned int channels, unsigned int sample_rate, double cutoff, unsigned int order
+) {
+    ma_shim_bpf_node_state* h = (ma_shim_bpf_node_state*)handle;
+    ma_node_graph*     graph = filter_node_graph(engine_handle);
+    ma_bpf_node_config      config;
+    ma_result          result;
+
+    if (h == NULL || graph == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    bpf_node_teardown(h);
+
+    config = ma_bpf_node_config_init(channels, sample_rate, cutoff, order);
+    result = ma_bpf_node_init(graph, &config, NULL, &h->node);
+    if (result == MA_SUCCESS) {
+        h->initialized = 1;
+    }
+    return (int)result;
+}
+
+/* @binds ma_bpf_config_init, ma_bpf_node_reinit */
+int ma_shim_bpf_node_reinit(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate, double cutoff, unsigned int order
+) {
+    ma_shim_bpf_node_state* h = bpf_node_ready(handle);
+    ma_bpf_config             config;
+
+    if (h == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    config = ma_bpf_config_init((ma_format)format, channels, sample_rate, cutoff, order);
+    return (int)ma_bpf_node_reinit(&config, &h->node);
+}
+
+/* @binds ma_bpf_node_uninit */
+int ma_shim_bpf_node_uninit(void* handle) { return bpf_node_uninit_state(handle); }
+
+void* ma_shim_notch_node_alloc(void) { return notch_node_alloc_state(); }
+
+/* @binds ma_notch_node_uninit */
+void ma_shim_notch_node_free(void* handle) { notch_node_free_state(handle); }
+
+/* @binds ma_notch_node_config_init, ma_notch_node_init */
+int ma_shim_notch_node_init(
+    void* handle, void* engine_handle, unsigned int channels, unsigned int sample_rate, double q, double frequency
+) {
+    ma_shim_notch_node_state* h = (ma_shim_notch_node_state*)handle;
+    ma_node_graph*     graph = filter_node_graph(engine_handle);
+    ma_notch_node_config      config;
+    ma_result          result;
+
+    if (h == NULL || graph == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    notch_node_teardown(h);
+
+    config = ma_notch_node_config_init(channels, sample_rate, q, frequency);
+    result = ma_notch_node_init(graph, &config, NULL, &h->node);
+    if (result == MA_SUCCESS) {
+        h->initialized = 1;
+    }
+    return (int)result;
+}
+
+/* @binds ma_notch2_config_init, ma_notch_node_reinit */
+int ma_shim_notch_node_reinit(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate, double q, double frequency
+) {
+    ma_shim_notch_node_state* h = notch_node_ready(handle);
+    ma_notch_config             config;
+
+    if (h == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    config = ma_notch2_config_init((ma_format)format, channels, sample_rate, q, frequency);
+    return (int)ma_notch_node_reinit(&config, &h->node);
+}
+
+/* @binds ma_notch_node_uninit */
+int ma_shim_notch_node_uninit(void* handle) { return notch_node_uninit_state(handle); }
+
+void* ma_shim_peak_node_alloc(void) { return peak_node_alloc_state(); }
+
+/* @binds ma_peak_node_uninit */
+void ma_shim_peak_node_free(void* handle) { peak_node_free_state(handle); }
+
+/* @binds ma_peak_node_config_init, ma_peak_node_init */
+int ma_shim_peak_node_init(
+    void* handle, void* engine_handle, unsigned int channels, unsigned int sample_rate, double gain_db, double q, double frequency
+) {
+    ma_shim_peak_node_state* h = (ma_shim_peak_node_state*)handle;
+    ma_node_graph*     graph = filter_node_graph(engine_handle);
+    ma_peak_node_config      config;
+    ma_result          result;
+
+    if (h == NULL || graph == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    peak_node_teardown(h);
+
+    config = ma_peak_node_config_init(channels, sample_rate, gain_db, q, frequency);
+    result = ma_peak_node_init(graph, &config, NULL, &h->node);
+    if (result == MA_SUCCESS) {
+        h->initialized = 1;
+    }
+    return (int)result;
+}
+
+/* @binds ma_peak2_config_init, ma_peak_node_reinit */
+int ma_shim_peak_node_reinit(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate, double gain_db, double q, double frequency
+) {
+    ma_shim_peak_node_state* h = peak_node_ready(handle);
+    ma_peak_config             config;
+
+    if (h == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    config = ma_peak2_config_init((ma_format)format, channels, sample_rate, gain_db, q, frequency);
+    return (int)ma_peak_node_reinit(&config, &h->node);
+}
+
+/* @binds ma_peak_node_uninit */
+int ma_shim_peak_node_uninit(void* handle) { return peak_node_uninit_state(handle); }
+
+void* ma_shim_loshelf_node_alloc(void) { return loshelf_node_alloc_state(); }
+
+/* @binds ma_loshelf_node_uninit */
+void ma_shim_loshelf_node_free(void* handle) { loshelf_node_free_state(handle); }
+
+/* @binds ma_loshelf_node_config_init, ma_loshelf_node_init */
+int ma_shim_loshelf_node_init(
+    void* handle, void* engine_handle, unsigned int channels, unsigned int sample_rate, double gain_db, double q, double frequency
+) {
+    ma_shim_loshelf_node_state* h = (ma_shim_loshelf_node_state*)handle;
+    ma_node_graph*     graph = filter_node_graph(engine_handle);
+    ma_loshelf_node_config      config;
+    ma_result          result;
+
+    if (h == NULL || graph == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    loshelf_node_teardown(h);
+
+    config = ma_loshelf_node_config_init(channels, sample_rate, gain_db, q, frequency);
+    result = ma_loshelf_node_init(graph, &config, NULL, &h->node);
+    if (result == MA_SUCCESS) {
+        h->initialized = 1;
+    }
+    return (int)result;
+}
+
+/* @binds ma_loshelf2_config_init, ma_loshelf_node_reinit */
+int ma_shim_loshelf_node_reinit(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate, double gain_db, double shelf_slope, double frequency
+) {
+    ma_shim_loshelf_node_state* h = loshelf_node_ready(handle);
+    ma_loshelf_config             config;
+
+    if (h == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    config = ma_loshelf2_config_init((ma_format)format, channels, sample_rate, gain_db, shelf_slope, frequency);
+    return (int)ma_loshelf_node_reinit(&config, &h->node);
+}
+
+/* @binds ma_loshelf_node_uninit */
+int ma_shim_loshelf_node_uninit(void* handle) { return loshelf_node_uninit_state(handle); }
+
+void* ma_shim_hishelf_node_alloc(void) { return hishelf_node_alloc_state(); }
+
+/* @binds ma_hishelf_node_uninit */
+void ma_shim_hishelf_node_free(void* handle) { hishelf_node_free_state(handle); }
+
+/* @binds ma_hishelf_node_config_init, ma_hishelf_node_init */
+int ma_shim_hishelf_node_init(
+    void* handle, void* engine_handle, unsigned int channels, unsigned int sample_rate, double gain_db, double q, double frequency
+) {
+    ma_shim_hishelf_node_state* h = (ma_shim_hishelf_node_state*)handle;
+    ma_node_graph*     graph = filter_node_graph(engine_handle);
+    ma_hishelf_node_config      config;
+    ma_result          result;
+
+    if (h == NULL || graph == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    hishelf_node_teardown(h);
+
+    config = ma_hishelf_node_config_init(channels, sample_rate, gain_db, q, frequency);
+    result = ma_hishelf_node_init(graph, &config, NULL, &h->node);
+    if (result == MA_SUCCESS) {
+        h->initialized = 1;
+    }
+    return (int)result;
+}
+
+/* @binds ma_hishelf2_config_init, ma_hishelf_node_reinit */
+int ma_shim_hishelf_node_reinit(
+    void* handle, int format, unsigned int channels, unsigned int sample_rate, double gain_db, double shelf_slope, double frequency
+) {
+    ma_shim_hishelf_node_state* h = hishelf_node_ready(handle);
+    ma_hishelf_config             config;
+
+    if (h == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    config = ma_hishelf2_config_init((ma_format)format, channels, sample_rate, gain_db, shelf_slope, frequency);
+    return (int)ma_hishelf_node_reinit(&config, &h->node);
+}
+
+/* @binds ma_hishelf_node_uninit */
+int ma_shim_hishelf_node_uninit(void* handle) { return hishelf_node_uninit_state(handle); }

@@ -64,6 +64,17 @@ from miniaudio.audio_buffer import (
 )
 from miniaudio.filter import (
     Biquad,
+    Bpf2,
+    Bpf,
+    Notch2,
+    Peak2,
+    Loshelf2,
+    Hishelf2,
+    BpfNode,
+    NotchNode,
+    PeakNode,
+    LoshelfNode,
+    HishelfNode,
     Lpf1,
     Lpf2,
     Lpf,

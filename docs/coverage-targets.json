@@ -143,6 +143,36 @@
       "dod_level": "L3",
       "complete": true,
       "notes": "L1+L2+L3 COMPLETE: all 28 of 28 functions bound, 0 excluded. The first-order ma_hpf1, the second-order ma_hpf2, the compound ma_hpf and ma_hpf_node. miniaudio gives the high-pass family no clear_cache entry point, so none is bound. Pins what ma_hpf1 actually is: its recursion is y = b*x - a*r1 with a = 1 - alpha and b = alpha (alpha being the same pole coefficient ma_lpf1 stores), giving a DC gain of alpha/(2-alpha) and a Nyquist gain of 1 -- at cutoff 1 kHz and 48 kHz that is ~0.781 at DC, a gentle shelf rather than a true high-pass. ma_hpf2 and the even-order compound ma_hpf are biquad-based and do reject DC. 11 binding + 9 API tests."
+    },
+    "bpf": {
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 20 of 20 functions bound, 0 excluded. The second-order ma_bpf2, the compound ma_bpf and ma_bpf_node. Same shim, same X-macro-generated lifecycle and the same two init paths as the biquad / lpf / hpf batch (managed heap, and get_heap_size + init_preallocated with a shim-owned block, asserted to filter identically). No clear_cache exists upstream for this family. Behaviour is asserted by what defines a band-pass: it rejects both extremes, so DC and a signal alternating every frame both settle below 1e-3. 8 binding + 13 API tests."
+    },
+    "notch": {
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 12 of 12 functions bound, 0 excluded. ma_notch2 and ma_notch_node. Same shim, same X-macro-generated lifecycle and the same two init paths as the biquad / lpf / hpf batch (managed heap, and get_heap_size + init_preallocated with a shim-owned block, asserted to filter identically). No clear_cache exists upstream for this family. Behaviour is asserted by what defines a notch: it removes one narrow band and leaves the rest alone, so with the notch at 1 kHz both DC and the fastest signal come back at unity gain. 5 binding + 7 API tests."
+    },
+    "peak_eq": {
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 12 of 12 functions bound, 0 excluded. ma_peak2 and ma_peak_node. Same shim, same X-macro-generated lifecycle and the same two init paths as the biquad / lpf / hpf batch (managed heap, and get_heap_size + init_preallocated with a shim-owned block, asserted to filter identically). No clear_cache exists upstream for this family. Behaviour is pinned with a 0 dB band, which is exactly transparent, so the test does not depend on the shape of the bell. 5 binding + 7 API tests."
+    },
+    "loshelf": {
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 12 of 12 functions bound, 0 excluded. ma_loshelf2 and ma_loshelf_node. Same shim, same X-macro-generated lifecycle and the same two init paths as the biquad / lpf / hpf batch (managed heap, and get_heap_size + init_preallocated with a shim-owned block, asserted to filter identically). No clear_cache exists upstream for this family. Behaviour is pinned numerically: +12 dB below 1 kHz gives a measured DC gain of 3.981, which is 10^(12/20), against a gain of 1.0 at the fastest signal. Note miniaudio tunes the shelf *node* by q where the standalone shelf filter takes a shelf slope; the API keeps that asymmetry rather than hiding it. 5 binding + 7 API tests."
+    },
+    "hishelf": {
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 12 of 12 functions bound, 0 excluded. ma_hishelf2 and ma_hishelf_node -- the mirror image of the low shelf, with the measured 3.981 gain landing on the fastest signal and 1.0 on DC. Same shim, same X-macro-generated lifecycle and the same two init paths as the biquad / lpf / hpf batch (managed heap, and get_heap_size + init_preallocated with a shim-owned block, asserted to filter identically). No clear_cache exists upstream for this family. The same node-tuned-by-q asymmetry applies. 5 binding + 7 API tests."
     }
   }
 }

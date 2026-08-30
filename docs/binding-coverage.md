@@ -54,16 +54,16 @@ but left the global percentage low and the big families mostly unbound. Going fo
    (16), `encoder` (10), `engine` (44), `sound` (84), `sound_group` (57), `device` (25), `waveform`
    (9), `noise` (9), `data_source` (30), `ring_buffer` (38), `audio_buffer` (25),
    `paged_audio_buffer` (16), `resampler` (13), `channel_converter` (8), `data_converter` (16),
-   `biquad` (13), `lpf` (31) and `hpf` (28). The next lever is starting (and completing) a new family
-   per the roadmap.
+   `biquad` (13), `lpf` (31), `hpf` (28), `bpf` (20), `notch` (12), `peak_eq` (12), `loshelf` (12)
+   and `hishelf` (12). The next lever is starting (and completing) a new family per the roadmap.
 
 ## Family Status Matrix
 
 All families not yet started are `dod_met=false`. The Status column reports the **depth** axis
-(`dod_met`) and, where reached, the **breadth** axis (`complete`). Eighteen families are now
+(`dod_met`) and, where reached, the **breadth** axis (`complete`). Twenty-three families are now
 `complete` (decoder, encoder, engine, sound, sound_group, waveform, noise, device, data_source,
 ring_buffer, audio_buffer, paged_audio_buffer, resampler, channel_converter, data_converter, biquad,
-lpf, hpf); every `dod_met` family is now also `complete`, so the overall percentage
+lpf, hpf, bpf, notch, peak_eq, loshelf, hishelf); every `dod_met` family is now also `complete`, so the overall percentage
 (breadth) now advances only when a new family is started and bound out. Coverage percentage reflects `@binds` annotations
 relative to the 1,027-function denominator. Run `pixi run coverage-binding` for live numbers.
 
@@ -86,6 +86,11 @@ relative to the 1,027-function denominator. Run `pixi run coverage-binding` for 
 | waveform | 9 | 9 | 100% | L3 | **complete** — L1+L2+L3 (8 binding + 7 API tests) |
 | noise | 9 | 6 | 67% | L3 | **complete** — L1+L2+L3, all bindable fns bound (8 binding + 7 API tests). set_type excluded (deprecated, asserts false). get_heap_size/init_preallocated excluded (internal). |
 | biquad | 13 | 13 | 100% | L3 | **complete** — L1+L2+L3, all 13 bound with 0 exclusions. The raw biquad via `Biquad` plus `BiquadNode` in an engine's graph. Behaviour is pinned with the identity coefficients (b0=1, rest 0), which pass audio through untouched, so the tests do not lean on any particular filter response (10 binding + 8 API tests). |
+| bpf | 20 | 20 | 100% | L3 | **complete** — L1+L2+L3, all 20 bound with 0 exclusions. `Bpf2`, `Bpf` and `BpfNode`, asserted by what defines a band-pass: both DC and frame-to-frame alternation settle below 1e-3 (8 binding + 13 API tests). |
+| notch | 12 | 12 | 100% | L3 | **complete** — L1+L2+L3, all 12 bound with 0 exclusions. `Notch2` and `NotchNode`; with the notch at 1 kHz both DC and the fastest signal return at unity gain (5 binding + 7 API tests). |
+| peak_eq | 12 | 12 | 100% | L3 | **complete** — L1+L2+L3, all 12 bound with 0 exclusions. `Peak2` and `PeakNode`, pinned with a 0 dB band that is exactly transparent (5 binding + 7 API tests). |
+| loshelf | 12 | 12 | 100% | L3 | **complete** — L1+L2+L3, all 12 bound with 0 exclusions. `Loshelf2` and `LoshelfNode`; +12 dB below 1 kHz measures a DC gain of 3.981 = 10^(12/20) against 1.0 at Nyquist. miniaudio tunes the shelf *node* by q where the filter takes a shelf slope, and the API keeps that asymmetry (5 binding + 7 API tests). |
+| hishelf | 12 | 12 | 100% | L3 | **complete** — L1+L2+L3, all 12 bound with 0 exclusions. The mirror image of the low shelf (5 binding + 7 API tests). |
 | lpf | 31 | 31 | 100% | L3 | **complete** — L1+L2+L3, all 31 bound with 0 exclusions. `Lpf1`, `Lpf2`, `Lpf` and `LpfNode`, asserted by the defining property (DC survives, frame-to-frame alternation does not). Pins an upstream bug: `ma_lpf1_clear_cache` zeroes the filter *coefficient* rather than the delay register, de-tuning the filter into a pass-through — call reinit afterwards (12 binding + 9 API tests). |
 | hpf | 28 | 28 | 100% | L3 | **complete** — L1+L2+L3, all 28 bound with 0 exclusions. `Hpf1`, `Hpf2`, `Hpf` and `HpfNode`. No `clear_cache` exists upstream for this family. Pins what `ma_hpf1` really is: DC gain α/(2−α) ≈ 0.78 at 1 kHz / 48 kHz against a Nyquist gain of 1 — a gentle shelf, not a true high-pass; `ma_hpf2` and even-order `ma_hpf` do reject DC (11 binding + 9 API tests). |
 | sync | 24 | 0 | 0% | L2 | not started |
@@ -95,8 +100,8 @@ relative to the 1,027-function denominator. Run `pixi run coverage-binding` for 
 | audio_buffer | 25 | 25 | 100% | L3 | **complete** — L1+L2+L3, all 25 bound with 0 exclusions. Two in-memory PCM buffers: `ma_audio_buffer_ref` (a non-owning view) via `AudioBufferRef` and `ma_audio_buffer` (owning) via `AudioBuffer`. The ref and the non-copying `init` keep the caller's pointer verbatim, so the shim owns a copy of the frames; `map`/`unmap` hand out an interior pointer and are bound through a shim-owned map → memcpy → unmap step that surfaces `MA_AT_END` as the success it is. All four construction paths are covered (init / init_copy / silent / alloc_and_init). `alloc_and_init` is bound as-is despite an upstream defect in miniaudio 0.11.25 that clears the low 3 bytes of frame 0 — the binding test pins it (17 binding + 16 API tests). |
 | paged_audio_buffer | 16 | 16 | 100% | L3 | **complete** — L1+L2+L3, all 16 bound with 0 exclusions. An expandable page list plus a live reader, via `PagedAudioBuffer`. Pages are raw pointers with no safe Mojo home, so `allocate_page` parks a page in a handle slot and returns its index for `append_page` / `free_page`; `get_head`/`get_tail` bind as the page's frame count plus whether the list is still empty. `read_pcm_frames` returns `MA_AT_END` whenever it consumes the final page — a success, surfaced as such (13 binding + 11 API tests). |
 | core | 141 | 2 | 1% | — | infrastructure (version, result_description) |
-| *others* | ~209 | 0 | 0% | — | not started |
-| **TOTAL** | **1,027** | **440** | **42.8%** (bindable 440/971 = 45.3%) | — | — |
+| *others* | ~141 | 0 | 0% | — | not started |
+| **TOTAL** | **1,027** | **508** | **49.5%** (bindable 508/971 = 52.3%) | — | — |
 
 > Coverage percentage is expected to be low until families are migrated. The gates ensure
 > **everything implemented is complete and tested** — not that everything is implemented.
@@ -151,8 +156,10 @@ Planned migration order (each family follows the three-layer + TDD + gate templa
     One shim covers the family: the lifecycle is identical across filters, so the
     handle plumbing is generated by an X-macro while each exported entry point is
     written out so it can carry its `@binds`. Both of miniaudio's init paths are
-    bound for every filter. Still to do in this group: bpf, notch, peak_eq,
-    loshelf, hishelf, and the remaining node types.
+    bound for every filter. **Complete**: biquad, lpf, hpf, bpf, notch, peak_eq,
+    loshelf and hishelf — 140 functions, every filter and every filter node type
+    miniaudio ships. Still to do in the wider node group: the generic node /
+    node_graph API, delay_node and splitter_node.
 11. resource_manager
 12. sync / async / job_queue / log
 13. context / vfs
