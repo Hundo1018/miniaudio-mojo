@@ -215,6 +215,12 @@
       "dod_level": "L3",
       "complete": true,
       "notes": "L1+L2+L3 COMPLETE: all 13 of 13 functions bound, 0 excluded. The algorithm ma_resampler drives underneath when set to linear, bound in its own right with the same shape minus the algorithm selector, and sharing the converter shim. Both init paths are covered and asserted to produce identical audio. The strongest test compares it directly against ma_resampler configured for linear at the same rates: the two agree frame for frame, which is what makes binding both meaningful rather than redundant. Unlike ma_data_converter, its reset does restore a cold run. 8 binding + 7 API tests."
+    },
+    "format_util": {
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 27 of 27 functions bound, 0 excluded. miniaudio's stateless helpers -- volume scaling, clipping, buffer-size arithmetic and the format / backend name tables. Nothing here owns anything, so there are no handles and the Layer 3 surface is free functions rather than RAII types. The clipping family takes a wider source than destination, which is its purpose, and the shim keeps those widths as miniaudio declares them (s32 into s16, s64 into s32 and packed s24, s16 into u8, f32 in place to [-1,1]) rather than flattening them to void*. ma_calculate_frame_count_after_resampling and ma_get_format_priority_index are exported without a public prototype, so the shim declares them. ma_calculate_buffer_size_in_frames_from_descriptor needs an ma_device_descriptor, which the shim builds from plain fields. Tests pin the round trips: 100 ms at 48 kHz is 4800 frames and back, every format reports its own sample width, and every enabled backend's name maps back to the backend it came from. 7 binding + 9 API tests."
     }
   }
 }

@@ -64,11 +64,12 @@ but left the global percentage low and the big families mostly unbound. Going fo
 ## Family Status Matrix
 
 All families not yet started are `dod_met=false`. The Status column reports the **depth** axis
-(`dod_met`) and, where reached, the **breadth** axis (`complete`). Thirty-five families are now
+(`dod_met`) and, where reached, the **breadth** axis (`complete`). Thirty-six families are now
 `complete` (decoder, encoder, engine, sound, sound_group, waveform, noise, device, data_source,
 ring_buffer, audio_buffer, paged_audio_buffer, resampler, channel_converter, data_converter, biquad,
 lpf, hpf, bpf, notch, peak_eq, loshelf, hishelf, node, node_graph, delay_node, splitter_node,
-resource_manager, sync, job_queue, log, slot_allocator, context, vfs, linear_resampler); every `dod_met` family is now also `complete`, so the overall percentage
+resource_manager, sync, job_queue, log, slot_allocator, context, vfs, linear_resampler,
+format_util); every `dod_met` family is now also `complete`, so the overall percentage
 (breadth) now advances only when a new family is started and bound out. Coverage percentage reflects `@binds` annotations
 relative to the 1,027-function denominator. Run `pixi run coverage-binding` for live numbers.
 
@@ -110,9 +111,10 @@ relative to the 1,027-function denominator. Run `pixi run coverage-binding` for 
 | vfs | 19 | 16 | 84% | L3 | **complete** — L1+L2+L3, all 16 bindable bound; the 3 `_w` wide-char variants are excluded. Both entry-point families are covered: the plain `ma_vfs_*` calls and the `ma_vfs_or_default_*` fallback, which is exported but absent from miniaudio's public header, so the shim declares it. An open file lives in a slot on the handle since `ma_vfs_file` is opaque (6 binding + 6 API tests). |
 | audio_buffer | 25 | 25 | 100% | L3 | **complete** — L1+L2+L3, all 25 bound with 0 exclusions. Two in-memory PCM buffers: `ma_audio_buffer_ref` (a non-owning view) via `AudioBufferRef` and `ma_audio_buffer` (owning) via `AudioBuffer`. The ref and the non-copying `init` keep the caller's pointer verbatim, so the shim owns a copy of the frames; `map`/`unmap` hand out an interior pointer and are bound through a shim-owned map → memcpy → unmap step that surfaces `MA_AT_END` as the success it is. All four construction paths are covered (init / init_copy / silent / alloc_and_init). `alloc_and_init` is bound as-is despite an upstream defect in miniaudio 0.11.25 that clears the low 3 bytes of frame 0 — the binding test pins it (17 binding + 16 API tests). |
 | paged_audio_buffer | 16 | 16 | 100% | L3 | **complete** — L1+L2+L3, all 16 bound with 0 exclusions. An expandable page list plus a live reader, via `PagedAudioBuffer`. Pages are raw pointers with no safe Mojo home, so `allocate_page` parks a page in a handle slot and returns its index for `append_page` / `free_page`; `get_head`/`get_tail` bind as the page's frame count plus whether the list is still empty. `read_pcm_frames` returns `MA_AT_END` whenever it consumes the final page — a success, surfaced as such (13 binding + 11 API tests). |
+| format_util | 27 | 27 | 100% | L3 | **complete** — L1+L2+L3, all 27 bound with 0 exclusions. Stateless helpers, so Layer 3 is free functions rather than RAII types. The clipping family keeps miniaudio's wider-source-than-destination widths. Two functions are exported without a public prototype and are declared by the shim (7 binding + 9 API tests). |
 | core | 141 | 2 | 1% | — | infrastructure (version, result_description) |
-| *others* | ~91 | 0 | 0% | — | not started |
-| **TOTAL** | **1,027** | **692** | **67.4%** (bindable 692/971 = 71.3%) | — | — |
+| *others* | ~64 | 0 | 0% | — | not started |
+| **TOTAL** | **1,027** | **719** | **70.0%** (bindable 719/971 = 74.0%) | — | — |
 
 > Coverage percentage is expected to be low until families are migrated. The gates ensure
 > **everything implemented is complete and tested** — not that everything is implemented.
@@ -188,8 +190,8 @@ Planned migration order (each family follows the three-layer + TDD + gate templa
     `_or_default` entry-point families.
 
 **The original roadmap is finished.** What remains is the unlisted rest of the
-API: `core` (141), `pcm_convert` (64), `spatializer` (57), `format_util` (27) and scattered
-leftovers in already-complete families. `linear_resampler` (13) is done.
+API: `core` (141), `pcm_convert` (64) and `spatializer` (57), plus scattered leftovers in
+already-complete families. `linear_resampler` (13) and `format_util` (27) are done.
 
 On completion of each family:
 - Add shim functions with `@binds` to `src/native/ma_shim.{h,c}`
