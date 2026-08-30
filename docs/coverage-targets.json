@@ -117,9 +117,10 @@
       "notes": "not yet started"
     },
     "audio_buffer": {
-      "dod_met": false,
-      "dod_level": "L2",
-      "notes": "not yet started"
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 25 of 25 functions bound, 0 excluded. Two in-memory PCM buffers, no device/engine/file involved: ma_audio_buffer_ref (a non-owning view) via an AudioBufferRef RAII type and ma_audio_buffer (owning) via AudioBuffer. ref_init / ref_set_data and the non-copying audio_buffer_init all store the caller's pointer verbatim, which no Mojo value can safely outlive across FFI calls, so the shim holds its own copy of the frames and hands miniaudio that -- the same ownership move the data_source family makes. map/unmap hand out an interior pointer with no safe Mojo home, so the shim owns the map -> memcpy -> unmap sequence and binds both through a *_map_read entry point that surfaces unmap's MA_AT_END (a success) verbatim. All four construction paths are covered: init (shim-owned frames), init_copy (miniaudio allocates and copies), init_copy with a NULL source (silence), and alloc_and_init (heap ma_audio_buffer with the frames in its trailing _pExtraData, torn down via uninit_and_free). alloc_and_init is bound as-is despite an upstream defect in miniaudio 0.11.25: it copies the frames before init_ex runs, and init_ex's MA_ZERO_MEMORY(p, sizeof(*p) - sizeof(p->_pExtraData)) overshoots into the audio data by the struct's trailing padding, clearing the low 3 bytes of frame 0 (an f32 20.0 reads back as 8.0). The binding test pins that behaviour so a future upstream fix fails loudly. 17 binding + 16 API tests (frame-ordered round trips, frames-not-samples accounting for stereo, the available==length-cursor invariant across seeks, looping reads that wrap, map_read agreeing with read chunk for chunk, and rejection of empty/zero-frame buffers on every init path)."
     },
     "paged_audio_buffer": {
       "dod_met": false,

@@ -50,18 +50,18 @@ but left the global percentage low and the big families mostly unbound. Going fo
    a rationale in `docs/coverage-exclusions.json`.
 2. **Complete a family before starting a new one.** Bind all bindable functions of a `dod_met`-but-
    not-`complete` family and set `"complete": true`, prioritising the largest remaining families —
-   that is where the percentage lives. All ten `dod_met` families are now `complete`: `decoder`
+   that is where the percentage lives. All eleven `dod_met` families are now `complete`: `decoder`
    (16), `encoder` (10), `engine` (44), `sound` (84), `sound_group` (57), `device` (25), `waveform`
-   (9), `noise` (9), `data_source` (30) and `ring_buffer` (38). The next lever is starting (and
-   completing) a new family per the roadmap.
+   (9), `noise` (9), `data_source` (30), `ring_buffer` (38) and `audio_buffer` (25). The next lever
+   is starting (and completing) a new family per the roadmap.
 
 ## Family Status Matrix
 
 All families not yet started are `dod_met=false`. The Status column reports the **depth** axis
-(`dod_met`) and, where reached, the **breadth** axis (`complete`). Ten families are now `complete`
-(decoder, encoder, engine, sound, sound_group, waveform, noise, device, data_source, ring_buffer);
-every `dod_met` family is now also `complete`, so the overall percentage (breadth) now advances only
-when a new family is started and bound out. Coverage percentage reflects `@binds` annotations
+(`dod_met`) and, where reached, the **breadth** axis (`complete`). Eleven families are now
+`complete` (decoder, encoder, engine, sound, sound_group, waveform, noise, device, data_source,
+ring_buffer, audio_buffer); every `dod_met` family is now also `complete`, so the overall percentage
+(breadth) now advances only when a new family is started and bound out. Coverage percentage reflects `@binds` annotations
 relative to the 1,027-function denominator. Run `pixi run coverage-binding` for live numbers.
 
 | Family | Denominator | Bound | % | DoD Target | Status |
@@ -87,11 +87,11 @@ relative to the 1,027-function denominator. Run `pixi run coverage-binding` for 
 | log | 12 | 0 | 0% | L2 | not started |
 | context | 9 | 2 | 22% | L2 | partial — context_init/config_init bound via device null-backend |
 | vfs | 11 | 0 | 0% | L2 | not started |
-| audio_buffer | 25 | 0 | 0% | L2 | not started |
+| audio_buffer | 25 | 25 | 100% | L3 | **complete** — L1+L2+L3, all 25 bound with 0 exclusions. Two in-memory PCM buffers: `ma_audio_buffer_ref` (a non-owning view) via `AudioBufferRef` and `ma_audio_buffer` (owning) via `AudioBuffer`. The ref and the non-copying `init` keep the caller's pointer verbatim, so the shim owns a copy of the frames; `map`/`unmap` hand out an interior pointer and are bound through a shim-owned map → memcpy → unmap step that surfaces `MA_AT_END` as the success it is. All four construction paths are covered (init / init_copy / silent / alloc_and_init). `alloc_and_init` is bound as-is despite an upstream defect in miniaudio 0.11.25 that clears the low 3 bytes of frame 0 — the binding test pins it (17 binding + 16 API tests). |
 | paged_audio_buffer | 8 | 0 | 0% | L2 | not started |
 | core | 141 | 2 | 1% | — | infrastructure (version, result_description) |
 | *others* | ~280 | 0 | 0% | — | not started |
-| **TOTAL** | **1,027** | **290** | **28.2%** (bindable 290/971 = 29.9%) | — | — |
+| **TOTAL** | **1,027** | **315** | **30.7%** (bindable 315/971 = 32.4%) | — | — |
 
 > Coverage percentage is expected to be low until families are migrated. The gates ensure
 > **everything implemented is complete and tested** — not that everything is implemented.
@@ -120,12 +120,22 @@ Planned migration order (each family follows the three-layer + TDD + gate templa
    (bytes) and `ma_pcm_rb` (frames). The shim owns miniaudio's acquire → memcpy →
    commit loop, since the interior pointer acquire hands out has no safe Mojo home;
    that loop also stitches back together requests that span the ring's wrap point.
-7. audio_buffer / paged_audio_buffer ← next
-8. converters (resampler / channel / data)
-9. nodes / effects / eq
-10. resource_manager
-11. sync / async / job_queue / log
-12. context / vfs
+7. **audio_buffer** ← **complete** (L3, 25/25): the non-owning `ma_audio_buffer_ref`
+   view and the owning `ma_audio_buffer`, both purely in-memory. Same pointer-lifetime
+   constraint as the data_source family — miniaudio stores the caller's pointer, so the
+   shim owns the copy — and the same interior-pointer constraint as ring_buffer, so
+   map/unmap is bound through a shim-owned map → memcpy → unmap step.
+   NOTE: `ma_audio_buffer_alloc_and_init` clears the low 3 bytes of the first frame in
+   miniaudio 0.11.25 (it copies the frames before `ma_audio_buffer_init_ex`, whose
+   `MA_ZERO_MEMORY(p, sizeof(*p) - sizeof(p->_pExtraData))` overshoots into the audio
+   data by the struct's trailing padding). Bound as-is and pinned by a test; prefer
+   `init_copy` when the first frame matters.
+8. paged_audio_buffer ← next
+9. converters (resampler / channel / data)
+10. nodes / effects / eq
+11. resource_manager
+12. sync / async / job_queue / log
+13. context / vfs
 
 On completion of each family:
 - Add shim functions with `@binds` to `src/native/ma_shim.{h,c}`
