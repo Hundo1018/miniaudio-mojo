@@ -62,6 +62,21 @@ from miniaudio.audio_buffer import (
     AudioBuffer,
     AudioBufferRef,
 )
+from miniaudio.sync import (
+    Mutex,
+    Event,
+    Semaphore,
+    Fence,
+    AsyncPoll,
+    AsyncEvent,
+    JobQueue,
+    Log,
+    SlotAllocator,
+    LOG_LEVEL_ERROR,
+    LOG_LEVEL_WARNING,
+    LOG_LEVEL_INFO,
+    LOG_LEVEL_DEBUG,
+)
 from miniaudio.resource_manager import (
     ResourceManager,
     ResourceDataBuffer,

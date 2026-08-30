@@ -56,17 +56,17 @@ but left the global percentage low and the big families mostly unbound. Going fo
    `paged_audio_buffer` (16), `resampler` (13), `channel_converter` (8), `data_converter` (16),
    `biquad` (13), `lpf` (31), `hpf` (28), `bpf` (20), `notch` (12), `peak_eq` (12), `loshelf` (12)
    `hishelf` (12), `node` (23), `node_graph` (9), `delay_node` (9), `splitter_node` (3) and
-   `resource_manager` (64, of which 56 bindable). The next lever is starting (and completing) a new
-   family per the roadmap.
+   `resource_manager` (64, of which 56 bindable), `sync` (24), `job_queue` (9), `log` (9) and
+   `slot_allocator` (7). The next lever is starting (and completing) a new family per the roadmap.
 
 ## Family Status Matrix
 
 All families not yet started are `dod_met=false`. The Status column reports the **depth** axis
-(`dod_met`) and, where reached, the **breadth** axis (`complete`). Twenty-eight families are now
+(`dod_met`) and, where reached, the **breadth** axis (`complete`). Thirty-two families are now
 `complete` (decoder, encoder, engine, sound, sound_group, waveform, noise, device, data_source,
 ring_buffer, audio_buffer, paged_audio_buffer, resampler, channel_converter, data_converter, biquad,
 lpf, hpf, bpf, notch, peak_eq, loshelf, hishelf, node, node_graph, delay_node, splitter_node,
-resource_manager); every `dod_met` family is now also `complete`, so the overall percentage
+resource_manager, sync, job_queue, log, slot_allocator); every `dod_met` family is now also `complete`, so the overall percentage
 (breadth) now advances only when a new family is started and bound out. Coverage percentage reflects `@binds` annotations
 relative to the 1,027-function denominator. Run `pixi run coverage-binding` for live numbers.
 
@@ -99,15 +99,17 @@ relative to the 1,027-function denominator. Run `pixi run coverage-binding` for 
 | hishelf | 12 | 12 | 100% | L3 | **complete** — L1+L2+L3, all 12 bound with 0 exclusions. The mirror image of the low shelf (5 binding + 7 API tests). |
 | lpf | 31 | 31 | 100% | L3 | **complete** — L1+L2+L3, all 31 bound with 0 exclusions. `Lpf1`, `Lpf2`, `Lpf` and `LpfNode`, asserted by the defining property (DC survives, frame-to-frame alternation does not). Pins an upstream bug: `ma_lpf1_clear_cache` zeroes the filter *coefficient* rather than the delay register, de-tuning the filter into a pass-through — call reinit afterwards (12 binding + 9 API tests). |
 | hpf | 28 | 28 | 100% | L3 | **complete** — L1+L2+L3, all 28 bound with 0 exclusions. `Hpf1`, `Hpf2`, `Hpf` and `HpfNode`. No `clear_cache` exists upstream for this family. Pins what `ma_hpf1` really is: DC gain α/(2−α) ≈ 0.78 at 1 kHz / 48 kHz against a Nyquist gain of 1 — a gentle shelf, not a true high-pass; `ma_hpf2` and even-order `ma_hpf` do reject DC (11 binding + 9 API tests). |
-| sync | 24 | 0 | 0% | L2 | not started |
-| log | 12 | 0 | 0% | L2 | not started |
+| sync | 24 | 24 | 100% | L3 | **complete** — L1+L2+L3, all 24 bound with 0 exclusions. Mutex, event, semaphore, fence and both async notification shapes. Every waiting call is bound and exercised, always after a signal so nothing blocks. Pins an upstream bug: `ma_async_notification_signal` fires the callback then returns `MA_INVALID_ARGS` on its success path (6 binding + 6 API tests). |
+| job_queue | 9 | 9 | 100% | L3 | **complete** — L1+L2+L3, all 9 bound with 0 exclusions. `ma_job` never crosses into Mojo: the queue works through a shim-owned job slot (4 binding + 4 API tests). |
+| slot_allocator | 7 | 7 | 100% | L3 | **complete** — L1+L2+L3, all 7 bound with 0 exclusions (4 binding + 3 API tests). |
+| log | 9 | 9 | 100% | L3 | **complete** — L1+L2+L3, all 9 bound with 0 exclusions. The shim owns a counting callback, since a log callback has to be a C function, and wraps `ma_log_postv`'s va_list in a variadic forwarder, so all three posting shapes are reachable (5 binding + 5 API tests). |
 | context | 9 | 2 | 22% | L2 | partial — context_init/config_init bound via device null-backend |
 | vfs | 11 | 0 | 0% | L2 | not started |
 | audio_buffer | 25 | 25 | 100% | L3 | **complete** — L1+L2+L3, all 25 bound with 0 exclusions. Two in-memory PCM buffers: `ma_audio_buffer_ref` (a non-owning view) via `AudioBufferRef` and `ma_audio_buffer` (owning) via `AudioBuffer`. The ref and the non-copying `init` keep the caller's pointer verbatim, so the shim owns a copy of the frames; `map`/`unmap` hand out an interior pointer and are bound through a shim-owned map → memcpy → unmap step that surfaces `MA_AT_END` as the success it is. All four construction paths are covered (init / init_copy / silent / alloc_and_init). `alloc_and_init` is bound as-is despite an upstream defect in miniaudio 0.11.25 that clears the low 3 bytes of frame 0 — the binding test pins it (17 binding + 16 API tests). |
 | paged_audio_buffer | 16 | 16 | 100% | L3 | **complete** — L1+L2+L3, all 16 bound with 0 exclusions. An expandable page list plus a live reader, via `PagedAudioBuffer`. Pages are raw pointers with no safe Mojo home, so `allocate_page` parks a page in a handle slot and returns its index for `append_page` / `free_page`; `get_head`/`get_tail` bind as the page's frame count plus whether the list is still empty. `read_pcm_frames` returns `MA_AT_END` whenever it consumes the final page — a success, surfaced as such (13 binding + 11 API tests). |
 | core | 141 | 2 | 1% | — | infrastructure (version, result_description) |
-| *others* | ~120 | 0 | 0% | — | not started |
-| **TOTAL** | **1,027** | **608** | **59.2%** (bindable 608/971 = 62.6%) | — | — |
+| *others* | ~104 | 0 | 0% | — | not started |
+| **TOTAL** | **1,027** | **656** | **63.9%** (bindable 656/971 = 67.6%) | — | — |
 
 > Coverage percentage is expected to be low until families are migrated. The gates ensure
 > **everything implemented is complete and tested** — not that everything is implemented.
@@ -171,7 +173,12 @@ Planned migration order (each family follows the three-layer + TDD + gate templa
     zero job threads and the queue pumped by hand so an asynchronous family is
     deterministic — except streams, which need a real job thread because
     `data_stream_uninit` always waits on a free job with no way to opt out.
-12. sync / async / job_queue / log
+12. **sync / job_queue / log / slot_allocator** ← **complete** (L3, 24/24, 9/9,
+    9/9, 7/7): the primitives miniaudio builds everything else out of. Two need
+    C the shim supplies — a log callback and a va_list — and `ma_job` never
+    crosses into Mojo, working through a shim-owned job slot instead.
+    NOTE: `ma_async_notification_signal` returns MA_INVALID_ARGS on its success
+    path in miniaudio 0.11.25. The signal lands; only the code is wrong.
 13. context / vfs
 
 On completion of each family:

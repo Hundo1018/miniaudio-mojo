@@ -103,14 +103,16 @@
       "notes": "L1+L2+L3 COMPLETE: all 13 of 13 functions bound, 0 excluded. The raw biquad plus its node-graph variant. Pure DSP -- the filter needs nothing, and the node only needs an engine on the null backend. Both init paths are bound (managed heap, and get_heap_size + init_preallocated with a shim-owned block) and asserted to filter identically. Behaviour is pinned with the identity coefficients (b0=1, rest 0), which pass audio through untouched, so the tests do not depend on any particular filter response. ma_biquad_clear_cache correctly zeroes the delay registers, unlike ma_lpf1_clear_cache -- see the lpf notes. 10 binding + 8 API tests."
     },
     "sync": {
-      "dod_met": false,
-      "dod_level": "L2",
-      "notes": "not yet started"
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 24 of 24 functions bound, 0 excluded. Mutex, event, semaphore, fence and both async notification shapes, all plain in-memory primitives. Every waiting call is bound and exercised -- always after a signal, a release, or on a fence already back at zero, so nothing blocks the test thread. Pins an upstream bug in miniaudio 0.11.25: ma_async_notification_signal fires the notification's callback and then returns MA_INVALID_ARGS -- its success path returns an error code. The signal itself lands, which the is_signalled check proves, so the raw layer reports the code unchanged while AsyncPoll.signal absorbs it; raising there would make the call unusable for the one thing it does. 6 binding + 6 API tests."
     },
     "log": {
-      "dod_met": false,
-      "dod_level": "L2",
-      "notes": "not yet started"
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 9 of 9 functions bound, 0 excluded. A log callback has to be a C function, so the shim owns one that counts the messages it is handed -- that count is how Mojo observes registration, posting and unregistration taking effect. ma_log_postv takes a va_list, which the shim builds in a variadic wrapper forwarding one string argument, so all three posting shapes (post / postf / postv) are reachable. 5 binding + 5 API tests."
     },
     "context": {
       "dod_met": false,
@@ -193,6 +195,18 @@
       "dod_level": "L3",
       "complete": true,
       "notes": "L1+L2+L3 COMPLETE: all 3 of 3 functions bound, 0 excluded. One input, two identical outputs; attaching both output buses to the endpoint sums the signal with itself, which is how the test shows both buses carry the same audio. 4 binding + 3 API tests."
+    },
+    "job_queue": {
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 9 of 9 functions bound, 0 excluded. ma_job has no safe Mojo home, so the queue works through a single job slot the shim keeps: post builds and queues a job of a given type code, next pops one into the slot and reports its type, process runs what is in the slot. Both init paths are covered. A quit job comes back labelled MA_CANCELLED from next, which is the label rather than a failure. 4 binding + 4 API tests."
+    },
+    "slot_allocator": {
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 7 of 7 functions bound, 0 excluded. The lock-free slot allocator behind the job queue, with both init paths covered and distinct slots asserted across two claims. 4 binding + 3 API tests."
     }
   }
 }
