@@ -801,3 +801,268 @@ int ma_shim_data_converter_reset(void* handle) {
     }
     return (int)ma_data_converter_reset(&h->converter);
 }
+
+/* ================= ma_linear_resampler ================= */
+
+typedef struct ma_shim_linear_resampler_handle {
+    ma_linear_resampler resampler;
+    void*               heap;
+    int                 initialized;
+} ma_shim_linear_resampler_handle;
+
+static void linear_resampler_teardown(ma_shim_linear_resampler_handle* h) {
+    if (h->initialized) {
+        ma_linear_resampler_uninit(&h->resampler, NULL);
+        h->initialized = 0;
+    }
+    free(h->heap);
+    h->heap = NULL;
+}
+
+static ma_shim_linear_resampler_handle* linear_resampler_ready(void* handle) {
+    ma_shim_linear_resampler_handle* h = (ma_shim_linear_resampler_handle*)handle;
+    if (h == NULL || !h->initialized) {
+        return NULL;
+    }
+    return h;
+}
+
+static ma_linear_resampler_config linear_resampler_config(
+    int format, unsigned int channels, unsigned int rate_in, unsigned int rate_out
+) {
+    return ma_linear_resampler_config_init(
+        (ma_format)format, (ma_uint32)channels, (ma_uint32)rate_in, (ma_uint32)rate_out);
+}
+
+void* ma_shim_linear_resampler_alloc(void) {
+    return calloc(1, sizeof(ma_shim_linear_resampler_handle));
+}
+
+/* @binds ma_linear_resampler_uninit */
+void ma_shim_linear_resampler_free(void* handle) {
+    ma_shim_linear_resampler_handle* h = (ma_shim_linear_resampler_handle*)handle;
+    if (h == NULL) {
+        return;
+    }
+    linear_resampler_teardown(h);
+    free(h);
+}
+
+/* @binds ma_linear_resampler_config_init, ma_linear_resampler_get_heap_size */
+int ma_shim_linear_resampler_get_heap_size(
+    int                 format,
+    unsigned int        channels,
+    unsigned int        sample_rate_in,
+    unsigned int        sample_rate_out,
+    unsigned long long* out_heap_size
+) {
+    ma_linear_resampler_config config;
+    size_t                     size = 0;
+    ma_result                  result;
+
+    if (out_heap_size == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    *out_heap_size = 0;
+    config = linear_resampler_config(format, channels, sample_rate_in, sample_rate_out);
+    result = ma_linear_resampler_get_heap_size(&config, &size);
+    *out_heap_size = (unsigned long long)size;
+    return (int)result;
+}
+
+/* @binds ma_linear_resampler_config_init, ma_linear_resampler_init */
+int ma_shim_linear_resampler_init(
+    void*        handle,
+    int          format,
+    unsigned int channels,
+    unsigned int sample_rate_in,
+    unsigned int sample_rate_out
+) {
+    ma_shim_linear_resampler_handle* h = (ma_shim_linear_resampler_handle*)handle;
+    ma_linear_resampler_config       config;
+    ma_result                        result;
+
+    if (h == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    linear_resampler_teardown(h);
+
+    config = linear_resampler_config(format, channels, sample_rate_in, sample_rate_out);
+    result = ma_linear_resampler_init(&config, NULL, &h->resampler);
+    if (result == MA_SUCCESS) {
+        h->initialized = 1;
+    }
+    return (int)result;
+}
+
+/* @binds ma_linear_resampler_config_init, ma_linear_resampler_get_heap_size, ma_linear_resampler_init_preallocated */
+int ma_shim_linear_resampler_init_preallocated(
+    void*        handle,
+    int          format,
+    unsigned int channels,
+    unsigned int sample_rate_in,
+    unsigned int sample_rate_out
+) {
+    ma_shim_linear_resampler_handle* h = (ma_shim_linear_resampler_handle*)handle;
+    ma_linear_resampler_config       config;
+    size_t                           heap_size = 0;
+    void*                            heap = NULL;
+    ma_result                        result;
+
+    if (h == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    linear_resampler_teardown(h);
+
+    config = linear_resampler_config(format, channels, sample_rate_in, sample_rate_out);
+    result = ma_linear_resampler_get_heap_size(&config, &heap_size);
+    if (result != MA_SUCCESS) {
+        return (int)result;
+    }
+    if (heap_size > 0) {
+        heap = calloc(1, heap_size);
+        if (heap == NULL) {
+            return MA_OUT_OF_MEMORY;
+        }
+    }
+
+    result = ma_linear_resampler_init_preallocated(&config, heap, &h->resampler);
+    if (result == MA_SUCCESS) {
+        h->heap = heap;
+        h->initialized = 1;
+    } else {
+        free(heap);
+    }
+    return (int)result;
+}
+
+/* @binds ma_linear_resampler_uninit */
+int ma_shim_linear_resampler_uninit(void* handle) {
+    ma_shim_linear_resampler_handle* h = (ma_shim_linear_resampler_handle*)handle;
+    if (h == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    linear_resampler_teardown(h);
+    return MA_SUCCESS;
+}
+
+/* @binds ma_linear_resampler_process_pcm_frames */
+int ma_shim_linear_resampler_process(
+    void*               handle,
+    const void*         frames_in,
+    unsigned long long* frame_count_in,
+    void*               frames_out,
+    unsigned long long* frame_count_out
+) {
+    ma_shim_linear_resampler_handle* h = linear_resampler_ready(handle);
+    ma_uint64                        in_count;
+    ma_uint64                        out_count;
+    ma_result                        result;
+
+    if (h == NULL || frame_count_in == NULL || frame_count_out == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    in_count = (ma_uint64)*frame_count_in;
+    out_count = (ma_uint64)*frame_count_out;
+
+    result = ma_linear_resampler_process_pcm_frames(
+        &h->resampler, frames_in, &in_count, frames_out, &out_count);
+
+    *frame_count_in = (unsigned long long)in_count;
+    *frame_count_out = (unsigned long long)out_count;
+    return (int)result;
+}
+
+/* @binds ma_linear_resampler_set_rate */
+int ma_shim_linear_resampler_set_rate(
+    void* handle, unsigned int rate_in, unsigned int rate_out
+) {
+    ma_shim_linear_resampler_handle* h = linear_resampler_ready(handle);
+    if (h == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    return (int)ma_linear_resampler_set_rate(
+        &h->resampler, (ma_uint32)rate_in, (ma_uint32)rate_out);
+}
+
+/* @binds ma_linear_resampler_set_rate_ratio */
+int ma_shim_linear_resampler_set_rate_ratio(void* handle, float ratio) {
+    ma_shim_linear_resampler_handle* h = linear_resampler_ready(handle);
+    if (h == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    return (int)ma_linear_resampler_set_rate_ratio(&h->resampler, ratio);
+}
+
+/* @binds ma_linear_resampler_get_input_latency */
+int ma_shim_linear_resampler_get_input_latency(
+    void* handle, unsigned long long* out_latency
+) {
+    ma_shim_linear_resampler_handle* h = linear_resampler_ready(handle);
+    if (out_latency != NULL) { *out_latency = 0; }
+    if (h == NULL || out_latency == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    *out_latency =
+        (unsigned long long)ma_linear_resampler_get_input_latency(&h->resampler);
+    return MA_SUCCESS;
+}
+
+/* @binds ma_linear_resampler_get_output_latency */
+int ma_shim_linear_resampler_get_output_latency(
+    void* handle, unsigned long long* out_latency
+) {
+    ma_shim_linear_resampler_handle* h = linear_resampler_ready(handle);
+    if (out_latency != NULL) { *out_latency = 0; }
+    if (h == NULL || out_latency == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    *out_latency =
+        (unsigned long long)ma_linear_resampler_get_output_latency(&h->resampler);
+    return MA_SUCCESS;
+}
+
+/* @binds ma_linear_resampler_get_required_input_frame_count */
+int ma_shim_linear_resampler_get_required_input_frame_count(
+    void* handle, unsigned long long output_frame_count, unsigned long long* out_count
+) {
+    ma_shim_linear_resampler_handle* h = linear_resampler_ready(handle);
+    ma_uint64                        count = 0;
+    ma_result                        result;
+
+    if (out_count != NULL) { *out_count = 0; }
+    if (h == NULL || out_count == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    result = ma_linear_resampler_get_required_input_frame_count(
+        &h->resampler, (ma_uint64)output_frame_count, &count);
+    *out_count = (unsigned long long)count;
+    return (int)result;
+}
+
+/* @binds ma_linear_resampler_get_expected_output_frame_count */
+int ma_shim_linear_resampler_get_expected_output_frame_count(
+    void* handle, unsigned long long input_frame_count, unsigned long long* out_count
+) {
+    ma_shim_linear_resampler_handle* h = linear_resampler_ready(handle);
+    ma_uint64                        count = 0;
+    ma_result                        result;
+
+    if (out_count != NULL) { *out_count = 0; }
+    if (h == NULL || out_count == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    result = ma_linear_resampler_get_expected_output_frame_count(
+        &h->resampler, (ma_uint64)input_frame_count, &count);
+    *out_count = (unsigned long long)count;
+    return (int)result;
+}
+
+/* @binds ma_linear_resampler_reset */
+int ma_shim_linear_resampler_reset(void* handle) {
+    ma_shim_linear_resampler_handle* h = linear_resampler_ready(handle);
+    if (h == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    return (int)ma_linear_resampler_reset(&h->resampler);
+}

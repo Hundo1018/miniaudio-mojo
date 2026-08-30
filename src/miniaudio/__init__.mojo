@@ -133,6 +133,7 @@ from miniaudio.filter import (
 )
 from miniaudio.converter import (
     Resampler,
+    LinearResampler,
     ChannelConverter,
     DataConverter,
     ConversionResult,

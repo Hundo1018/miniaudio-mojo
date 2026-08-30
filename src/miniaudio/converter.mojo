@@ -538,3 +538,163 @@ struct DataConverter(Movable):
     def __deinit__(deinit self):
         if self._ptr != null_handle():
             raw.data_converter_free(self._lib[], self._ptr)
+
+
+struct LinearResampler(Movable):
+    """miniaudio's linear resampler (RAII).
+
+    This is the algorithm `Resampler` drives underneath when set to linear;
+    it is bound in its own right too, with the same shape minus the algorithm
+    selector.
+    """
+
+    var _lib: ArcPointer[MaLib]
+    var _ptr: OpaquePointer[MutUntrackedOrigin]
+    var _channels: UInt32
+
+    def __init__(
+        out self,
+        var lib: ArcPointer[MaLib],
+        ptr: OpaquePointer[MutUntrackedOrigin],
+        channels: UInt32,
+    ):
+        self._lib = lib^
+        self._ptr = ptr
+        self._channels = channels
+
+    @staticmethod
+    def heap_size(
+        lib: ArcPointer[MaLib],
+        *,
+        sample_rate_in: UInt32,
+        sample_rate_out: UInt32,
+        channels: UInt32 = 1,
+        format: SampleFormat = SAMPLE_FORMAT_F32,
+    ) raises -> UInt64:
+        var rc = raw.linear_resampler_get_heap_size(
+            lib[], format.code, channels, sample_rate_in, sample_rate_out
+        )
+        if rc.result != MA_SUCCESS:
+            raise Error(lib[].describe("linear resampler heap size failed", rc.result))
+        return rc.value
+
+    @staticmethod
+    def create(
+        lib: ArcPointer[MaLib],
+        *,
+        sample_rate_in: UInt32,
+        sample_rate_out: UInt32,
+        channels: UInt32 = 1,
+        format: SampleFormat = SAMPLE_FORMAT_F32,
+        preallocated: Bool = False,
+    ) raises -> Self:
+        """`preallocated` routes init through miniaudio's preallocated-heap path."""
+        var ptr = raw.linear_resampler_alloc(lib[])
+        if ptr == null_handle():
+            raise Error("linear_resampler_alloc failed (out of memory)")
+
+        var code: Int
+        if preallocated:
+            code = raw.linear_resampler_init_preallocated(
+                lib[], ptr, format.code, channels, sample_rate_in, sample_rate_out
+            )
+        else:
+            code = raw.linear_resampler_init(
+                lib[], ptr, format.code, channels, sample_rate_in, sample_rate_out
+            )
+        if code != MA_SUCCESS:
+            raw.linear_resampler_free(lib[], ptr)
+            raise Error(lib[].describe("linear resampler init failed", code))
+        return Self(lib.copy(), ptr, channels)
+
+    def process(
+        mut self, input: List[Float32], max_output_frames: UInt64
+    ) raises -> ConversionResult:
+        """Convert `input`, producing at most max_output_frames frames."""
+        var input_frames = UInt64(len(input)) // UInt64(self._channels)
+        var samples = Int(max_output_frames) * Int(self._channels)
+        var buf = List[Float32](capacity=samples)
+        buf.resize(samples, Float32(0))
+
+        var rc = raw.linear_resampler_process(
+            self._lib[], self._ptr, input, input_frames, buf, max_output_frames
+        )
+        if rc.result != MA_SUCCESS:
+            raise Error(
+                self._lib[].describe("linear resampler process failed", rc.result)
+            )
+        buf.resize(Int(rc.frames_out) * Int(self._channels), Float32(0))
+        return ConversionResult(rc.frames_in, buf^)
+
+    def set_rate(mut self, sample_rate_in: UInt32, sample_rate_out: UInt32) raises:
+        var code = raw.linear_resampler_set_rate(
+            self._lib[], self._ptr, sample_rate_in, sample_rate_out
+        )
+        if code != MA_SUCCESS:
+            raise Error(self._lib[].describe("linear resampler set_rate failed", code))
+
+    def set_rate_ratio(mut self, ratio: Float32) raises:
+        """Input rate as a multiple of the output rate: 2.0 halves the rate."""
+        var code = raw.linear_resampler_set_rate_ratio(self._lib[], self._ptr, ratio)
+        if code != MA_SUCCESS:
+            raise Error(
+                self._lib[].describe("linear resampler set_rate_ratio failed", code)
+            )
+
+    def input_latency(self) raises -> UInt64:
+        var rc = raw.linear_resampler_get_input_latency(self._lib[], self._ptr)
+        if rc.result != MA_SUCCESS:
+            raise Error(
+                self._lib[].describe("linear resampler input latency failed", rc.result)
+            )
+        return rc.value
+
+    def output_latency(self) raises -> UInt64:
+        var rc = raw.linear_resampler_get_output_latency(self._lib[], self._ptr)
+        if rc.result != MA_SUCCESS:
+            raise Error(
+                self._lib[].describe(
+                    "linear resampler output latency failed", rc.result
+                )
+            )
+        return rc.value
+
+    def required_input_frames(self, output_frame_count: UInt64) raises -> UInt64:
+        var rc = raw.linear_resampler_get_required_input_frame_count(
+            self._lib[], self._ptr, output_frame_count
+        )
+        if rc.result != MA_SUCCESS:
+            raise Error(
+                self._lib[].describe(
+                    "linear resampler required input failed", rc.result
+                )
+            )
+        return rc.value
+
+    def expected_output_frames(self, input_frame_count: UInt64) raises -> UInt64:
+        var rc = raw.linear_resampler_get_expected_output_frame_count(
+            self._lib[], self._ptr, input_frame_count
+        )
+        if rc.result != MA_SUCCESS:
+            raise Error(
+                self._lib[].describe(
+                    "linear resampler expected output failed", rc.result
+                )
+            )
+        return rc.value
+
+    def reset(mut self) raises:
+        """Clear the filter state, as if no frames had been processed."""
+        var code = raw.linear_resampler_reset(self._lib[], self._ptr)
+        if code != MA_SUCCESS:
+            raise Error(self._lib[].describe("linear resampler reset failed", code))
+
+    def uninit(mut self) raises:
+        """Release the converter early; the handle stays valid but empty."""
+        var code = raw.linear_resampler_uninit(self._lib[], self._ptr)
+        if code != MA_SUCCESS:
+            raise Error(self._lib[].describe("linear resampler uninit failed", code))
+
+    def __deinit__(deinit self):
+        if self._ptr != null_handle():
+            raw.linear_resampler_free(self._lib[], self._ptr)

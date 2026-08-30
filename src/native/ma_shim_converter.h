@@ -224,6 +224,55 @@ int ma_shim_data_converter_get_output_channel_map(
 );
 int ma_shim_data_converter_reset(void* handle);
 
+/* ================= ma_linear_resampler ================= */
+
+/* miniaudio's linear resampler is what ma_resampler drives underneath when the
+ * algorithm is linear. It is bound in its own right too, with the same shape as
+ * ma_resampler minus the algorithm selector. */
+
+void* ma_shim_linear_resampler_alloc(void);
+void  ma_shim_linear_resampler_free(void* handle);
+
+int ma_shim_linear_resampler_get_heap_size(
+    int                 format,
+    unsigned int        channels,
+    unsigned int        sample_rate_in,
+    unsigned int        sample_rate_out,
+    unsigned long long* out_heap_size
+);
+int ma_shim_linear_resampler_init(
+    void*        handle,
+    int          format,
+    unsigned int channels,
+    unsigned int sample_rate_in,
+    unsigned int sample_rate_out
+);
+int ma_shim_linear_resampler_init_preallocated(
+    void*        handle,
+    int          format,
+    unsigned int channels,
+    unsigned int sample_rate_in,
+    unsigned int sample_rate_out
+);
+int ma_shim_linear_resampler_uninit(void* handle);
+int ma_shim_linear_resampler_process(
+    void*               handle,
+    const void*         frames_in,
+    unsigned long long* frame_count_in,
+    void*               frames_out,
+    unsigned long long* frame_count_out
+);
+int ma_shim_linear_resampler_set_rate(
+    void* handle, unsigned int rate_in, unsigned int rate_out);
+int ma_shim_linear_resampler_set_rate_ratio(void* handle, float ratio);
+int ma_shim_linear_resampler_get_input_latency(void* handle, unsigned long long* out_latency);
+int ma_shim_linear_resampler_get_output_latency(void* handle, unsigned long long* out_latency);
+int ma_shim_linear_resampler_get_required_input_frame_count(
+    void* handle, unsigned long long output_frame_count, unsigned long long* out_count);
+int ma_shim_linear_resampler_get_expected_output_frame_count(
+    void* handle, unsigned long long input_frame_count, unsigned long long* out_count);
+int ma_shim_linear_resampler_reset(void* handle);
+
 #ifdef __cplusplus
 }
 #endif

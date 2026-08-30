@@ -209,6 +209,12 @@
       "dod_level": "L3",
       "complete": true,
       "notes": "L1+L2+L3 COMPLETE: all 7 of 7 functions bound, 0 excluded. The lock-free slot allocator behind the job queue, with both init paths covered and distinct slots asserted across two claims. 4 binding + 3 API tests."
+    },
+    "linear_resampler": {
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 13 of 13 functions bound, 0 excluded. The algorithm ma_resampler drives underneath when set to linear, bound in its own right with the same shape minus the algorithm selector, and sharing the converter shim. Both init paths are covered and asserted to produce identical audio. The strongest test compares it directly against ma_resampler configured for linear at the same rates: the two agree frame for frame, which is what makes binding both meaningful rather than redundant. Unlike ma_data_converter, its reset does restore a cold run. 8 binding + 7 API tests."
     }
   }
 }

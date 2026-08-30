@@ -64,11 +64,11 @@ but left the global percentage low and the big families mostly unbound. Going fo
 ## Family Status Matrix
 
 All families not yet started are `dod_met=false`. The Status column reports the **depth** axis
-(`dod_met`) and, where reached, the **breadth** axis (`complete`). Thirty-four families are now
+(`dod_met`) and, where reached, the **breadth** axis (`complete`). Thirty-five families are now
 `complete` (decoder, encoder, engine, sound, sound_group, waveform, noise, device, data_source,
 ring_buffer, audio_buffer, paged_audio_buffer, resampler, channel_converter, data_converter, biquad,
 lpf, hpf, bpf, notch, peak_eq, loshelf, hishelf, node, node_graph, delay_node, splitter_node,
-resource_manager, sync, job_queue, log, slot_allocator, context, vfs); every `dod_met` family is now also `complete`, so the overall percentage
+resource_manager, sync, job_queue, log, slot_allocator, context, vfs, linear_resampler); every `dod_met` family is now also `complete`, so the overall percentage
 (breadth) now advances only when a new family is started and bound out. Coverage percentage reflects `@binds` annotations
 relative to the 1,027-function denominator. Run `pixi run coverage-binding` for live numbers.
 
@@ -91,6 +91,7 @@ relative to the 1,027-function denominator. Run `pixi run coverage-binding` for 
 | channel_converter | 8 | 8 | 100% | L3 | **complete** — L1+L2+L3, all 8 bound with 0 exclusions. Channel count / map conversion via `ChannelConverter`, both init paths (managed heap and shim-owned preallocated heap) asserted to convert identically. Two upstream behaviours pinned: a mono *output* always averages regardless of mix mode, and init validates channel counts but not the sample format (10 binding + 9 API tests). |
 | data_converter | 16 | 16 | 100% | L3 | **complete** — L1+L2+L3, all 16 bound with 0 exclusions. Format + channels + rate in one pipeline via `DataConverter`, including the `config_init_default` path. Pins an upstream limitation: `reset` resets the resampler but does not restore a cold pipeline, so a reset converter and a fresh one produce different first frames — rebuild when bit-identical restarts matter (11 binding + 11 API tests). |
 | resampler | 13 | 13 | 100% | L3 | **complete** — L1+L2+L3, all 13 bound with 0 exclusions. Sample-rate conversion via `Resampler`, both init paths asserted to produce identical audio. `process` keeps miniaudio's by-reference frame counts (requests in, actuals out) and the tests pin output against the converter's own `get_expected_output_frame_count`. `set_rate_ratio` takes miniaudio's input-over-output ratio, so 2.0 halves the rate (10 binding + 10 API tests). |
+| linear_resampler | 13 | 13 | 100% | L3 | **complete** — L1+L2+L3, all 13 bound with 0 exclusions. The algorithm `Resampler` drives underneath on linear, bound in its own right and sharing the converter shim. A test compares it directly against `Resampler` at the same rates — the two agree frame for frame (8 binding + 7 API tests). |
 | waveform | 9 | 9 | 100% | L3 | **complete** — L1+L2+L3 (8 binding + 7 API tests) |
 | noise | 9 | 6 | 67% | L3 | **complete** — L1+L2+L3, all bindable fns bound (8 binding + 7 API tests). set_type excluded (deprecated, asserts false). get_heap_size/init_preallocated excluded (internal). |
 | biquad | 13 | 13 | 100% | L3 | **complete** — L1+L2+L3, all 13 bound with 0 exclusions. The raw biquad via `Biquad` plus `BiquadNode` in an engine's graph. Behaviour is pinned with the identity coefficients (b0=1, rest 0), which pass audio through untouched, so the tests do not lean on any particular filter response (10 binding + 8 API tests). |
@@ -110,8 +111,8 @@ relative to the 1,027-function denominator. Run `pixi run coverage-binding` for 
 | audio_buffer | 25 | 25 | 100% | L3 | **complete** — L1+L2+L3, all 25 bound with 0 exclusions. Two in-memory PCM buffers: `ma_audio_buffer_ref` (a non-owning view) via `AudioBufferRef` and `ma_audio_buffer` (owning) via `AudioBuffer`. The ref and the non-copying `init` keep the caller's pointer verbatim, so the shim owns a copy of the frames; `map`/`unmap` hand out an interior pointer and are bound through a shim-owned map → memcpy → unmap step that surfaces `MA_AT_END` as the success it is. All four construction paths are covered (init / init_copy / silent / alloc_and_init). `alloc_and_init` is bound as-is despite an upstream defect in miniaudio 0.11.25 that clears the low 3 bytes of frame 0 — the binding test pins it (17 binding + 16 API tests). |
 | paged_audio_buffer | 16 | 16 | 100% | L3 | **complete** — L1+L2+L3, all 16 bound with 0 exclusions. An expandable page list plus a live reader, via `PagedAudioBuffer`. Pages are raw pointers with no safe Mojo home, so `allocate_page` parks a page in a handle slot and returns its index for `append_page` / `free_page`; `get_head`/`get_tail` bind as the page's frame count plus whether the list is still empty. `read_pcm_frames` returns `MA_AT_END` whenever it consumes the final page — a success, surfaced as such (13 binding + 11 API tests). |
 | core | 141 | 2 | 1% | — | infrastructure (version, result_description) |
-| *others* | ~104 | 0 | 0% | — | not started |
-| **TOTAL** | **1,027** | **679** | **66.1%** (bindable 679/971 = 69.9%) | — | — |
+| *others* | ~91 | 0 | 0% | — | not started |
+| **TOTAL** | **1,027** | **692** | **67.4%** (bindable 692/971 = 71.3%) | — | — |
 
 > Coverage percentage is expected to be low until families are migrated. The gates ensure
 > **everything implemented is complete and tested** — not that everything is implemented.
@@ -187,8 +188,8 @@ Planned migration order (each family follows the three-layer + TDD + gate templa
     `_or_default` entry-point families.
 
 **The original roadmap is finished.** What remains is the unlisted rest of the
-API: `core` (141), `pcm_convert` (64), `spatializer` (57), `format_util` (27),
-`linear_resampler` (13) and scattered leftovers in already-complete families.
+API: `core` (141), `pcm_convert` (64), `spatializer` (57), `format_util` (27) and scattered
+leftovers in already-complete families. `linear_resampler` (13) is done.
 
 On completion of each family:
 - Add shim functions with `@binds` to `src/native/ma_shim.{h,c}`
