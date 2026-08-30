@@ -55,16 +55,18 @@ but left the global percentage low and the big families mostly unbound. Going fo
    (9), `noise` (9), `data_source` (30), `ring_buffer` (38), `audio_buffer` (25),
    `paged_audio_buffer` (16), `resampler` (13), `channel_converter` (8), `data_converter` (16),
    `biquad` (13), `lpf` (31), `hpf` (28), `bpf` (20), `notch` (12), `peak_eq` (12), `loshelf` (12)
-   `hishelf` (12), `node` (23), `node_graph` (9), `delay_node` (9) and `splitter_node` (3). The next
-   lever is starting (and completing) a new family per the roadmap.
+   `hishelf` (12), `node` (23), `node_graph` (9), `delay_node` (9), `splitter_node` (3) and
+   `resource_manager` (64, of which 56 bindable). The next lever is starting (and completing) a new
+   family per the roadmap.
 
 ## Family Status Matrix
 
 All families not yet started are `dod_met=false`. The Status column reports the **depth** axis
-(`dod_met`) and, where reached, the **breadth** axis (`complete`). Twenty-seven families are now
+(`dod_met`) and, where reached, the **breadth** axis (`complete`). Twenty-eight families are now
 `complete` (decoder, encoder, engine, sound, sound_group, waveform, noise, device, data_source,
 ring_buffer, audio_buffer, paged_audio_buffer, resampler, channel_converter, data_converter, biquad,
-lpf, hpf, bpf, notch, peak_eq, loshelf, hishelf, node, node_graph, delay_node, splitter_node); every `dod_met` family is now also `complete`, so the overall percentage
+lpf, hpf, bpf, notch, peak_eq, loshelf, hishelf, node, node_graph, delay_node, splitter_node,
+resource_manager); every `dod_met` family is now also `complete`, so the overall percentage
 (breadth) now advances only when a new family is started and bound out. Coverage percentage reflects `@binds` annotations
 relative to the 1,027-function denominator. Run `pixi run coverage-binding` for live numbers.
 
@@ -76,7 +78,7 @@ relative to the 1,027-function denominator. Run `pixi run coverage-binding` for 
 | engine | 44 | 32 | 73% | L3 | **complete** — L1+L2+L3, lifecycle/play_sound(_ex)/volume/gain/read/clock/listener-spatialization (10 binding + 8 API tests). 12 excluded: get_time/set_time (deprecated), get_device/node_graph/endpoint/log/resource_manager (raw handles), 5 engine_node_* (node subtype). |
 | sound | 84 | 75 | 89% | L3 | **complete** — L1+L2+L3, full control/spatialization/fade/scheduling/seconds-API/init_copy (12 binding + 9 API tests) |
 | sound_group | 57 | 53 | 93% | L3 | **complete** — L1+L2+L3, full control/spatialization/fade/scheduling (10 binding + 7 API tests) |
-| resource_manager | 64 | 0 | 0% | L3 | not started |
+| resource_manager | 64 | 56 | 88% | L3 | **complete** — L1+L2+L3, all 56 bindable bound; the 8 `_w` wide-char variants are excluded. The manager, its job queue, and all three data types via `ResourceManager` / `ResourceDataBuffer` / `ResourceDataStream` / `ResourceDataSource`. Driven with zero job threads and the queue pumped explicitly, so an asynchronous family stays deterministic. `get_log` binds as presence; the job queue binds through a shim-owned job slot. `data_source_map` / `_unmap` are exported but absent from miniaudio's public header, so the shim declares them. Pins four behaviours: streams need a job thread (uninit always waits on a free job), the non-blocking flag is only valid with zero threads, `next_job` labels a quit job with `MA_CANCELLED` and that job is sticky, and mapping is streaming-only (17 binding + 9 API tests). |
 | node | 23 | 23 | 100% | L3 | **complete** — L1+L2+L3, all 23 bound with 0 exclusions. `ma_node_init` takes a caller-supplied vtable, so the shim owns a concrete node — an *offset node* that adds a constant to its input, flagged `CONTINUOUS_PROCESSING | ALLOW_NULL_INPUT` so it keeps producing with nothing attached and can act as a source. Every node handle is one tagged-union allocation, so a node can be attached to any other family without casting handle types. `get_node_graph` binds as an identity question (12 binding + 10 API tests). |
 | node_graph | 9 | 9 | 100% | L3 | **complete** — L1+L2+L3, all 9 bound with 0 exclusions. A standalone graph via `NodeGraph`, needing neither device nor engine. `get_endpoint` binds as the endpoint's input bus count plus the attach target. Pins that an empty graph reads zero frames rather than manufacturing silence (6 binding + 4 API tests). |
 | delay_node | 9 | 9 | 100% | L3 | **complete** — L1+L2+L3, all 9 bound with 0 exclusions. Pins that `dry` and `wet` are the delay line's input gain and the node's output gain, not a blend: `out = (buffer*decay + in*dry) * wet`, so `wet=0` silences the node whatever `dry` is (5 binding + 4 API tests). |
@@ -105,7 +107,7 @@ relative to the 1,027-function denominator. Run `pixi run coverage-binding` for 
 | paged_audio_buffer | 16 | 16 | 100% | L3 | **complete** — L1+L2+L3, all 16 bound with 0 exclusions. An expandable page list plus a live reader, via `PagedAudioBuffer`. Pages are raw pointers with no safe Mojo home, so `allocate_page` parks a page in a handle slot and returns its index for `append_page` / `free_page`; `get_head`/`get_tail` bind as the page's frame count plus whether the list is still empty. `read_pcm_frames` returns `MA_AT_END` whenever it consumes the final page — a success, surfaced as such (13 binding + 11 API tests). |
 | core | 141 | 2 | 1% | — | infrastructure (version, result_description) |
 | *others* | ~120 | 0 | 0% | — | not started |
-| **TOTAL** | **1,027** | **552** | **53.7%** (bindable 552/971 = 56.8%) | — | — |
+| **TOTAL** | **1,027** | **608** | **59.2%** (bindable 608/971 = 62.6%) | — | — |
 
 > Coverage percentage is expected to be low until families are migrated. The gates ensure
 > **everything implemented is complete and tested** — not that everything is implemented.
@@ -164,7 +166,11 @@ Planned migration order (each family follows the three-layer + TDD + gate templa
     loshelf and hishelf — 140 functions, every filter and every filter node type
     miniaudio ships. Still to do in the wider node group: the generic node /
     node_graph API, delay_node and splitter_node.
-11. resource_manager
+11. **resource_manager** ← **complete** (L3, 56/56 bindable): the manager, its
+    job queue, and the buffer / stream / unified data-source trio. Driven with
+    zero job threads and the queue pumped by hand so an asynchronous family is
+    deterministic — except streams, which need a real job thread because
+    `data_stream_uninit` always waits on a free job with no way to opt out.
 12. sync / async / job_queue / log
 13. context / vfs
 

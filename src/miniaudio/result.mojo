@@ -11,6 +11,7 @@ comptime MA_OUT_OF_MEMORY = Int(-4)
 comptime MA_OUT_OF_RANGE = Int(-5)
 comptime MA_DOES_NOT_EXIST = Int(-7)
 comptime MA_AT_END = Int(-17)
+comptime MA_NOT_IMPLEMENTED = Int(-29)
 comptime MA_BUSY = Int(-19)
 comptime MA_IO_ERROR = Int(-20)
 comptime MA_NO_DATA_AVAILABLE = Int(-32)
@@ -33,6 +34,8 @@ def result_name(code: Int) -> String:
         return "MA_DOES_NOT_EXIST"
     if code == MA_AT_END:
         return "MA_AT_END"
+    if code == MA_NOT_IMPLEMENTED:
+        return "MA_NOT_IMPLEMENTED"
     if code == MA_BUSY:
         return "MA_BUSY"
     if code == MA_IO_ERROR:

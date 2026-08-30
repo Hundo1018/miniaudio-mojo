@@ -62,6 +62,18 @@ from miniaudio.audio_buffer import (
     AudioBuffer,
     AudioBufferRef,
 )
+from miniaudio.resource_manager import (
+    ResourceManager,
+    ResourceDataBuffer,
+    ResourceDataStream,
+    ResourceDataSource,
+    DataFormat,
+    RESOURCE_FLAG_STREAM,
+    RESOURCE_FLAG_DECODE,
+    RESOURCE_FLAG_ASYNC,
+    RESOURCE_FLAG_WAIT_INIT,
+    RESOURCE_FLAG_LOOPING,
+)
 from miniaudio.node import (
     NodeGraph,
     OffsetNode,

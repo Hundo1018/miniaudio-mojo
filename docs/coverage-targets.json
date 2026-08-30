@@ -38,9 +38,10 @@
       "notes": "L1+L2+L3 COMPLETE: all 53 bindable of 57 functions bound. Full control (start/stop/volume/pan/pitch), spatialization (position/direction/velocity/attenuation/positioning/rolloff/gains/distances/cone/doppler/pan-mode/listener), fade (set_fade_in_pcm_frames/milliseconds + get_current_fade_volume), start/stop-time scheduling. 10 binding + 7 API tests. 4 excluded: config-struct ctors (config_init/config_init_2/init_ex), get_engine (raw non-owning ptr, mirrors sound's exclusion)."
     },
     "resource_manager": {
-      "dod_met": false,
+      "dod_met": true,
       "dod_level": "L3",
-      "notes": "not yet started"
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 56 bindable of 64 functions bound; the 8 _w wide-char variants are excluded project-wide. Covers the manager itself, its job queue, and all three data types (data_buffer, data_stream and the unified data_source). Tests drive the manager with job_thread_count=0 and the non-blocking flag and pump the queue explicitly, which makes a family built around asynchrony deterministic. ma_resource_manager_get_log returns a log pointer and ma_job is a struct, neither with a safe Mojo home: the log binds as whether one is present, and the job queue binds through a single job slot the shim keeps on the manager handle, so next_job / post_job / process_job are all reachable without Mojo holding an ma_job. ma_resource_manager_data_source_map and _unmap are exported by miniaudio but missing from its public header, so the shim declares them rather than leaving the pair unbound. Four behaviours are pinned by tests: (1) streams need a job thread -- data_stream_uninit always posts a free job and waits for it with no flag to opt out, so on a zero-thread manager a stream can be created but never torn down, since the calling thread is blocked inside uninit and cannot pump; (2) the non-blocking flag is only valid with zero job threads and is rejected with MA_INVALID_ARGS otherwise; (3) next_job reports MA_CANCELLED for a quit job -- the job struct is still filled, MA_CANCELLED is the label, not a failure -- and a quit job is sticky so process_next_job keeps reporting it, while process_job returns MA_SUCCESS because the cancel signal belongs to retrieval rather than execution; (4) mapping is streaming-only, answering MA_NOT_IMPLEMENTED on a decoded buffer. 17 binding + 9 API tests."
     },
     "node": {
       "dod_met": true,
