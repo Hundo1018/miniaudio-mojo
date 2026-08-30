@@ -115,14 +115,16 @@
       "notes": "L1+L2+L3 COMPLETE: all 9 of 9 functions bound, 0 excluded. A log callback has to be a C function, so the shim owns one that counts the messages it is handed -- that count is how Mojo observes registration, posting and unregistration taking effect. ma_log_postv takes a va_list, which the shim builds in a variadic wrapper forwarding one string argument, so all three posting shapes (post / postf / postv) are reachable. 5 binding + 5 API tests."
     },
     "context": {
-      "dod_met": false,
-      "dod_level": "L2",
-      "notes": "not yet started"
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 9 of 9 functions bound, 0 excluded. The context is built on the null backend, so enumeration returns miniaudio's synthetic devices and no hardware is touched. Three calls hand back things Mojo cannot hold and are bound as what can safely cross: ma_context_enumerate_devices takes a callback, so the shim owns one that counts what it is offered; ma_context_get_devices hands back arrays the context owns, so only their lengths cross; ma_context_get_log binds as whether a log is present. A test asserts the enumeration count equals the two array lengths added together, which is the invariant tying those two bindings together. 5 binding + 5 API tests."
     },
     "vfs": {
-      "dod_met": false,
-      "dod_level": "L2",
-      "notes": "not yet started"
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 16 bindable of 19 functions bound; the 3 _w wide-char variants are excluded project-wide. Wraps miniaudio's default (stdio) VFS. ma_vfs_file is an opaque pointer with no safe Mojo home, so an open file lives in a slot on the handle. Both entry-point families are bound: the plain ma_vfs_* calls against the shim's own VFS, and the ma_vfs_or_default_* calls with a NULL VFS, which is the fallback those functions exist for -- they get a second, independent slot. The ma_vfs_or_default_* family is exported by miniaudio but absent from its public header, so the shim declares it rather than leaving it unbound. Tests write their own fixture under build/ and assert a byte-for-byte round trip. 6 binding + 6 API tests."
     },
     "audio_buffer": {
       "dod_met": true,

@@ -57,16 +57,18 @@ but left the global percentage low and the big families mostly unbound. Going fo
    `biquad` (13), `lpf` (31), `hpf` (28), `bpf` (20), `notch` (12), `peak_eq` (12), `loshelf` (12)
    `hishelf` (12), `node` (23), `node_graph` (9), `delay_node` (9), `splitter_node` (3) and
    `resource_manager` (64, of which 56 bindable), `sync` (24), `job_queue` (9), `log` (9) and
-   `slot_allocator` (7). The next lever is starting (and completing) a new family per the roadmap.
+   `slot_allocator` (7), `context` (9) and `vfs` (19, of which 16 bindable). Every family on the
+   original roadmap is now complete; what is left is the unlisted remainder — `core`, `pcm_convert`,
+   `spatializer`, `format_util`, `linear_resampler` and the odd function still excluded elsewhere.
 
 ## Family Status Matrix
 
 All families not yet started are `dod_met=false`. The Status column reports the **depth** axis
-(`dod_met`) and, where reached, the **breadth** axis (`complete`). Thirty-two families are now
+(`dod_met`) and, where reached, the **breadth** axis (`complete`). Thirty-four families are now
 `complete` (decoder, encoder, engine, sound, sound_group, waveform, noise, device, data_source,
 ring_buffer, audio_buffer, paged_audio_buffer, resampler, channel_converter, data_converter, biquad,
 lpf, hpf, bpf, notch, peak_eq, loshelf, hishelf, node, node_graph, delay_node, splitter_node,
-resource_manager, sync, job_queue, log, slot_allocator); every `dod_met` family is now also `complete`, so the overall percentage
+resource_manager, sync, job_queue, log, slot_allocator, context, vfs); every `dod_met` family is now also `complete`, so the overall percentage
 (breadth) now advances only when a new family is started and bound out. Coverage percentage reflects `@binds` annotations
 relative to the 1,027-function denominator. Run `pixi run coverage-binding` for live numbers.
 
@@ -103,13 +105,13 @@ relative to the 1,027-function denominator. Run `pixi run coverage-binding` for 
 | job_queue | 9 | 9 | 100% | L3 | **complete** — L1+L2+L3, all 9 bound with 0 exclusions. `ma_job` never crosses into Mojo: the queue works through a shim-owned job slot (4 binding + 4 API tests). |
 | slot_allocator | 7 | 7 | 100% | L3 | **complete** — L1+L2+L3, all 7 bound with 0 exclusions (4 binding + 3 API tests). |
 | log | 9 | 9 | 100% | L3 | **complete** — L1+L2+L3, all 9 bound with 0 exclusions. The shim owns a counting callback, since a log callback has to be a C function, and wraps `ma_log_postv`'s va_list in a variadic forwarder, so all three posting shapes are reachable (5 binding + 5 API tests). |
-| context | 9 | 2 | 22% | L2 | partial — context_init/config_init bound via device null-backend |
-| vfs | 11 | 0 | 0% | L2 | not started |
+| context | 9 | 9 | 100% | L3 | **complete** — L1+L2+L3, all 9 bound with 0 exclusions. Built on the null backend so enumeration is deterministic. The enumeration callback binds as a count, the context-owned device arrays as their lengths, and the log as presence; a test pins that the count equals the two lengths added together (5 binding + 5 API tests). |
+| vfs | 19 | 16 | 84% | L3 | **complete** — L1+L2+L3, all 16 bindable bound; the 3 `_w` wide-char variants are excluded. Both entry-point families are covered: the plain `ma_vfs_*` calls and the `ma_vfs_or_default_*` fallback, which is exported but absent from miniaudio's public header, so the shim declares it. An open file lives in a slot on the handle since `ma_vfs_file` is opaque (6 binding + 6 API tests). |
 | audio_buffer | 25 | 25 | 100% | L3 | **complete** — L1+L2+L3, all 25 bound with 0 exclusions. Two in-memory PCM buffers: `ma_audio_buffer_ref` (a non-owning view) via `AudioBufferRef` and `ma_audio_buffer` (owning) via `AudioBuffer`. The ref and the non-copying `init` keep the caller's pointer verbatim, so the shim owns a copy of the frames; `map`/`unmap` hand out an interior pointer and are bound through a shim-owned map → memcpy → unmap step that surfaces `MA_AT_END` as the success it is. All four construction paths are covered (init / init_copy / silent / alloc_and_init). `alloc_and_init` is bound as-is despite an upstream defect in miniaudio 0.11.25 that clears the low 3 bytes of frame 0 — the binding test pins it (17 binding + 16 API tests). |
 | paged_audio_buffer | 16 | 16 | 100% | L3 | **complete** — L1+L2+L3, all 16 bound with 0 exclusions. An expandable page list plus a live reader, via `PagedAudioBuffer`. Pages are raw pointers with no safe Mojo home, so `allocate_page` parks a page in a handle slot and returns its index for `append_page` / `free_page`; `get_head`/`get_tail` bind as the page's frame count plus whether the list is still empty. `read_pcm_frames` returns `MA_AT_END` whenever it consumes the final page — a success, surfaced as such (13 binding + 11 API tests). |
 | core | 141 | 2 | 1% | — | infrastructure (version, result_description) |
 | *others* | ~104 | 0 | 0% | — | not started |
-| **TOTAL** | **1,027** | **656** | **63.9%** (bindable 656/971 = 67.6%) | — | — |
+| **TOTAL** | **1,027** | **679** | **66.1%** (bindable 679/971 = 69.9%) | — | — |
 
 > Coverage percentage is expected to be low until families are migrated. The gates ensure
 > **everything implemented is complete and tested** — not that everything is implemented.
@@ -179,7 +181,14 @@ Planned migration order (each family follows the three-layer + TDD + gate templa
     crosses into Mojo, working through a shim-owned job slot instead.
     NOTE: `ma_async_notification_signal` returns MA_INVALID_ARGS on its success
     path in miniaudio 0.11.25. The signal lands; only the code is wrong.
-13. context / vfs
+13. **context / vfs** ← **complete** (L3, 9/9 and 16/16 bindable): the backend
+    handle and the default file system. The context runs on the null backend so
+    enumeration is deterministic; the VFS covers both the plain and the
+    `_or_default` entry-point families.
+
+**The original roadmap is finished.** What remains is the unlisted rest of the
+API: `core` (141), `pcm_convert` (64), `spatializer` (57), `format_util` (27),
+`linear_resampler` (13) and scattered leftovers in already-complete families.
 
 On completion of each family:
 - Add shim functions with `@binds` to `src/native/ma_shim.{h,c}`

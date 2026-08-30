@@ -62,6 +62,17 @@ from miniaudio.audio_buffer import (
     AudioBuffer,
     AudioBufferRef,
 )
+from miniaudio.context import (
+    Context,
+    Vfs,
+    DeviceCounts,
+    DeviceSummary,
+    OPEN_MODE_READ,
+    OPEN_MODE_WRITE,
+    SEEK_ORIGIN_START,
+    SEEK_ORIGIN_CURRENT,
+    SEEK_ORIGIN_END,
+)
 from miniaudio.sync import (
     Mutex,
     Event,
