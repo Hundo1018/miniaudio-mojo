@@ -43,9 +43,10 @@
       "notes": "not yet started"
     },
     "node": {
-      "dod_met": false,
-      "dod_level": "L2",
-      "notes": "not yet started"
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 23 of 23 functions bound, 0 excluded. ma_node_init takes a caller-supplied vtable and a Mojo function cannot cross the FFI boundary as a function pointer on this toolchain (the constraint the device family documents), so the shim owns a concrete node: an offset node that adds a constant to its input bus. It carries MA_NODE_FLAG_CONTINUOUS_PROCESSING | MA_NODE_FLAG_ALLOW_NULL_INPUT so it keeps producing with nothing attached -- without those a node with an unattached input bus is skipped entirely -- which makes it usable as a source and makes graph reads assertable. Chains are observable: two offset nodes in series produce twice the offset. Every node handle in the shim is one tagged-union allocation whose payloads all start with a ma_node_base, so attach_output_bus can target any node family without casting one handle type to another. ma_node_get_node_graph is bound as an identity question (does this node belong to that graph). NOTE for API users: a node's attachment lives only as long as the node value, and Mojo destroys a value after its last use, so a source touched only at attach time is gone before the read. 12 binding + 10 API tests."
     },
     "spatializer": {
       "dod_met": false,
@@ -173,6 +174,24 @@
       "dod_level": "L3",
       "complete": true,
       "notes": "L1+L2+L3 COMPLETE: all 12 of 12 functions bound, 0 excluded. ma_hishelf2 and ma_hishelf_node -- the mirror image of the low shelf, with the measured 3.981 gain landing on the fastest signal and 1.0 on DC. Same shim, same X-macro-generated lifecycle and the same two init paths as the biquad / lpf / hpf batch (managed heap, and get_heap_size + init_preallocated with a shim-owned block, asserted to filter identically). No clear_cache exists upstream for this family. The same node-tuned-by-q asymmetry applies. 5 binding + 7 API tests."
+    },
+    "node_graph": {
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 9 of 9 functions bound, 0 excluded. The graph is created standalone -- no device and no engine -- so reading it is a pure computation. ma_node_graph_get_endpoint hands out a raw pointer with no safe Mojo home, so it is bound as what the endpoint can be asked (its input bus count) and as the attach target for the node families. Pins that an empty graph reads zero frames rather than manufacturing silence, and that the clock only advances once something is attached. 6 binding + 4 API tests."
+    },
+    "delay_node": {
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 9 of 9 functions bound, 0 excluded. Exercised inside a standalone graph, fed by the shim's offset node. Pins what miniaudio's delay actually does with dry and wet, which is not the effects-mixer blend the names suggest: the implementation is buffer = buffer*decay + in*dry, out = buffer*wet, so dry is the gain going into the delay line and wet is the gain of the node's whole output. There is no separate un-delayed path -- wet=0 silences the node whatever dry is, and the immediate signal comes out scaled by dry*wet (measured: 1x1 gives 0.4 from a 0.4 input, 0.5x0.5 gives 0.1). 5 binding + 4 API tests."
+    },
+    "splitter_node": {
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 3 of 3 functions bound, 0 excluded. One input, two identical outputs; attaching both output buses to the endpoint sums the signal with itself, which is how the test shows both buses carry the same audio. 4 binding + 3 API tests."
     }
   }
 }

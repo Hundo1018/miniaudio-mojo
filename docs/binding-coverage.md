@@ -55,15 +55,16 @@ but left the global percentage low and the big families mostly unbound. Going fo
    (9), `noise` (9), `data_source` (30), `ring_buffer` (38), `audio_buffer` (25),
    `paged_audio_buffer` (16), `resampler` (13), `channel_converter` (8), `data_converter` (16),
    `biquad` (13), `lpf` (31), `hpf` (28), `bpf` (20), `notch` (12), `peak_eq` (12), `loshelf` (12)
-   and `hishelf` (12). The next lever is starting (and completing) a new family per the roadmap.
+   `hishelf` (12), `node` (23), `node_graph` (9), `delay_node` (9) and `splitter_node` (3). The next
+   lever is starting (and completing) a new family per the roadmap.
 
 ## Family Status Matrix
 
 All families not yet started are `dod_met=false`. The Status column reports the **depth** axis
-(`dod_met`) and, where reached, the **breadth** axis (`complete`). Twenty-three families are now
+(`dod_met`) and, where reached, the **breadth** axis (`complete`). Twenty-seven families are now
 `complete` (decoder, encoder, engine, sound, sound_group, waveform, noise, device, data_source,
 ring_buffer, audio_buffer, paged_audio_buffer, resampler, channel_converter, data_converter, biquad,
-lpf, hpf, bpf, notch, peak_eq, loshelf, hishelf); every `dod_met` family is now also `complete`, so the overall percentage
+lpf, hpf, bpf, notch, peak_eq, loshelf, hishelf, node, node_graph, delay_node, splitter_node); every `dod_met` family is now also `complete`, so the overall percentage
 (breadth) now advances only when a new family is started and bound out. Coverage percentage reflects `@binds` annotations
 relative to the 1,027-function denominator. Run `pixi run coverage-binding` for live numbers.
 
@@ -76,7 +77,10 @@ relative to the 1,027-function denominator. Run `pixi run coverage-binding` for 
 | sound | 84 | 75 | 89% | L3 | **complete** — L1+L2+L3, full control/spatialization/fade/scheduling/seconds-API/init_copy (12 binding + 9 API tests) |
 | sound_group | 57 | 53 | 93% | L3 | **complete** — L1+L2+L3, full control/spatialization/fade/scheduling (10 binding + 7 API tests) |
 | resource_manager | 64 | 0 | 0% | L3 | not started |
-| node | 32 | 0 | 0% | L2 | not started |
+| node | 23 | 23 | 100% | L3 | **complete** — L1+L2+L3, all 23 bound with 0 exclusions. `ma_node_init` takes a caller-supplied vtable, so the shim owns a concrete node — an *offset node* that adds a constant to its input, flagged `CONTINUOUS_PROCESSING | ALLOW_NULL_INPUT` so it keeps producing with nothing attached and can act as a source. Every node handle is one tagged-union allocation, so a node can be attached to any other family without casting handle types. `get_node_graph` binds as an identity question (12 binding + 10 API tests). |
+| node_graph | 9 | 9 | 100% | L3 | **complete** — L1+L2+L3, all 9 bound with 0 exclusions. A standalone graph via `NodeGraph`, needing neither device nor engine. `get_endpoint` binds as the endpoint's input bus count plus the attach target. Pins that an empty graph reads zero frames rather than manufacturing silence (6 binding + 4 API tests). |
+| delay_node | 9 | 9 | 100% | L3 | **complete** — L1+L2+L3, all 9 bound with 0 exclusions. Pins that `dry` and `wet` are the delay line's input gain and the node's output gain, not a blend: `out = (buffer*decay + in*dry) * wet`, so `wet=0` silences the node whatever `dry` is (5 binding + 4 API tests). |
+| splitter_node | 3 | 3 | 100% | L3 | **complete** — L1+L2+L3, all 3 bound with 0 exclusions (4 binding + 3 API tests). |
 | spatializer | 57 | 0 | 0% | L2 | not started |
 | data_source | 30 | 30 | 100% | L3 | **complete** — L1+L2+L3, all 30 bound with 0 exclusions. Shim owns the concrete vtable implementation (a buffer data source over a copied f32 buffer), so read/seek/queries/looping/range/loop-point/chaining are all reachable with no device or file; `get_current`/`get_next` bind as identity comparisons, `set/get_next_callback` via a shim-owned C callback; the 5 `data_source_node_*` init against an engine node graph (17 binding + 19 API tests). |
 | ring_buffer | 38 | 38 | 100% | L3 | **complete** — L1+L2+L3, all 38 bound with 0 exclusions. Two lock-free SPSC rings, both purely in-memory: `ma_rb` (bytes) via `RingBuffer` and `ma_pcm_rb` (frames) via `PcmRingBuffer`. The shim owns miniaudio's acquire → memcpy → commit loop (an interior pointer has no safe Mojo home), which also stitches requests spanning the wrap point; `get_subbuffer_ptr` binds as that pointer's byte offset from the ring's backing store. `init_ex` covers both the miniaudio-owned and preallocated allocation paths (24 binding + 18 API tests). |
@@ -100,8 +104,8 @@ relative to the 1,027-function denominator. Run `pixi run coverage-binding` for 
 | audio_buffer | 25 | 25 | 100% | L3 | **complete** — L1+L2+L3, all 25 bound with 0 exclusions. Two in-memory PCM buffers: `ma_audio_buffer_ref` (a non-owning view) via `AudioBufferRef` and `ma_audio_buffer` (owning) via `AudioBuffer`. The ref and the non-copying `init` keep the caller's pointer verbatim, so the shim owns a copy of the frames; `map`/`unmap` hand out an interior pointer and are bound through a shim-owned map → memcpy → unmap step that surfaces `MA_AT_END` as the success it is. All four construction paths are covered (init / init_copy / silent / alloc_and_init). `alloc_and_init` is bound as-is despite an upstream defect in miniaudio 0.11.25 that clears the low 3 bytes of frame 0 — the binding test pins it (17 binding + 16 API tests). |
 | paged_audio_buffer | 16 | 16 | 100% | L3 | **complete** — L1+L2+L3, all 16 bound with 0 exclusions. An expandable page list plus a live reader, via `PagedAudioBuffer`. Pages are raw pointers with no safe Mojo home, so `allocate_page` parks a page in a handle slot and returns its index for `append_page` / `free_page`; `get_head`/`get_tail` bind as the page's frame count plus whether the list is still empty. `read_pcm_frames` returns `MA_AT_END` whenever it consumes the final page — a success, surfaced as such (13 binding + 11 API tests). |
 | core | 141 | 2 | 1% | — | infrastructure (version, result_description) |
-| *others* | ~141 | 0 | 0% | — | not started |
-| **TOTAL** | **1,027** | **508** | **49.5%** (bindable 508/971 = 52.3%) | — | — |
+| *others* | ~120 | 0 | 0% | — | not started |
+| **TOTAL** | **1,027** | **552** | **53.7%** (bindable 552/971 = 56.8%) | — | — |
 
 > Coverage percentage is expected to be low until families are migrated. The gates ensure
 > **everything implemented is complete and tested** — not that everything is implemented.

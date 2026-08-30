@@ -62,6 +62,14 @@ from miniaudio.audio_buffer import (
     AudioBuffer,
     AudioBufferRef,
 )
+from miniaudio.node import (
+    NodeGraph,
+    OffsetNode,
+    DelayNode,
+    SplitterNode,
+    NODE_STATE_STARTED,
+    NODE_STATE_STOPPED,
+)
 from miniaudio.filter import (
     Biquad,
     Bpf2,

@@ -32,9 +32,13 @@ test-notch = "pixi run build-shim && mojo run -I src -I tests tests/test_notch_b
 test-peak-eq = "pixi run build-shim && mojo run -I src -I tests tests/test_peak_eq_binding.mojo && mojo run -I src -I tests tests/test_peak_eq_api.mojo"
 test-loshelf = "pixi run build-shim && mojo run -I src -I tests tests/test_loshelf_binding.mojo && mojo run -I src -I tests tests/test_loshelf_api.mojo"
 test-hishelf = "pixi run build-shim && mojo run -I src -I tests tests/test_hishelf_binding.mojo && mojo run -I src -I tests tests/test_hishelf_api.mojo"
+test-node-graph = "pixi run build-shim && mojo run -I src -I tests tests/test_node_graph_binding.mojo && mojo run -I src -I tests tests/test_node_graph_api.mojo"
+test-node = "pixi run build-shim && mojo run -I src -I tests tests/test_node_binding.mojo && mojo run -I src -I tests tests/test_node_api.mojo"
+test-delay-node = "pixi run build-shim && mojo run -I src -I tests tests/test_delay_node_binding.mojo && mojo run -I src -I tests tests/test_delay_node_api.mojo"
+test-splitter-node = "pixi run build-shim && mojo run -I src -I tests tests/test_splitter_node_binding.mojo && mojo run -I src -I tests tests/test_splitter_node_api.mojo"
 test-waveform = "pixi run build-shim && mojo run -I src -I tests tests/test_waveform_binding.mojo && mojo run -I src -I tests tests/test_waveform_api.mojo"
 test-noise = "pixi run build-shim && mojo run -I src -I tests tests/test_noise_binding.mojo && mojo run -I src -I tests tests/test_noise_api.mojo"
-test = "pixi run test-decoder && pixi run test-encoder && pixi run test-device && pixi run test-engine && pixi run test-sound && pixi run test-sound-group && pixi run test-data-source && pixi run test-ring-buffer && pixi run test-audio-buffer && pixi run test-paged-audio-buffer && pixi run test-resampler && pixi run test-channel-converter && pixi run test-data-converter && pixi run test-biquad && pixi run test-lpf && pixi run test-hpf && pixi run test-bpf && pixi run test-notch && pixi run test-peak-eq && pixi run test-loshelf && pixi run test-hishelf && pixi run test-waveform && pixi run test-noise"
+test = "pixi run test-decoder && pixi run test-encoder && pixi run test-device && pixi run test-engine && pixi run test-sound && pixi run test-sound-group && pixi run test-data-source && pixi run test-ring-buffer && pixi run test-audio-buffer && pixi run test-paged-audio-buffer && pixi run test-resampler && pixi run test-channel-converter && pixi run test-data-converter && pixi run test-biquad && pixi run test-lpf && pixi run test-hpf && pixi run test-bpf && pixi run test-notch && pixi run test-peak-eq && pixi run test-loshelf && pixi run test-hishelf && pixi run test-node-graph && pixi run test-node && pixi run test-delay-node && pixi run test-splitter-node && pixi run test-waveform && pixi run test-noise"
 
 # --- Coverage assurance system. See docs/binding-coverage.md ---
 gen-api-inventory = "python3 tools/gen_api_inventory.py"
