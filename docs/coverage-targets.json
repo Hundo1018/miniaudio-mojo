@@ -95,9 +95,10 @@
       "notes": "L1+L2+L3 COMPLETE: all 6 bindable of 9 functions bound (config_init+init/uninit/read_pcm_frames/set_amplitude/set_seed). set_type excluded (deprecated, asserts false in miniaudio). get_heap_size/init_preallocated excluded (internal allocator helpers). 8 binding tests + 7 API tests (white/pink/brownian, amplitude change, stereo)."
     },
     "biquad": {
-      "dod_met": false,
-      "dod_level": "L2",
-      "notes": "not yet started"
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 13 of 13 functions bound, 0 excluded. The raw biquad plus its node-graph variant. Pure DSP -- the filter needs nothing, and the node only needs an engine on the null backend. Both init paths are bound (managed heap, and get_heap_size + init_preallocated with a shim-owned block) and asserted to filter identically. Behaviour is pinned with the identity coefficients (b0=1, rest 0), which pass audio through untouched, so the tests do not depend on any particular filter response. ma_biquad_clear_cache correctly zeroes the delay registers, unlike ma_lpf1_clear_cache -- see the lpf notes. 10 binding + 8 API tests."
     },
     "sync": {
       "dod_met": false,
@@ -130,6 +131,18 @@
       "dod_level": "L3",
       "complete": true,
       "notes": "L1+L2+L3 COMPLETE: all 16 of 16 functions bound, 0 excluded. An expandable linked list of PCM pages plus a reader that walks it, purely in-memory. One shim handle owns both halves (the ma_paged_audio_buffer_data list and the ma_paged_audio_buffer reader) while keeping miniaudio's lifetime split: data_init/data_uninit manage the pages, init/uninit manage the reader. Pages are ma_paged_audio_buffer_page* values with no safe Mojo home, so data_allocate_page parks the page in a slot on the handle and returns the slot index, which data_append_page / data_free_page take back; slots still holding a page at teardown are released with it, so an allocate with no matching append/free cannot leak. data_get_head / data_get_tail return raw page pointers and are bound as the properties Mojo can assert on -- the page's frame count plus whether the list is still empty (head is a zero-length dummy and the tail starts out pointing at it). Note that read_pcm_frames returns MA_AT_END whenever the read consumes the final page, even when every requested frame arrived; the L3 layer treats that as the success miniaudio documents it to be. 13 binding + 11 API tests (multi-page contiguous reads, the live-append property -- a page added after the reader drained is picked up -- the two-step vs one-step append agreeing, staged pages discarded without joining the stream, seeks landing mid-list, and frames-not-samples accounting)."
+    },
+    "lpf": {
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 31 of 31 functions bound, 0 excluded. The first-order ma_lpf1, the second-order ma_lpf2, the compound ma_lpf and ma_lpf_node. Behaviour is asserted the way a low-pass is defined -- DC survives, a signal alternating every frame does not -- rather than against hard-coded coefficients. Pins an upstream bug in miniaudio 0.11.25: ma_lpf1_clear_cache zeroes the filter *coefficient* (`a`) instead of the delay register (`pR1`), so it de-tunes the filter into a pass-through rather than clearing it; ma_biquad_clear_cache zeroes pR1/pR2 correctly. The compound ma_lpf inherits this through its first-order section, so reinit after clear_cache. Also deliberately does not assert that a higher order attenuates more: measured at the alternating signal, order 4 settles around 1.5e-3 and order 2 around 1e-4. 12 binding + 9 API tests."
+    },
+    "hpf": {
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 28 of 28 functions bound, 0 excluded. The first-order ma_hpf1, the second-order ma_hpf2, the compound ma_hpf and ma_hpf_node. miniaudio gives the high-pass family no clear_cache entry point, so none is bound. Pins what ma_hpf1 actually is: its recursion is y = b*x - a*r1 with a = 1 - alpha and b = alpha (alpha being the same pole coefficient ma_lpf1 stores), giving a DC gain of alpha/(2-alpha) and a Nyquist gain of 1 -- at cutoff 1 kHz and 48 kHz that is ~0.781 at DC, a gentle shelf rather than a true high-pass. ma_hpf2 and the even-order compound ma_hpf are biquad-based and do reject DC. 11 binding + 9 API tests."
     }
   }
 }

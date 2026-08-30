@@ -62,6 +62,18 @@ from miniaudio.audio_buffer import (
     AudioBuffer,
     AudioBufferRef,
 )
+from miniaudio.filter import (
+    Biquad,
+    Lpf1,
+    Lpf2,
+    Lpf,
+    Hpf1,
+    Hpf2,
+    Hpf,
+    BiquadNode,
+    LpfNode,
+    HpfNode,
+)
 from miniaudio.converter import (
     Resampler,
     ChannelConverter,
