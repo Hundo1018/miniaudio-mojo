@@ -65,19 +65,22 @@
       "notes": "L1+L2+L3 COMPLETE: all 38 of 38 functions bound, 0 excluded. Two lock-free SPSC ring buffers, both purely in-memory (no device, engine, or file): ma_rb (untyped, bytes) via a RingBuffer RAII type and ma_pcm_rb (PCM-aware, frames) via PcmRingBuffer. miniaudio's acquire/commit pair hands out an interior pointer into the ring that Mojo has no safe home for, so the shim owns the acquire -> memcpy -> commit loop and exposes copy-in/copy-out write/read instead; the loop stitches requests that span the wrap point back together, so acquire_read/acquire_write/commit_read/commit_write are bound through it. get_subbuffer_ptr returns an absolute address, bound as that pointer's byte offset from the ring's own backing store (the only part Mojo can assert on) -- note the pcm variant's offset is frame-valued while its ptr offset is byte-valued, matching miniaudio. init_ex covers both the miniaudio-owned allocation (requested stride ignored in favour of a SIMD-aligned one) and the preallocated path (stride honoured) with a shim-owned backing store. 24 binding + 18 API tests (byte and frame round-trips, wrap-point contiguity, short write at capacity / short read when empty, available_read+available_write==subbuffer_size invariant, seek_read/seek_write, and a 100-frame producer/consumer stream through a 16-frame ring)."
     },
     "channel_converter": {
-      "dod_met": false,
-      "dod_level": "L2",
-      "notes": "not yet started"
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 8 of 8 functions bound, 0 excluded. Channel count / channel map conversion, with NULL channel maps asking miniaudio for its standard map at each count. Both init paths covered (managed heap and shim-owned preallocated heap, asserted to convert identically). Two upstream behaviours are pinned by tests: a mono *output* always takes miniaudio's averaging fast path regardless of the mix mode, and init validates channel counts but not the sample format (an unknown format is accepted). 10 binding + 9 API tests."
     },
     "data_converter": {
-      "dod_met": false,
-      "dod_level": "L2",
-      "notes": "not yet started"
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 16 of 16 functions bound, 0 excluded. Format + channels + rate in one pipeline. Three construction paths: init, init_preallocated (shim-owned heap), and a config_init_default path that starts from miniaudio's defaults and only overrides the pass-through shape, so the defaults stay observable. Pins an upstream limitation of ma_data_converter_reset in miniaudio 0.11.25: it resets the resampler but does not restore a cold pipeline -- a fresh converter low-passes the first frames (0, 0.7921, 2.7399, ...) while the same converter after a reset returns the unfiltered interpolation (0, 1.0, 3.0, ...). Confirmed against raw miniaudio with a standalone C probe; the bare ma_resampler does not show it. Rebuild rather than reset when bit-identical restarts matter. 11 binding + 11 API tests."
     },
     "resampler": {
-      "dod_met": false,
-      "dod_level": "L2",
-      "notes": "not yet started"
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 13 of 13 functions bound, 0 excluded. A pure DSP object -- no device, engine, or file. Both init paths are covered: init (miniaudio owns the working heap) and get_heap_size + init_preallocated (the shim owns it), with a test asserting the two produce identical audio. process passes the input and output frame counts by reference, so they go in as requests and come back as actuals; the tests pin that against the converter's own get_expected_output_frame_count rather than hard-coded numbers. Note that set_rate_ratio takes miniaudio's ratioInOut -- input over output -- so 2.0 halves the rate; the L3 docstring says so and a test pins it. 10 binding + 10 API tests."
     },
     "waveform": {
       "dod_met": true,
@@ -123,9 +126,10 @@
       "notes": "L1+L2+L3 COMPLETE: all 25 of 25 functions bound, 0 excluded. Two in-memory PCM buffers, no device/engine/file involved: ma_audio_buffer_ref (a non-owning view) via an AudioBufferRef RAII type and ma_audio_buffer (owning) via AudioBuffer. ref_init / ref_set_data and the non-copying audio_buffer_init all store the caller's pointer verbatim, which no Mojo value can safely outlive across FFI calls, so the shim holds its own copy of the frames and hands miniaudio that -- the same ownership move the data_source family makes. map/unmap hand out an interior pointer with no safe Mojo home, so the shim owns the map -> memcpy -> unmap sequence and binds both through a *_map_read entry point that surfaces unmap's MA_AT_END (a success) verbatim. All four construction paths are covered: init (shim-owned frames), init_copy (miniaudio allocates and copies), init_copy with a NULL source (silence), and alloc_and_init (heap ma_audio_buffer with the frames in its trailing _pExtraData, torn down via uninit_and_free). alloc_and_init is bound as-is despite an upstream defect in miniaudio 0.11.25: it copies the frames before init_ex runs, and init_ex's MA_ZERO_MEMORY(p, sizeof(*p) - sizeof(p->_pExtraData)) overshoots into the audio data by the struct's trailing padding, clearing the low 3 bytes of frame 0 (an f32 20.0 reads back as 8.0). The binding test pins that behaviour so a future upstream fix fails loudly. 17 binding + 16 API tests (frame-ordered round trips, frames-not-samples accounting for stereo, the available==length-cursor invariant across seeks, looping reads that wrap, map_read agreeing with read chunk for chunk, and rejection of empty/zero-frame buffers on every init path)."
     },
     "paged_audio_buffer": {
-      "dod_met": false,
-      "dod_level": "L2",
-      "notes": "not yet started"
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 16 of 16 functions bound, 0 excluded. An expandable linked list of PCM pages plus a reader that walks it, purely in-memory. One shim handle owns both halves (the ma_paged_audio_buffer_data list and the ma_paged_audio_buffer reader) while keeping miniaudio's lifetime split: data_init/data_uninit manage the pages, init/uninit manage the reader. Pages are ma_paged_audio_buffer_page* values with no safe Mojo home, so data_allocate_page parks the page in a slot on the handle and returns the slot index, which data_append_page / data_free_page take back; slots still holding a page at teardown are released with it, so an allocate with no matching append/free cannot leak. data_get_head / data_get_tail return raw page pointers and are bound as the properties Mojo can assert on -- the page's frame count plus whether the list is still empty (head is a zero-length dummy and the tail starts out pointing at it). Note that read_pcm_frames returns MA_AT_END whenever the read consumes the final page, even when every requested frame arrived; the L3 layer treats that as the success miniaudio documents it to be. 13 binding + 11 API tests (multi-page contiguous reads, the live-append property -- a page added after the reader drained is picked up -- the two-step vs one-step append agreeing, staged pages discarded without joining the stream, seeks landing mid-list, and frames-not-samples accounting)."
     }
   }
 }

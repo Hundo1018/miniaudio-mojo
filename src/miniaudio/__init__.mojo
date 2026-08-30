@@ -62,6 +62,23 @@ from miniaudio.audio_buffer import (
     AudioBuffer,
     AudioBufferRef,
 )
+from miniaudio.converter import (
+    Resampler,
+    ChannelConverter,
+    DataConverter,
+    ConversionResult,
+    ResampleAlgorithm,
+    ChannelMixMode,
+    RESAMPLE_ALGORITHM_LINEAR,
+    RESAMPLE_ALGORITHM_CUSTOM,
+    CHANNEL_MIX_MODE_RECTANGULAR,
+    CHANNEL_MIX_MODE_SIMPLE,
+    CHANNEL_MIX_MODE_CUSTOM_WEIGHTS,
+)
+from miniaudio.paged_audio_buffer import (
+    PagedAudioBuffer,
+    PageInfo,
+)
 from miniaudio.ring_buffer import (
     RingBuffer,
     PcmRingBuffer,

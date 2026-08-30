@@ -52,15 +52,16 @@ but left the global percentage low and the big families mostly unbound. Going fo
    not-`complete` family and set `"complete": true`, prioritising the largest remaining families —
    that is where the percentage lives. All eleven `dod_met` families are now `complete`: `decoder`
    (16), `encoder` (10), `engine` (44), `sound` (84), `sound_group` (57), `device` (25), `waveform`
-   (9), `noise` (9), `data_source` (30), `ring_buffer` (38) and `audio_buffer` (25). The next lever
-   is starting (and completing) a new family per the roadmap.
+   (9), `noise` (9), `data_source` (30), `ring_buffer` (38), `audio_buffer` (25),
+   `paged_audio_buffer` (16), `resampler` (13), `channel_converter` (8) and `data_converter` (16).
+   The next lever is starting (and completing) a new family per the roadmap.
 
 ## Family Status Matrix
 
 All families not yet started are `dod_met=false`. The Status column reports the **depth** axis
-(`dod_met`) and, where reached, the **breadth** axis (`complete`). Eleven families are now
+(`dod_met`) and, where reached, the **breadth** axis (`complete`). Fifteen families are now
 `complete` (decoder, encoder, engine, sound, sound_group, waveform, noise, device, data_source,
-ring_buffer, audio_buffer); every `dod_met` family is now also `complete`, so the overall percentage
+ring_buffer, audio_buffer, paged_audio_buffer, resampler, channel_converter, data_converter); every `dod_met` family is now also `complete`, so the overall percentage
 (breadth) now advances only when a new family is started and bound out. Coverage percentage reflects `@binds` annotations
 relative to the 1,027-function denominator. Run `pixi run coverage-binding` for live numbers.
 
@@ -77,9 +78,9 @@ relative to the 1,027-function denominator. Run `pixi run coverage-binding` for 
 | spatializer | 57 | 0 | 0% | L2 | not started |
 | data_source | 30 | 30 | 100% | L3 | **complete** — L1+L2+L3, all 30 bound with 0 exclusions. Shim owns the concrete vtable implementation (a buffer data source over a copied f32 buffer), so read/seek/queries/looping/range/loop-point/chaining are all reachable with no device or file; `get_current`/`get_next` bind as identity comparisons, `set/get_next_callback` via a shim-owned C callback; the 5 `data_source_node_*` init against an engine node graph (17 binding + 19 API tests). |
 | ring_buffer | 38 | 38 | 100% | L3 | **complete** — L1+L2+L3, all 38 bound with 0 exclusions. Two lock-free SPSC rings, both purely in-memory: `ma_rb` (bytes) via `RingBuffer` and `ma_pcm_rb` (frames) via `PcmRingBuffer`. The shim owns miniaudio's acquire → memcpy → commit loop (an interior pointer has no safe Mojo home), which also stitches requests spanning the wrap point; `get_subbuffer_ptr` binds as that pointer's byte offset from the ring's backing store. `init_ex` covers both the miniaudio-owned and preallocated allocation paths (24 binding + 18 API tests). |
-| channel_converter | 8 | 0 | 0% | L2 | not started |
-| data_converter | 8 | 0 | 0% | L2 | not started |
-| resampler | 10 | 0 | 0% | L2 | not started |
+| channel_converter | 8 | 8 | 100% | L3 | **complete** — L1+L2+L3, all 8 bound with 0 exclusions. Channel count / map conversion via `ChannelConverter`, both init paths (managed heap and shim-owned preallocated heap) asserted to convert identically. Two upstream behaviours pinned: a mono *output* always averages regardless of mix mode, and init validates channel counts but not the sample format (10 binding + 9 API tests). |
+| data_converter | 16 | 16 | 100% | L3 | **complete** — L1+L2+L3, all 16 bound with 0 exclusions. Format + channels + rate in one pipeline via `DataConverter`, including the `config_init_default` path. Pins an upstream limitation: `reset` resets the resampler but does not restore a cold pipeline, so a reset converter and a fresh one produce different first frames — rebuild when bit-identical restarts matter (11 binding + 11 API tests). |
+| resampler | 13 | 13 | 100% | L3 | **complete** — L1+L2+L3, all 13 bound with 0 exclusions. Sample-rate conversion via `Resampler`, both init paths asserted to produce identical audio. `process` keeps miniaudio's by-reference frame counts (requests in, actuals out) and the tests pin output against the converter's own `get_expected_output_frame_count`. `set_rate_ratio` takes miniaudio's input-over-output ratio, so 2.0 halves the rate (10 binding + 10 API tests). |
 | waveform | 9 | 9 | 100% | L3 | **complete** — L1+L2+L3 (8 binding + 7 API tests) |
 | noise | 9 | 6 | 67% | L3 | **complete** — L1+L2+L3, all bindable fns bound (8 binding + 7 API tests). set_type excluded (deprecated, asserts false). get_heap_size/init_preallocated excluded (internal). |
 | biquad | 4 | 0 | 0% | L2 | not started |
@@ -88,10 +89,10 @@ relative to the 1,027-function denominator. Run `pixi run coverage-binding` for 
 | context | 9 | 2 | 22% | L2 | partial — context_init/config_init bound via device null-backend |
 | vfs | 11 | 0 | 0% | L2 | not started |
 | audio_buffer | 25 | 25 | 100% | L3 | **complete** — L1+L2+L3, all 25 bound with 0 exclusions. Two in-memory PCM buffers: `ma_audio_buffer_ref` (a non-owning view) via `AudioBufferRef` and `ma_audio_buffer` (owning) via `AudioBuffer`. The ref and the non-copying `init` keep the caller's pointer verbatim, so the shim owns a copy of the frames; `map`/`unmap` hand out an interior pointer and are bound through a shim-owned map → memcpy → unmap step that surfaces `MA_AT_END` as the success it is. All four construction paths are covered (init / init_copy / silent / alloc_and_init). `alloc_and_init` is bound as-is despite an upstream defect in miniaudio 0.11.25 that clears the low 3 bytes of frame 0 — the binding test pins it (17 binding + 16 API tests). |
-| paged_audio_buffer | 8 | 0 | 0% | L2 | not started |
+| paged_audio_buffer | 16 | 16 | 100% | L3 | **complete** — L1+L2+L3, all 16 bound with 0 exclusions. An expandable page list plus a live reader, via `PagedAudioBuffer`. Pages are raw pointers with no safe Mojo home, so `allocate_page` parks a page in a handle slot and returns its index for `append_page` / `free_page`; `get_head`/`get_tail` bind as the page's frame count plus whether the list is still empty. `read_pcm_frames` returns `MA_AT_END` whenever it consumes the final page — a success, surfaced as such (13 binding + 11 API tests). |
 | core | 141 | 2 | 1% | — | infrastructure (version, result_description) |
 | *others* | ~280 | 0 | 0% | — | not started |
-| **TOTAL** | **1,027** | **315** | **30.7%** (bindable 315/971 = 32.4%) | — | — |
+| **TOTAL** | **1,027** | **368** | **35.8%** (bindable 368/971 = 37.9%) | — | — |
 
 > Coverage percentage is expected to be low until families are migrated. The gates ensure
 > **everything implemented is complete and tested** — not that everything is implemented.
@@ -130,8 +131,18 @@ Planned migration order (each family follows the three-layer + TDD + gate templa
    `MA_ZERO_MEMORY(p, sizeof(*p) - sizeof(p->_pExtraData))` overshoots into the audio
    data by the struct's trailing padding). Bound as-is and pinned by a test; prefer
    `init_copy` when the first frame matters.
-8. paged_audio_buffer ← next
-9. converters (resampler / channel / data)
+8. **paged_audio_buffer** ← **complete** (L3, 16/16): the expandable page list and
+   the reader over it. Pages are raw pointers, so the shim parks allocated-but-not-yet-
+   appended pages in handle slots and binds the head/tail getters as page properties.
+9. **converters** ← **complete** (L3, resampler 13/13, channel_converter 8/8,
+   data_converter 16/16): pure DSP objects sharing one shim. Each binds both of
+   miniaudio's init paths — the managed heap and `get_heap_size` +
+   `init_preallocated` with a shim-owned block — and the tests assert the two
+   produce identical audio.
+   NOTE: `ma_data_converter_reset` resets the resampler but does not restore a
+   cold pipeline in miniaudio 0.11.25; a reset converter and a fresh one produce
+   different first frames. Pinned by a test; rebuild rather than reset when
+   bit-identical restarts matter.
 10. nodes / effects / eq
 11. resource_manager
 12. sync / async / job_queue / log

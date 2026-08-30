@@ -20,9 +20,13 @@ test-sound-group = "pixi run build-shim && pixi run gen-test-wav && mojo run -I 
 test-data-source = "pixi run build-shim && mojo run -I src -I tests tests/test_data_source_binding.mojo && mojo run -I src -I tests tests/test_data_source_api.mojo"
 test-ring-buffer = "pixi run build-shim && mojo run -I src -I tests tests/test_ring_buffer_binding.mojo && mojo run -I src -I tests tests/test_ring_buffer_api.mojo"
 test-audio-buffer = "pixi run build-shim && mojo run -I src -I tests tests/test_audio_buffer_binding.mojo && mojo run -I src -I tests tests/test_audio_buffer_api.mojo"
+test-paged-audio-buffer = "pixi run build-shim && mojo run -I src -I tests tests/test_paged_audio_buffer_binding.mojo && mojo run -I src -I tests tests/test_paged_audio_buffer_api.mojo"
+test-resampler = "pixi run build-shim && mojo run -I src -I tests tests/test_resampler_binding.mojo && mojo run -I src -I tests tests/test_resampler_api.mojo"
+test-channel-converter = "pixi run build-shim && mojo run -I src -I tests tests/test_channel_converter_binding.mojo && mojo run -I src -I tests tests/test_channel_converter_api.mojo"
+test-data-converter = "pixi run build-shim && mojo run -I src -I tests tests/test_data_converter_binding.mojo && mojo run -I src -I tests tests/test_data_converter_api.mojo"
 test-waveform = "pixi run build-shim && mojo run -I src -I tests tests/test_waveform_binding.mojo && mojo run -I src -I tests tests/test_waveform_api.mojo"
 test-noise = "pixi run build-shim && mojo run -I src -I tests tests/test_noise_binding.mojo && mojo run -I src -I tests tests/test_noise_api.mojo"
-test = "pixi run test-decoder && pixi run test-encoder && pixi run test-device && pixi run test-engine && pixi run test-sound && pixi run test-sound-group && pixi run test-data-source && pixi run test-ring-buffer && pixi run test-audio-buffer && pixi run test-waveform && pixi run test-noise"
+test = "pixi run test-decoder && pixi run test-encoder && pixi run test-device && pixi run test-engine && pixi run test-sound && pixi run test-sound-group && pixi run test-data-source && pixi run test-ring-buffer && pixi run test-audio-buffer && pixi run test-paged-audio-buffer && pixi run test-resampler && pixi run test-channel-converter && pixi run test-data-converter && pixi run test-waveform && pixi run test-noise"
 
 # --- Coverage assurance system. See docs/binding-coverage.md ---
 gen-api-inventory = "python3 tools/gen_api_inventory.py"
