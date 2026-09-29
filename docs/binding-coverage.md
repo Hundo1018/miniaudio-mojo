@@ -58,18 +58,18 @@ but left the global percentage low and the big families mostly unbound. Going fo
    `hishelf` (12), `node` (23), `node_graph` (9), `delay_node` (9), `splitter_node` (3) and
    `resource_manager` (64, of which 56 bindable), `sync` (24), `job_queue` (9), `log` (9) and
    `slot_allocator` (7), `context` (9) and `vfs` (19, of which 16 bindable). Every family on the
-   original roadmap is now complete; what is left is the unlisted remainder — `core`, `pcm_convert`,
-   `spatializer`, `format_util`, `linear_resampler` and the odd function still excluded elsewhere.
+   original roadmap is now complete, as are `linear_resampler` (13), `format_util` (27) and
+   `spatializer` (57); what is left is `core`, `pcm_convert` and the odd function still excluded elsewhere.
 
 ## Family Status Matrix
 
 All families not yet started are `dod_met=false`. The Status column reports the **depth** axis
-(`dod_met`) and, where reached, the **breadth** axis (`complete`). Thirty-six families are now
+(`dod_met`) and, where reached, the **breadth** axis (`complete`). Thirty-seven families are now
 `complete` (decoder, encoder, engine, sound, sound_group, waveform, noise, device, data_source,
 ring_buffer, audio_buffer, paged_audio_buffer, resampler, channel_converter, data_converter, biquad,
 lpf, hpf, bpf, notch, peak_eq, loshelf, hishelf, node, node_graph, delay_node, splitter_node,
 resource_manager, sync, job_queue, log, slot_allocator, context, vfs, linear_resampler,
-format_util); every `dod_met` family is now also `complete`, so the overall percentage
+format_util, spatializer); every `dod_met` family is now also `complete`, so the overall percentage
 (breadth) now advances only when a new family is started and bound out. Coverage percentage reflects `@binds` annotations
 relative to the 1,027-function denominator. Run `pixi run coverage-binding` for live numbers.
 
@@ -86,7 +86,7 @@ relative to the 1,027-function denominator. Run `pixi run coverage-binding` for 
 | node_graph | 9 | 9 | 100% | L3 | **complete** — L1+L2+L3, all 9 bound with 0 exclusions. A standalone graph via `NodeGraph`, needing neither device nor engine. `get_endpoint` binds as the endpoint's input bus count plus the attach target. Pins that an empty graph reads zero frames rather than manufacturing silence (6 binding + 4 API tests). |
 | delay_node | 9 | 9 | 100% | L3 | **complete** — L1+L2+L3, all 9 bound with 0 exclusions. Pins that `dry` and `wet` are the delay line's input gain and the node's output gain, not a blend: `out = (buffer*decay + in*dry) * wet`, so `wet=0` silences the node whatever `dry` is (5 binding + 4 API tests). |
 | splitter_node | 3 | 3 | 100% | L3 | **complete** — L1+L2+L3, all 3 bound with 0 exclusions (4 binding + 3 API tests). |
-| spatializer | 57 | 0 | 0% | L2 | not started |
+| spatializer | 57 | 57 | 100% | L3 | **complete** — L1+L2+L3, all 57 bound with 0 exclusions (20 listener + 37 source). Standalone 3D DSP with its own shim; panning, inverse attenuation, listener orientation, disabled-listener silence and relative positioning are asserted on real output. Measures on a settled second block because 0.11.25's gainer overshoots the first block after a gain change (17 binding + 11 API tests). |
 | data_source | 30 | 30 | 100% | L3 | **complete** — L1+L2+L3, all 30 bound with 0 exclusions. Shim owns the concrete vtable implementation (a buffer data source over a copied f32 buffer), so read/seek/queries/looping/range/loop-point/chaining are all reachable with no device or file; `get_current`/`get_next` bind as identity comparisons, `set/get_next_callback` via a shim-owned C callback; the 5 `data_source_node_*` init against an engine node graph (17 binding + 19 API tests). |
 | ring_buffer | 38 | 38 | 100% | L3 | **complete** — L1+L2+L3, all 38 bound with 0 exclusions. Two lock-free SPSC rings, both purely in-memory: `ma_rb` (bytes) via `RingBuffer` and `ma_pcm_rb` (frames) via `PcmRingBuffer`. The shim owns miniaudio's acquire → memcpy → commit loop (an interior pointer has no safe Mojo home), which also stitches requests spanning the wrap point; `get_subbuffer_ptr` binds as that pointer's byte offset from the ring's backing store. `init_ex` covers both the miniaudio-owned and preallocated allocation paths (24 binding + 18 API tests). |
 | channel_converter | 8 | 8 | 100% | L3 | **complete** — L1+L2+L3, all 8 bound with 0 exclusions. Channel count / map conversion via `ChannelConverter`, both init paths (managed heap and shim-owned preallocated heap) asserted to convert identically. Two upstream behaviours pinned: a mono *output* always averages regardless of mix mode, and init validates channel counts but not the sample format (10 binding + 9 API tests). |
@@ -114,7 +114,7 @@ relative to the 1,027-function denominator. Run `pixi run coverage-binding` for 
 | format_util | 27 | 27 | 100% | L3 | **complete** — L1+L2+L3, all 27 bound with 0 exclusions. Stateless helpers, so Layer 3 is free functions rather than RAII types. The clipping family keeps miniaudio's wider-source-than-destination widths. Two functions are exported without a public prototype and are declared by the shim (7 binding + 9 API tests). |
 | core | 141 | 2 | 1% | — | infrastructure (version, result_description) |
 | *others* | ~64 | 0 | 0% | — | not started |
-| **TOTAL** | **1,027** | **719** | **70.0%** (bindable 719/971 = 74.0%) | — | — |
+| **TOTAL** | **1,027** | **776** | **75.6%** (bindable 776/971 = 79.9%) | — | — |
 
 > Coverage percentage is expected to be low until families are migrated. The gates ensure
 > **everything implemented is complete and tested** — not that everything is implemented.
@@ -190,8 +190,8 @@ Planned migration order (each family follows the three-layer + TDD + gate templa
     `_or_default` entry-point families.
 
 **The original roadmap is finished.** What remains is the unlisted rest of the
-API: `core` (141), `pcm_convert` (64) and `spatializer` (57), plus scattered leftovers in
-already-complete families. `linear_resampler` (13) and `format_util` (27) are done.
+API: `core` (141) and `pcm_convert` (64), plus scattered leftovers in already-complete
+families. `linear_resampler` (13), `format_util` (27) and `spatializer` (57) are done.
 
 On completion of each family:
 - Add shim functions with `@binds` to `src/native/ma_shim.{h,c}`

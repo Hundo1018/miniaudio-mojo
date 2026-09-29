@@ -167,3 +167,8 @@ from miniaudio.noise import (
     NoiseTypePink,
     NoiseTypeBrownian,
 )
+from miniaudio.spatializer import (
+    Spatializer,
+    SpatializerListener,
+    RelativeTransform,
+)

@@ -50,9 +50,10 @@
       "notes": "L1+L2+L3 COMPLETE: all 23 of 23 functions bound, 0 excluded. ma_node_init takes a caller-supplied vtable and a Mojo function cannot cross the FFI boundary as a function pointer on this toolchain (the constraint the device family documents), so the shim owns a concrete node: an offset node that adds a constant to its input bus. It carries MA_NODE_FLAG_CONTINUOUS_PROCESSING | MA_NODE_FLAG_ALLOW_NULL_INPUT so it keeps producing with nothing attached -- without those a node with an unattached input bus is skipped entirely -- which makes it usable as a source and makes graph reads assertable. Chains are observable: two offset nodes in series produce twice the offset. Every node handle in the shim is one tagged-union allocation whose payloads all start with a ma_node_base, so attach_output_bus can target any node family without casting one handle type to another. ma_node_get_node_graph is bound as an identity question (does this node belong to that graph). NOTE for API users: a node's attachment lives only as long as the node value, and Mojo destroys a value after its last use, so a source touched only at attach time is gone before the read. 12 binding + 10 API tests."
     },
     "spatializer": {
-      "dod_met": false,
-      "dod_level": "L2",
-      "notes": "not yet started"
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 57 of 57 functions bound, 0 excluded (20 ma_spatializer_listener + 37 ma_spatializer). Standalone 3D DSP objects the engine drives under every sound, with their own shim (ma_shim_spatializer.c): every entry point returns a result code, so getters on an uninitialised handle are observable as MA_INVALID_ARGS. Behaviour asserted: right/left panning, inverse attenuation ratio 0.2 at distance 5 vs 1, turning the listener swaps ears, disabled listener = silence, relative positioning ignores the listener, preallocated == managed output. Upstream quirks recorded in tests: stereo listener map defaults to SIDE_LEFT/SIDE_RIGHT, and 0.11.25's ma_gainer overshoots for the whole first block after a gain change (t - smoothTime underflow), so loudness is measured on a second, settled block. 17 binding + 11 API tests."
     },
     "data_source": {
       "dod_met": true,
