@@ -222,6 +222,36 @@
       "dod_level": "L3",
       "complete": true,
       "notes": "L1+L2+L3 COMPLETE: all 27 of 27 functions bound, 0 excluded. miniaudio's stateless helpers -- volume scaling, clipping, buffer-size arithmetic and the format / backend name tables. Nothing here owns anything, so there are no handles and the Layer 3 surface is free functions rather than RAII types. The clipping family takes a wider source than destination, which is its purpose, and the shim keeps those widths as miniaudio declares them (s32 into s16, s64 into s32 and packed s24, s16 into u8, f32 in place to [-1,1]) rather than flattening them to void*. ma_calculate_frame_count_after_resampling and ma_get_format_priority_index are exported without a public prototype, so the shim declares them. ma_calculate_buffer_size_in_frames_from_descriptor needs an ma_device_descriptor, which the shim builds from plain fields. Tests pin the round trips: 100 ms at 48 kHz is 4800 frames and back, every format reports its own sample width, and every enabled backend's name maps back to the backend it came from. 7 binding + 9 API tests."
+    },
+    "delay": {
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 10 of 10 bound, 0 excluded. Standalone f32 delay line / echo (ma_delay) via `Delay`, shim in ma_shim_effect.c. Behaviour asserted: decay=0 delays an impulse by exactly D frames, decay=0.5 echoes 1, 0.5, 0.25 at 0/D/2D, wet scales output, state carries across calls. The shim rejects channels==0 and delay_in_frames==0, which miniaudio does not validate (the latter divides by zero on cursor wrap). 7 binding + 5 API tests."
+    },
+    "gainer": {
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 10 of 10 bound, 0 excluded. Smoothed per-channel gain (ma_gainer) via `Gainer`, both managed and preallocated init paths. Behaviour asserted: initial gain is unsmoothed, per-channel gains x master volume, smoothed change settles to target. 0.11.25's lerp-overshoot quirk (t - smoothTime underflow) is handled by measuring a second, settled block. set_gains requires exactly `channels` gains (shim-enforced; miniaudio reads blindly). 8 binding + 5 API tests."
+    },
+    "panner": {
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 7 of 7 bound, 0 excluded. Stereo balance / true pan (ma_panner) via `Panner`; miniaudio has no panner uninit. Behaviour asserted: balance attenuates the far side, pan folds it into the near side (1,1 -> 0,2), pan is clamped to [-1,1], mono passes through. The shim rejects pan modes other than balance/pan. 6 binding + 5 API tests."
+    },
+    "fader": {
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 7 of 7 bound, 0 excluded. Linear volume ramp (ma_fader, f32 only) via `Fader`; miniaudio has no fader uninit. Behaviour asserted: exact 0/.25/.5/.75/1 ramp, fade continues across calls, negative begin volume = current volume, set_fade_ex start offset passes frames through unchanged, non-f32 init rejected. 5 binding + 5 API tests."
+    },
+    "pulsewave": {
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 9 of 9 bound, 0 excluded. Square wave with duty cycle (ma_pulsewave) via `PulseWave` in waveform.mojo, shim in ma_shim_waveform.c. Behaviour asserted: high-sample fraction tracks the duty cycle (25%/75%/10%), samples are exactly +/-amplitude, seek restarts. Pins that read with frame_count==0 returns MA_INVALID_ARGS. 5 binding + 4 API tests."
     }
   }
 }

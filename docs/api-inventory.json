@@ -106,7 +106,7 @@
       ]
     },
     "core": {
-      "count": 141,
+      "count": 98,
       "functions": [
         "ma_aligned_free",
         "ma_aligned_malloc",
@@ -132,28 +132,11 @@
         "ma_decode_memory",
         "ma_decoding_backend_config_init",
         "ma_deinterleave_pcm_frames",
-        "ma_delay_config_init",
-        "ma_delay_get_decay",
-        "ma_delay_get_dry",
-        "ma_delay_get_wet",
-        "ma_delay_init",
-        "ma_delay_process_pcm_frames",
-        "ma_delay_set_decay",
-        "ma_delay_set_dry",
-        "ma_delay_set_wet",
-        "ma_delay_uninit",
         "ma_dlclose",
         "ma_dlopen",
         "ma_dlsym",
         "ma_duplex_rb_init",
         "ma_duplex_rb_uninit",
-        "ma_fader_config_init",
-        "ma_fader_get_current_volume",
-        "ma_fader_get_data_format",
-        "ma_fader_init",
-        "ma_fader_process_pcm_frames",
-        "ma_fader_set_fade",
-        "ma_fader_set_fade_ex",
         "ma_flac_get_cursor_in_pcm_frames",
         "ma_flac_get_data_format",
         "ma_flac_get_length_in_pcm_frames",
@@ -166,16 +149,6 @@
         "ma_flac_uninit",
         "ma_fopen",
         "ma_free",
-        "ma_gainer_config_init",
-        "ma_gainer_get_heap_size",
-        "ma_gainer_get_master_volume",
-        "ma_gainer_init",
-        "ma_gainer_init_preallocated",
-        "ma_gainer_process_pcm_frames",
-        "ma_gainer_set_gain",
-        "ma_gainer_set_gains",
-        "ma_gainer_set_master_volume",
-        "ma_gainer_uninit",
         "ma_interleave_pcm_frames",
         "ma_is_backend_enabled",
         "ma_is_loopback_supported",
@@ -193,22 +166,6 @@
         "ma_mp3_uninit",
         "ma_offset_pcm_frames_const_ptr",
         "ma_offset_pcm_frames_ptr",
-        "ma_panner_config_init",
-        "ma_panner_get_mode",
-        "ma_panner_get_pan",
-        "ma_panner_init",
-        "ma_panner_process_pcm_frames",
-        "ma_panner_set_mode",
-        "ma_panner_set_pan",
-        "ma_pulsewave_config_init",
-        "ma_pulsewave_init",
-        "ma_pulsewave_read_pcm_frames",
-        "ma_pulsewave_seek_to_pcm_frame",
-        "ma_pulsewave_set_amplitude",
-        "ma_pulsewave_set_duty_cycle",
-        "ma_pulsewave_set_frequency",
-        "ma_pulsewave_set_sample_rate",
-        "ma_pulsewave_uninit",
         "ma_realloc",
         "ma_result_description",
         "ma_silence_pcm_frames",
@@ -328,6 +285,21 @@
         "ma_decoder_uninit"
       ]
     },
+    "delay": {
+      "count": 10,
+      "functions": [
+        "ma_delay_config_init",
+        "ma_delay_get_decay",
+        "ma_delay_get_dry",
+        "ma_delay_get_wet",
+        "ma_delay_init",
+        "ma_delay_process_pcm_frames",
+        "ma_delay_set_decay",
+        "ma_delay_set_dry",
+        "ma_delay_set_wet",
+        "ma_delay_uninit"
+      ]
+    },
     "delay_node": {
       "count": 9,
       "functions": [
@@ -436,6 +408,18 @@
         "ma_engine_uninit"
       ]
     },
+    "fader": {
+      "count": 7,
+      "functions": [
+        "ma_fader_config_init",
+        "ma_fader_get_current_volume",
+        "ma_fader_get_data_format",
+        "ma_fader_init",
+        "ma_fader_process_pcm_frames",
+        "ma_fader_set_fade",
+        "ma_fader_set_fade_ex"
+      ]
+    },
     "format_util": {
       "count": 27,
       "functions": [
@@ -466,6 +450,21 @@
         "ma_get_enabled_backends",
         "ma_get_format_name",
         "ma_get_format_priority_index"
+      ]
+    },
+    "gainer": {
+      "count": 10,
+      "functions": [
+        "ma_gainer_config_init",
+        "ma_gainer_get_heap_size",
+        "ma_gainer_get_master_volume",
+        "ma_gainer_init",
+        "ma_gainer_init_preallocated",
+        "ma_gainer_process_pcm_frames",
+        "ma_gainer_set_gain",
+        "ma_gainer_set_gains",
+        "ma_gainer_set_master_volume",
+        "ma_gainer_uninit"
       ]
     },
     "hishelf": {
@@ -711,6 +710,18 @@
         "ma_paged_audio_buffer_uninit"
       ]
     },
+    "panner": {
+      "count": 7,
+      "functions": [
+        "ma_panner_config_init",
+        "ma_panner_get_mode",
+        "ma_panner_get_pan",
+        "ma_panner_init",
+        "ma_panner_process_pcm_frames",
+        "ma_panner_set_mode",
+        "ma_panner_set_pan"
+      ]
+    },
     "pcm_convert": {
       "count": 64,
       "functions": [
@@ -795,6 +806,20 @@
         "ma_peak_node_init",
         "ma_peak_node_reinit",
         "ma_peak_node_uninit"
+      ]
+    },
+    "pulsewave": {
+      "count": 9,
+      "functions": [
+        "ma_pulsewave_config_init",
+        "ma_pulsewave_init",
+        "ma_pulsewave_read_pcm_frames",
+        "ma_pulsewave_seek_to_pcm_frame",
+        "ma_pulsewave_set_amplitude",
+        "ma_pulsewave_set_duty_cycle",
+        "ma_pulsewave_set_frequency",
+        "ma_pulsewave_set_sample_rate",
+        "ma_pulsewave_uninit"
       ]
     },
     "resampler": {
