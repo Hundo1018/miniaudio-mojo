@@ -7,6 +7,10 @@
 #
 # Usage: bash tools/shim_coverage.sh [line-threshold]   (default 95)
 #
+# SHIM_COV_TESTS='tests/test_foo_*.mojo' runs only that subset (for checking one
+# family's shim while developing; the aggregate is then not meaningful, read the
+# per-file lines printed to stderr instead).
+#
 set -euo pipefail
 
 THRESHOLD="${1:-95}"
@@ -44,7 +48,7 @@ export MINIAUDIO_MOJO_LIB="$COV_LIB"
 cd "$ROOT"
 python3 tools/gen_test_wav.py 2>/dev/null || true
 
-for t in tests/test_*.mojo; do
+for t in ${SHIM_COV_TESTS:-tests/test_*.mojo}; do
     echo "  -> $t"
     mojo run -I src -I tests "$t"
 done
@@ -65,6 +69,7 @@ read -r EXECUTED TOTAL < <(python3 - "$BUILD_COV"/ma_shim*.c.gcov <<'PY'
 import sys
 ex = tot = 0
 for path in sys.argv[1:]:
+    fex = ftot = 0
     for line in open(path):
         parts = line.split(":", 2)
         if len(parts) < 3:
@@ -72,9 +77,14 @@ for path in sys.argv[1:]:
         c = parts[0].strip()
         if c in ("-", ""):      # non-executable / header line
             continue
-        tot += 1
+        ftot += 1
         if c[0].isdigit():       # numeric count => executed (gcov uses ##### for 0)
-            ex += 1
+            fex += 1
+    ex += fex
+    tot += ftot
+    if ftot:
+        name = path.rsplit("/", 1)[-1].removesuffix(".gcov")
+        print(f"    {name:32s} {100.0*fex/ftot:6.2f}%  ({fex}/{ftot})", file=sys.stderr)
 print(ex, tot)
 PY
 )
