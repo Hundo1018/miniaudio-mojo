@@ -252,6 +252,30 @@
       "dod_level": "L3",
       "complete": true,
       "notes": "L1+L2+L3 COMPLETE: all 9 of 9 bound, 0 excluded. Square wave with duty cycle (ma_pulsewave) via `PulseWave` in waveform.mojo, shim in ma_shim_waveform.c. Behaviour asserted: high-sample fraction tracks the duty cycle (25%/75%/10%), samples are exactly +/-amplitude, seek restarts. Pins that read with frame_count==0 returns MA_INVALID_ARGS. 5 binding + 4 API tests."
+    },
+    "wav": {
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 8 of 8 bindable bound, 2 excluded (ma_wav_init takes read/seek/tell callbacks; ma_wav_init_file_w takes a wchar_t path). miniaudio's built-in WAV backend used directly (no ma_decoder) via `WavDecoder`, shim in ma_shim_wav.c. ma_wav is defined only inside miniaudio's implementation section, so the handle embeds fixed-size aligned storage (1024 B vs sizeof 520) and the prototypes are declared locally; tools/check_codec_layout.c (pixi run check-codec-layout, chained into test-wav) static-asserts the storage still fits. The shim also refuses reads that would overflow the caller's buffer and rejects out-of-range format codes. Behaviour asserted: format/channels/rate/length match the generated 48 kHz fixture; samples equal the generator's 16-bit sine exactly (f32 within 1e-6); RMS 0.1414 and ~440 rising crossings per second; seek then cursor == target; short read then MA_AT_END; memory init == file init; preferred format f32/s16/s32 honoured, u8 silently ignored. Pins that dr_wav clamps a seek past the end. 19 binding + 13 API tests."
+    },
+    "flac": {
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 8 of 8 bindable bound, 2 excluded (ma_flac_init takes read/seek/tell callbacks; ma_flac_init_file_w takes a wchar_t path). miniaudio's built-in FLAC backend used directly via `FlacDecoder`, shim in ma_shim_flac.c (same opaque-storage + local-prototype approach as wav; 256 B vs sizeof 120). miniaudio cannot encode FLAC, so tests use the committed tests/fixtures/sine_440_stereo_44100.flac (0.25 s, 44.1 kHz stereo, 11800 B; regeneration commands in tests/fixtures/README.md). Behaviour asserted: format/channels/rate/length (11025 frames) match; lossless decode equals the generator's 16-bit sine exactly; RMS 0.3535; seek then cursor == target; short read then MA_AT_END; memory init == file init; default format f32, s16/s32 honoured, unknown/u8 fall back to f32. Pins that dr_flac clamps a seek past the end. 19 binding + 13 API tests."
+    },
+    "mp3": {
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 8 of 8 bindable bound, 2 excluded (ma_mp3_init takes read/seek/tell callbacks; ma_mp3_init_file_w takes a wchar_t path). miniaudio's built-in MP3 backend used directly via `Mp3Decoder`, shim in ma_shim_mp3.c (same opaque-storage + local-prototype approach; 40960 B vs sizeof 32504 because ma_mp3 embeds the whole dr_mp3 state). miniaudio cannot encode MP3, so tests use the committed tests/fixtures/sine_440_stereo_44100.mp3 (64 kbps CBR, 2526 B, ffmpeg/libmp3lame with Xing/LAME header). Upstream (dr_mp3 0.7.3) behaviour pinned: length is gapless (11025 frames; a header-less encode would be 12672 = 11 x 1152) but the cursor still counts the 1105-frame encoder delay (after reading N frames it is N + 1105; after seek(T>0) it is T + 1105; seek(0) gives 0), a seek table (seek_point_count>0) makes seek(T) report T, a seek past the end fails with MA_ERROR (dr_wav/dr_flac clamp), only f32 (default) and s16 are honoured. Behaviour asserted: lossy decode within tolerance of the ideal sine (RMS 0.336 vs 0.354, error 0.018 RMS, 109 rising crossings), seek-without-table lands on exactly the sequentially decoded samples, s16 == f32 quantised, memory init == file init, garbage and missing input rejected. 21 binding + 16 API tests."
+    },
+    "decode_util": {
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 4 of 4 bound, 0 excluded. One-shot ma_decode_file / ma_decode_memory / ma_decode_from_vfs plus ma_decoding_backend_config_init, shim in ma_shim_decode_util.c, Layer 3 free functions returning an RAII `DecodedAudio`. miniaudio allocates the output buffer; the shim exposes ma_shim_decode_free (ma_free) and DecodedAudio releases it, so nothing leaks (tests watch resident pages over repeated decodes; verified to fail with the free disabled). The decode calls report the resolved format/channels/rate back (miniaudio rewrites the config), take ma_format 0 / channels 0 / rate 0 as 'native', and decode_from_vfs takes an initialised Vfs handle (resolved through a new shimint_vfs_ptr helper in ma_shim_context.c) or NULL for the default file system. ma_decoding_backend_config_init returns a struct by value, so the shim echoes its two fields through out-pointers. Behaviour asserted: frame count and format match the format-specific WavDecoder/FlacDecoder/Mp3Decoder paths with identical samples, decode_memory == decode_file == decode_from_vfs, conversion to s16/mono/22.05 kHz is applied and reported, missing/garbage/empty/non-audio input and bad format codes are rejected. 17 binding + 12 API tests."
     }
   }
 }

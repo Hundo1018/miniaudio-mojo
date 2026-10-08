@@ -496,3 +496,11 @@ int ma_shim_vfs_or_default_info(void* handle, unsigned long long* out_size_in_by
     *out_size_in_bytes = (unsigned long long)info.sizeInBytes;
     return (int)result;
 }
+
+/* Cross-family helper (no ma_shim_ prefix, so it is not a public binding):
+ * resolves a Vfs handle to its ma_vfs*, or NULL if the handle is null or not
+ * yet initialised. Consumed by ma_shim_decode_util.c (ma_decode_from_vfs). */
+ma_vfs* shimint_vfs_ptr(void* vfs_handle) {
+    ma_shim_vfs_state* h = vfs_ready(vfs_handle);
+    return h != NULL ? (ma_vfs*)&h->vfs : NULL;
+}
