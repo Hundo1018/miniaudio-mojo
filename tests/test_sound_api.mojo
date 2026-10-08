@@ -849,26 +849,7 @@ def test_end_callback_errors_leave_no_handler_behind() raises:
     assert_equal(count(destroyed), 2)
 
 
-def test_the_end_callback_runs_on_the_audio_thread_of_a_running_engine() raises:
-    """Real time, null backend: the device thread pulls frames and runs the handler."""
-    var eng = ArcPointer(Engine.create(_lib(), use_null_backend=True))
-    var fired = counter()
-    var destroyed = counter()
-    var snd = Sound.from_data_source(eng, _source(eng, 2), flags=PASS_THROUGH)   # 20 ms of audio
-    snd.set_end_callback(Tally(fired, destroyed))
-    snd.start()
-    for _ in range(100):                         # wait up to a second
-        if count(fired) > 0:
-            break
-        sleep(0.01)
-    assert_equal(count(fired), 1)
-    sleep(0.05)
-    assert_equal(count(fired), 1)                # and not again
-    assert_equal(count(destroyed), 0)
-    assert_true(snd.at_end())                    # last use of `snd`: it is dropped after this
-
-
-def test_swapping_the_handler_while_the_audio_thread_ends_the_sound_is_safe() raises:
+def test_the_end_callback_runs_on_the_audio_thread_and_swapping_it_there_is_safe() raises:
     """The shim's lock: no handler is destroyed while it runs, each one exactly once.
 
     A running engine, a 20 ms sound restarted as soon as it stops (so the audio
@@ -876,8 +857,29 @@ def test_swapping_the_handler_while_the_audio_thread_ends_the_sound_is_safe() ra
     `on_end`. Meanwhile this thread keeps swapping the handler. Every swap that lands
     in the middle of a call has to wait for the call to finish before the old
     handler is destroyed.
+
+    Both real-time checks share ONE engine, and it is stopped before the test ends
+    (see the end of the test).
     """
     var eng = ArcPointer(Engine.create(_lib(), use_null_backend=True))
+
+    # Part 1: the device thread pulls frames and runs the handler, once.
+    var once = counter()
+    var once_destroyed = counter()
+    var first = Sound.from_data_source(eng, _source(eng, 2), flags=PASS_THROUGH)   # 20 ms
+    first.set_end_callback(Tally(once, once_destroyed))
+    first.start()
+    for _ in range(100):                         # wait up to a second
+        if count(once) > 0:
+            break
+        sleep(0.01)
+    assert_equal(count(once), 1)
+    sleep(0.05)
+    assert_equal(count(once), 1)                 # and not again
+    assert_equal(count(once_destroyed), 0)
+    assert_true(first.at_end())
+
+    # Part 2: swap handlers while the audio thread keeps ending the sound.
     var fired = counter()
     var destroyed = counter()
     var bad = counter()
@@ -894,6 +896,11 @@ def test_swapping_the_handler_while_the_audio_thread_ends_the_sound_is_safe() ra
     assert_equal(count(destroyed), made)         # every one destroyed, none twice
     assert_true(count(fired) > 0)                # and the audio thread did call them
     assert_true(snd.is_looping() == False)
+
+    # Stop the device thread ourselves: destroying an engine that is still running
+    # is what takes ~100 s; a stopped one is destroyed at once.
+    eng[].stop()
+    assert_true(first.at_end())
 
 
 def main() raises:
