@@ -7,6 +7,14 @@ that the TDD contract tests target directly.
 """
 
 from miniaudio._lib import MaLib
+from miniaudio.stream import ReadSeekStream
+from miniaudio._ffi.stream_raw import (
+    StreamPtr,
+    stream_read_tramp,
+    stream_seek_tramp,
+    stream_destroy,
+    stream_tag,
+)
 
 
 @fieldwise_init
@@ -193,3 +201,75 @@ def decoder_output_format(
     lib: MaLib, dec: OpaquePointer[MutUntrackedOrigin]
 ) -> Int:
     return Int(lib.handle.call["ma_shim_decoder_output_format", Int32](dec))
+
+
+def decoder_init_stream[
+    S: ReadSeekStream
+](
+    lib: MaLib,
+    dec: OpaquePointer[MutUntrackedOrigin],
+    user: StreamPtr[S],
+    format: Int,
+    channels: UInt32,
+    sample_rate: UInt32,
+) -> Int:
+    """Init a decoder that reads through the stream at `user` (custom I/O).
+
+    `user` is a heap cell from `stream_leak`. The shim ALWAYS takes it over,
+    whether this succeeds or fails: it destroys the stream after the decoder is
+    uninitialised, or straight away when init fails (invalid arguments
+    included). The caller must not touch `user` afterwards.
+    """
+    return Int(
+        lib.handle.call["ma_shim_decoder_init_stream", Int32](
+            dec,
+            stream_read_tramp[S],
+            stream_seek_tramp[S],
+            stream_destroy[S],
+            user,
+            stream_tag[S](),
+            Int32(format),
+            channels,
+            sample_rate,
+        )
+    )
+
+
+def decoder_init_stream_ptrs(
+    lib: MaLib,
+    dec: OpaquePointer[MutUntrackedOrigin],
+    on_read: OpaquePointer[MutUntrackedOrigin],
+    on_seek: OpaquePointer[MutUntrackedOrigin],
+    on_destroy: OpaquePointer[MutUntrackedOrigin],
+    user: OpaquePointer[MutUntrackedOrigin],
+    type_tag: UInt64,
+    format: Int,
+    channels: UInt32,
+    sample_rate: UInt32,
+) -> Int:
+    """The same shim call with every pointer passed bare, NULLs included. Only
+    for exercising the shim's argument checks: a real stream goes through
+    `decoder_init_stream`."""
+    return Int(
+        lib.handle.call["ma_shim_decoder_init_stream", Int32](
+            dec,
+            on_read,
+            on_seek,
+            on_destroy,
+            user,
+            type_tag,
+            Int32(format),
+            channels,
+            sample_rate,
+        )
+    )
+
+
+def decoder_stream_user(
+    lib: MaLib, dec: OpaquePointer[MutUntrackedOrigin], type_tag: UInt64
+) -> OpaquePointer[MutUntrackedOrigin]:
+    """The stream the decoder was initialised with, or NULL if it has none or
+    `type_tag` (see `stream_tag`) is not the tag it was initialised with."""
+    return lib.handle.call[
+        "ma_shim_decoder_stream_user", OpaquePointer[MutUntrackedOrigin]
+    ](dec, type_tag)

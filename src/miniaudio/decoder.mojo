@@ -11,6 +11,8 @@ from std.memory import ArcPointer
 from miniaudio._lib import MaLib, null_handle
 from miniaudio.result import MA_SUCCESS, MA_AT_END
 import miniaudio._ffi.decoder_raw as raw
+from miniaudio.stream import ReadSeekStream
+from miniaudio._ffi.stream_raw import stream_leak, stream_reclaim, stream_tag
 
 
 @fieldwise_init
@@ -131,6 +133,50 @@ struct Decoder(Movable):
             raise Error(lib[].describe("decoder init from memory failed", code))
         # `data` must outlive the decoder (miniaudio references, not copies it).
         return Self(lib.copy(), ptr, data^)
+
+    @staticmethod
+    def from_stream[
+        S: ReadSeekStream
+    ](
+        lib: ArcPointer[MaLib],
+        var stream: S,
+        *,
+        format: SampleFormat = SAMPLE_FORMAT_F32,
+        channels: UInt32 = 0,
+        sample_rate: UInt32 = 0,
+    ) raises -> Self:
+        """Decode from a stream you implement (ma_decoder_init with your own I/O).
+
+        `stream` moves into the decoder, which keeps it alive on the heap for as
+        long as miniaudio may read through it and destroys it exactly once,
+        after the decoder is uninitialised and dropped (at once if this raises).
+        Get it back with `stream[S]()`. miniaudio calls `read` and `seek` as it probes
+        the container, decodes and seeks, from whichever thread reads the
+        decoder. A stream that fails to read (or raises) makes this raise.
+        """
+        var user = stream_leak(stream^)
+        var ptr = raw.decoder_alloc(lib[])
+        if ptr == null_handle():
+            stream_reclaim(user)
+            raise Error("decoder_alloc failed (out of memory)")
+        # The shim takes the stream over whether or not init succeeds.
+        var code = raw.decoder_init_stream(
+            lib[], ptr, user, format.code, channels, sample_rate
+        )
+        if code != MA_SUCCESS:
+            raw.decoder_free(lib[], ptr)
+            raise Error(lib[].describe("decoder init from stream failed", code))
+        return Self(lib.copy(), ptr, List[UInt8]())
+
+    def stream[S: ReadSeekStream](mut self) raises -> ref[self] S:
+        """The stream this decoder was built from with `from_stream`.
+
+        Raises if the decoder has no stream, or `S` is not its type.
+        """
+        var user = raw.decoder_stream_user(self._lib[], self._ptr, stream_tag[S]())
+        if user == null_handle():
+            raise Error("decoder has no stream of the requested type")
+        return user.unsafe_bitcast[S]().unsafe_origin_cast[origin_of(self)]()[]
 
     def channels(self) -> UInt32:
         return raw.decoder_output_channels(self._lib[], self._ptr)

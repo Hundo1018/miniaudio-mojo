@@ -18,6 +18,8 @@
  *   unknown=0, u8=1, s16=2, s24=3, s32=4, f32=5.
  */
 
+#include "ma_shim_stream.h"
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -72,6 +74,29 @@ int ma_shim_decoder_init_file_vfs(
     unsigned int output_sample_rate
 );
 
+/* Init a decoder from user-supplied read and seek callbacks (custom I/O). Both
+ * callbacks and the user pointer are mandatory. The user stream is adopted and
+ * always consumed: see ma_shim_stream.h for the ownership contract and the
+ * callback shapes. The decoder reads through the callbacks for as long as it is
+ * initialised; the stream stays alive after uninit and is released (destroy
+ * runs) when the handle is freed or initialised again. miniaudio supplies
+ * ma_decoder_init no tell callback. */
+int ma_shim_decoder_init_stream(
+    void* handle,
+    ma_shim_stream_read_fn on_read,
+    ma_shim_stream_seek_fn on_seek,
+    ma_shim_stream_destroy_fn on_destroy,
+    void* user,
+    unsigned long long type_tag,
+    int output_format,
+    unsigned int output_channels,
+    unsigned int output_sample_rate
+);
+/* The user pointer the decoder was initialised with, if type_tag matches the tag
+ * it was initialised with; NULL for a file / memory decoder, a null handle or
+ * another tag. Still answers after uninit. */
+void* ma_shim_decoder_stream_user(void* handle, unsigned long long type_tag);
+
 /* Field accessors via ma_decoder_get_data_format; return 0 on any error. */
 unsigned int ma_shim_decoder_output_channels(void* handle);
 unsigned int ma_shim_decoder_output_sample_rate(void* handle);
@@ -106,6 +131,28 @@ int ma_shim_encoder_init_file_vfs(
     unsigned int channels,
     unsigned int sample_rate
 );
+
+/* Init an encoder that writes through user-supplied write and seek callbacks
+ * (custom sink). Both callbacks and the user pointer are mandatory. The sink is
+ * adopted and always consumed (see ma_shim_stream.h); the WAV encoder writes its
+ * header up front and seeks back to patch the sizes on uninit, so the sink is
+ * only complete after uninit. The sink stays alive after uninit (so the result
+ * can be read back) and is released (destroy runs) when the handle is freed or
+ * initialised again. */
+int ma_shim_encoder_init_stream(
+    void* handle,
+    ma_shim_stream_write_fn on_write,
+    ma_shim_stream_seek_fn on_seek,
+    ma_shim_stream_destroy_fn on_destroy,
+    void* user,
+    unsigned long long type_tag,
+    int encoding_format,
+    int format,
+    unsigned int channels,
+    unsigned int sample_rate
+);
+/* As ma_shim_decoder_stream_user, for an encoder handle. */
+void* ma_shim_encoder_stream_user(void* handle, unsigned long long type_tag);
 
 /* ---- device (opaque handle; playback pulling from a decoder) ----
  *

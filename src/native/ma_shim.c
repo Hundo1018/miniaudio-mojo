@@ -1,5 +1,6 @@
 #include "ma_shim.h"
 #include "ma_shim_internal.h"
+#include "ma_shim_stream.h"
 
 #include "miniaudio.h"
 
@@ -14,7 +15,25 @@
 typedef struct ma_shim_decoder {
     ma_decoder decoder;
     int initialized;
+    shimint_stream stream; /* user-supplied I/O (ma_shim_decoder_init_stream); zeroed otherwise */
 } ma_shim_decoder;
+
+/* Uninitialise the decoder, if it is initialised. A user-supplied stream is
+ * left alone: it stays reachable until the handle is freed or re-initialised. */
+static void decoder_uninit_object(ma_shim_decoder* h) {
+    if (h->initialized) {
+        ma_decoder_uninit(&h->decoder);
+        h->initialized = 0;
+    }
+}
+
+/* Full reset, for free and re-init: uninitialise, then release a user-supplied
+ * stream (its destroy callback runs strictly after ma_decoder_uninit, exactly
+ * once). */
+static void decoder_teardown(ma_shim_decoder* h) {
+    decoder_uninit_object(h);
+    shimint_stream_release(&h->stream);
+}
 
 /* ---- core ---- */
 
@@ -42,10 +61,7 @@ void ma_shim_decoder_free(void* handle) {
     if (h == NULL) {
         return;
     }
-    if (h->initialized) {
-        ma_decoder_uninit(&h->decoder);
-        h->initialized = 0;
-    }
+    decoder_teardown(h);
     free(h);
 }
 
@@ -76,10 +92,7 @@ int ma_shim_decoder_init_file(
     if (ma_shim_resolve_format(output_format, &format) != MA_SUCCESS) {
         return MA_INVALID_ARGS;
     }
-    if (h->initialized) {
-        ma_decoder_uninit(&h->decoder);
-        h->initialized = 0;
-    }
+    decoder_teardown(h);
 
     config = ma_decoder_config_init(format, output_channels, output_sample_rate);
     result = ma_decoder_init_file(file_path, &config, &h->decoder);
@@ -109,10 +122,7 @@ int ma_shim_decoder_init_memory(
     if (ma_shim_resolve_format(output_format, &format) != MA_SUCCESS) {
         return MA_INVALID_ARGS;
     }
-    if (h->initialized) {
-        ma_decoder_uninit(&h->decoder);
-        h->initialized = 0;
-    }
+    decoder_teardown(h);
 
     config = ma_decoder_config_init(format, output_channels, output_sample_rate);
     /* NOTE: miniaudio references `data` for the decoder's lifetime; it does not
@@ -130,11 +140,7 @@ int ma_shim_decoder_uninit(void* handle) {
     if (h == NULL) {
         return MA_INVALID_ARGS;
     }
-    if (!h->initialized) {
-        return MA_SUCCESS;
-    }
-    ma_decoder_uninit(&h->decoder);
-    h->initialized = 0;
+    decoder_uninit_object(h);
     return MA_SUCCESS;
 }
 
@@ -277,10 +283,7 @@ int ma_shim_decoder_init_file_default(void* handle, const char* file_path) {
     if (h == NULL || file_path == NULL) {
         return MA_INVALID_ARGS;
     }
-    if (h->initialized) {
-        ma_decoder_uninit(&h->decoder);
-        h->initialized = 0;
-    }
+    decoder_teardown(h);
 
     base = ma_decoder_config_init_default();
     config = ma_decoder_config_init_copy(&base);
@@ -316,10 +319,7 @@ int ma_shim_decoder_init_file_vfs(
     if (ma_shim_resolve_format(output_format, &format) != MA_SUCCESS) {
         return MA_INVALID_ARGS;
     }
-    if (h->initialized) {
-        ma_decoder_uninit(&h->decoder);
-        h->initialized = 0;
-    }
+    decoder_teardown(h);
 
     config = ma_decoder_config_init(format, output_channels, output_sample_rate);
     result = ma_decoder_init_vfs(NULL, file_path, &config, &h->decoder);
@@ -348,6 +348,80 @@ int ma_shim_decoder_get_available_frames(void* handle, unsigned long long* out_a
     return (int)result;
 }
 
+/* ---- decoder over a user-supplied stream ---- */
+
+/* The user stream's callbacks, adapted to ma_decoder_read_proc / seek_proc: the
+ * decoder's user data is the shim handle that carries the stream. */
+static ma_result decoder_stream_on_read(ma_decoder* pDecoder, void* pBufferOut, size_t bytesToRead, size_t* pBytesRead) {
+    ma_shim_decoder* h = (ma_shim_decoder*)pDecoder->pUserData;
+    size_t bytes_read = 0;
+    int result = h->stream.read(h->stream.user, pBufferOut, bytesToRead, &bytes_read);
+    if (pBytesRead != NULL) {
+        *pBytesRead = bytes_read;
+    }
+    return (ma_result)result;
+}
+
+static ma_result decoder_stream_on_seek(ma_decoder* pDecoder, ma_int64 byteOffset, ma_seek_origin origin) {
+    ma_shim_decoder* h = (ma_shim_decoder*)pDecoder->pUserData;
+    return (ma_result)h->stream.seek(h->stream.user, (long long)byteOffset, (int)origin);
+}
+
+/* Init a decoder that reads its encoded bytes through caller-supplied read and
+ * seek callbacks. The stream is adopted and always consumed (see
+ * ma_shim_stream.h). miniaudio gives ma_decoder_init no tell callback. */
+/* @binds ma_decoder_init, ma_decoder_config_init */
+int ma_shim_decoder_init_stream(
+    void* handle,
+    ma_shim_stream_read_fn on_read,
+    ma_shim_stream_seek_fn on_seek,
+    ma_shim_stream_destroy_fn on_destroy,
+    void* user,
+    unsigned long long type_tag,
+    int output_format,
+    unsigned int output_channels,
+    unsigned int output_sample_rate
+) {
+    ma_shim_decoder* h = (ma_shim_decoder*)handle;
+    shimint_stream incoming;
+    ma_decoder_config config;
+    ma_format format = ma_format_unknown;
+    ma_result result = MA_INVALID_ARGS;
+
+    memset(&incoming, 0, sizeof(incoming));
+    incoming.read = on_read;
+    incoming.seek = on_seek;
+    incoming.destroy = on_destroy;
+    incoming.user = user;
+    incoming.type_tag = type_tag;
+
+    if (h != NULL && on_read != NULL && on_seek != NULL && user != NULL) {
+        result = (ma_result)ma_shim_resolve_format(output_format, &format);
+    }
+    if (result != MA_SUCCESS) {
+        shimint_stream_release(&incoming);
+        return (int)result;
+    }
+    decoder_teardown(h);
+    h->stream = incoming;
+    config = ma_decoder_config_init(format, output_channels, output_sample_rate);
+    result = ma_decoder_init(decoder_stream_on_read, decoder_stream_on_seek, h, &config, &h->decoder);
+    if (result == MA_SUCCESS) {
+        h->initialized = 1;
+    } else {
+        shimint_stream_release(&h->stream);
+    }
+    return (int)result;
+}
+
+void* ma_shim_decoder_stream_user(void* handle, unsigned long long type_tag) {
+    ma_shim_decoder* h = (ma_shim_decoder*)handle;
+    if (h == NULL) {
+        return NULL;
+    }
+    return shimint_stream_user(&h->stream, type_tag);
+}
+
 /* ---- encoder ---- */
 
 /*
@@ -358,7 +432,27 @@ int ma_shim_decoder_get_available_frames(void* handle, unsigned long long* out_a
 typedef struct ma_shim_encoder {
     ma_encoder encoder;
     int initialized;
+    shimint_stream stream; /* user-supplied sink (ma_shim_encoder_init_stream); zeroed otherwise */
 } ma_shim_encoder;
+
+/* Uninitialise the encoder, if it is initialised (this is where a WAV header
+ * gets patched through the sink's seek and write). A user-supplied sink is left
+ * alone: it stays reachable, with its final contents, until the handle is freed
+ * or re-initialised. */
+static void encoder_uninit_object(ma_shim_encoder* h) {
+    if (h->initialized) {
+        ma_encoder_uninit(&h->encoder);
+        h->initialized = 0;
+    }
+}
+
+/* Full reset, for free and re-init: uninitialise, then release a user-supplied
+ * sink (its destroy callback runs strictly after ma_encoder_uninit, exactly
+ * once). */
+static void encoder_teardown(ma_shim_encoder* h) {
+    encoder_uninit_object(h);
+    shimint_stream_release(&h->stream);
+}
 
 /* Shim-managed allocation (no direct ma_* counterpart; miniaudio does not
  * export a heap-allocator for ma_encoder). */
@@ -372,10 +466,7 @@ void ma_shim_encoder_free(void* handle) {
     if (h == NULL) {
         return;
     }
-    if (h->initialized) {
-        ma_encoder_uninit(&h->encoder);
-        h->initialized = 0;
-    }
+    encoder_teardown(h);
     free(h);
 }
 
@@ -402,10 +493,7 @@ int ma_shim_encoder_init_file(
     if (ma_shim_resolve_format(format, &ma_fmt) != MA_SUCCESS) {
         return MA_INVALID_ARGS;
     }
-    if (h->initialized) {
-        ma_encoder_uninit(&h->encoder);
-        h->initialized = 0;
-    }
+    encoder_teardown(h);
 
     config = ma_encoder_config_init(
         (ma_encoding_format)encoding_format, ma_fmt, channels, sample_rate);
@@ -422,11 +510,7 @@ int ma_shim_encoder_uninit(void* handle) {
     if (h == NULL) {
         return MA_INVALID_ARGS;
     }
-    if (!h->initialized) {
-        return MA_SUCCESS;
-    }
-    ma_encoder_uninit(&h->encoder);
-    h->initialized = 0;
+    encoder_uninit_object(h);
     return MA_SUCCESS;
 }
 
@@ -483,10 +567,7 @@ int ma_shim_encoder_init_file_vfs(
     if (ma_shim_resolve_format(format, &ma_fmt) != MA_SUCCESS) {
         return MA_INVALID_ARGS;
     }
-    if (h->initialized) {
-        ma_encoder_uninit(&h->encoder);
-        h->initialized = 0;
-    }
+    encoder_teardown(h);
 
     config = ma_encoder_config_init(
         (ma_encoding_format)encoding_format, ma_fmt, channels, sample_rate);
@@ -495,6 +576,83 @@ int ma_shim_encoder_init_file_vfs(
         h->initialized = 1;
     }
     return (int)result;
+}
+
+/* ---- encoder over a user-supplied sink ---- */
+
+/* The sink's callbacks, adapted to ma_encoder_write_proc / seek_proc: the
+ * encoder's user data is the shim handle that carries the sink. */
+static ma_result encoder_stream_on_write(ma_encoder* pEncoder, const void* pBufferIn, size_t bytesToWrite, size_t* pBytesWritten) {
+    ma_shim_encoder* h = (ma_shim_encoder*)pEncoder->pUserData;
+    size_t bytes_written = 0;
+    int result = h->stream.write(h->stream.user, pBufferIn, bytesToWrite, &bytes_written);
+    if (pBytesWritten != NULL) {
+        *pBytesWritten = bytes_written;
+    }
+    return (ma_result)result;
+}
+
+static ma_result encoder_stream_on_seek(ma_encoder* pEncoder, ma_int64 offset, ma_seek_origin origin) {
+    ma_shim_encoder* h = (ma_shim_encoder*)pEncoder->pUserData;
+    return (ma_result)h->stream.seek(h->stream.user, (long long)offset, (int)origin);
+}
+
+/* Init an encoder that writes its output through caller-supplied write and seek
+ * callbacks (the WAV encoder writes a header up front and seeks back to patch
+ * the sizes on uninit). The sink is adopted and always consumed (see
+ * ma_shim_stream.h); it is released after the encoder has flushed. */
+/* @binds ma_encoder_init, ma_encoder_config_init */
+int ma_shim_encoder_init_stream(
+    void* handle,
+    ma_shim_stream_write_fn on_write,
+    ma_shim_stream_seek_fn on_seek,
+    ma_shim_stream_destroy_fn on_destroy,
+    void* user,
+    unsigned long long type_tag,
+    int encoding_format,
+    int format,
+    unsigned int channels,
+    unsigned int sample_rate
+) {
+    ma_shim_encoder* h = (ma_shim_encoder*)handle;
+    shimint_stream incoming;
+    ma_encoder_config config;
+    ma_format ma_fmt = ma_format_unknown;
+    ma_result result = MA_INVALID_ARGS;
+
+    memset(&incoming, 0, sizeof(incoming));
+    incoming.write = on_write;
+    incoming.seek = on_seek;
+    incoming.destroy = on_destroy;
+    incoming.user = user;
+    incoming.type_tag = type_tag;
+
+    if (h != NULL && on_write != NULL && on_seek != NULL && user != NULL
+        && encoding_format >= 0 && encoding_format <= ma_encoding_format_vorbis) {
+        result = (ma_result)ma_shim_resolve_format(format, &ma_fmt);
+    }
+    if (result != MA_SUCCESS) {
+        shimint_stream_release(&incoming);
+        return (int)result;
+    }
+    encoder_teardown(h);
+    h->stream = incoming;
+    config = ma_encoder_config_init((ma_encoding_format)encoding_format, ma_fmt, channels, sample_rate);
+    result = ma_encoder_init(encoder_stream_on_write, encoder_stream_on_seek, h, &config, &h->encoder);
+    if (result == MA_SUCCESS) {
+        h->initialized = 1;
+    } else {
+        shimint_stream_release(&h->stream);
+    }
+    return (int)result;
+}
+
+void* ma_shim_encoder_stream_user(void* handle, unsigned long long type_tag) {
+    ma_shim_encoder* h = (ma_shim_encoder*)handle;
+    if (h == NULL) {
+        return NULL;
+    }
+    return shimint_stream_user(&h->stream, type_tag);
 }
 
 /* ---- device (playback pulling from a decoder) ---- */
