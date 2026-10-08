@@ -119,6 +119,21 @@ int   ma_shim_sound_init_from_data_source(
 /* The shim handle of the engine the sound belongs to (NULL if not initialised). */
 void* ma_shim_sound_get_engine(void* handle);
 
+/* ---- end callback ----
+ * `fn(user)` runs when the sound reaches its end, on the audio thread (or the
+ * thread pulling frames from the engine), with the shim's handler lock held: keep
+ * it short and do not call back into the same sound. `drop(user)` (may be NULL)
+ * destroys `user`; the shim calls it exactly once when the handler is replaced,
+ * cleared, or the sound is uninitialised/freed -- never while `fn` is running.
+ * set fails (caller keeps `user`) with MA_INVALID_ARGS for a NULL/uninitialised
+ * handle or NULL fn, MA_INVALID_OPERATION for a sound without a data source. */
+typedef void (*ma_shim_sound_end_fn)(void* user);
+typedef void (*ma_shim_sound_end_drop_fn)(void* user);
+
+int   ma_shim_sound_set_end_callback(
+    void* handle, ma_shim_sound_end_fn fn, ma_shim_sound_end_drop_fn drop, void* user);
+int   ma_shim_sound_clear_end_callback(void* handle);
+
 /* ---- sound config (miniaudio passes ma_sound_config by value; the shim keeps
  * one behind a handle). Every setter requires a prior config_init*. ---- */
 void* ma_shim_sound_config_alloc(void);

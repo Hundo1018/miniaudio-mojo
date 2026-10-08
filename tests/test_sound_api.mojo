@@ -21,6 +21,16 @@ from miniaudio.data_source import DataSource, DataSourceNode
 from miniaudio.sound_group import SoundGroup
 from miniaudio.node import EngineNode, NodeGraph
 from miniaudio.sound import SoundConfig, SOUND_FLAG_LOOPING, SOUND_FLAG_NO_PITCH, SOUND_FLAG_NO_SPATIALIZATION
+import miniaudio._ffi.sound_raw as soundraw
+from support.sound_end_handlers import (
+    Tally,
+    Marker,
+    Busy,
+    counter,
+    count,
+    read_periods,
+    periods_until_fired,
+)
 
 
 comptime WAV_PATH = "./build/test_assets/sine_440_stereo.wav"
@@ -572,6 +582,318 @@ def test_config_errors_surface_as_errors() raises:
     with assert_raises():
         cfg.set_engine_node(node)
     assert_true(snd.engine()[]._ptr == eng[]._ptr)
+
+
+# ---------------------------------------------------------------------------
+# set_end_callback / clear_end_callback
+#
+# The engine is stopped, so the test thread is the one pulling frames and the
+# handler runs on it, inside `eng.read` -- deterministic. (On a running engine the
+# same handler runs on the audio thread; see the real-time test at the end.)
+# `_source(eng)` is 4 periods long; a sound over it runs off its end a little after
+# 4 periods have been read.
+# ---------------------------------------------------------------------------
+
+comptime SOURCE_PERIODS = 4
+
+
+def test_the_end_callback_fires_once_when_the_sound_runs_off_its_end() raises:
+    var eng = _stopped_engine()
+    var fired = counter()
+    var destroyed = counter()
+    var snd = Sound.from_data_source(eng, _source(eng, SOURCE_PERIODS), flags=PASS_THROUGH)
+    snd.set_end_callback(Tally(fired, destroyed))
+    snd.start()
+
+    # Not before the end: the first periods are the source's own frames.
+    read_periods(eng, SOURCE_PERIODS - 1)
+    assert_equal(count(fired), 0)
+    assert_true(snd.is_playing())
+
+    # Exactly when it runs off the end, within a period or two of the last frame.
+    var took = SOURCE_PERIODS - 1 + periods_until_fired(eng, fired)
+    assert_true(took >= SOURCE_PERIODS and took <= SOURCE_PERIODS + 2)
+    assert_equal(count(fired), 1)
+    assert_true(snd.at_end())
+    assert_true(not snd.is_playing())
+
+    # And once only: the sound is stopped, later reads do not run it again.
+    read_periods(eng, 6)
+    assert_equal(count(fired), 1)
+    assert_equal(count(destroyed), 0)    # still the sound's handler
+    assert_true(snd.at_end())
+
+
+def test_the_end_callback_does_not_fire_for_a_looping_sound() raises:
+    var eng = _stopped_engine()
+    var fired = counter()
+    var destroyed = counter()
+    var snd = Sound.from_data_source(eng, _source(eng, SOURCE_PERIODS), flags=PASS_THROUGH)
+    snd.set_looping(True)
+    snd.set_end_callback(Tally(fired, destroyed))
+    snd.start()
+
+    read_periods(eng, 3 * SOURCE_PERIODS)      # three laps and then some
+    assert_equal(count(fired), 0)
+    assert_true(snd.is_playing())
+
+    # Take the loop away and it ends -- the handler was waiting all along.
+    snd.set_looping(False)
+    _ = periods_until_fired(eng, fired)
+    assert_equal(count(fired), 1)
+    assert_true(not snd.is_playing())
+
+
+def test_starting_the_sound_again_arms_the_end_callback_again() raises:
+    var eng = _stopped_engine()
+    var fired = counter()
+    var destroyed = counter()
+    var snd = Sound.from_data_source(eng, _source(eng, SOURCE_PERIODS), flags=PASS_THROUGH)
+    snd.set_end_callback(Tally(fired, destroyed))
+
+    snd.start()
+    _ = periods_until_fired(eng, fired)
+    assert_equal(count(fired), 1)
+
+    snd.start()                                  # from the top
+    read_periods(eng, SOURCE_PERIODS - 1)
+    assert_equal(count(fired), 1)                # not yet
+    read_periods(eng, 4)
+    assert_equal(count(fired), 2)
+    assert_equal(count(destroyed), 0)
+    assert_true(snd.at_end())
+
+
+def test_a_stop_you_asked_for_is_not_an_end() raises:
+    var eng = _stopped_engine()
+    var fired = counter()
+    var destroyed = counter()
+    var snd = Sound.from_data_source(eng, _source(eng, SOURCE_PERIODS), flags=PASS_THROUGH)
+    snd.set_end_callback(Tally(fired, destroyed))
+    snd.start()
+    read_periods(eng, 1)
+    snd.stop()
+    read_periods(eng, 2 * SOURCE_PERIODS)
+    assert_equal(count(fired), 0)
+    assert_true(not snd.at_end())
+
+
+def test_a_file_sound_reports_its_end_too() raises:
+    """The file path of init (as opposed to a data source) installs the same hook."""
+    var eng = _stopped_engine()
+    var fired = counter()
+    var destroyed = counter()
+    var snd = Sound.from_file(eng, WAV_PATH, flags=PASS_THROUGH)
+    snd.set_end_callback(Tally(fired, destroyed))
+    snd.seek(snd.length_in_frames() - 2 * PERIOD)      # two periods from the end
+    snd.start()
+    read_periods(eng, 1)
+    assert_equal(count(fired), 0)
+    _ = periods_until_fired(eng, fired, limit=4)
+    assert_equal(count(fired), 1)
+    assert_true(snd.at_end())                    # `snd` has to outlive the reads
+
+
+def test_a_config_sound_reports_its_end_too() raises:
+    """Init_ex installs the hook; a range makes a file sound short enough to run out."""
+    var eng = _stopped_engine()
+    var fired = counter()
+    var destroyed = counter()
+    var cfg = SoundConfig.for_engine(eng)
+    cfg.set_file_path(WAV_PATH)
+    cfg.set_flags(PASS_THROUGH)
+    cfg.set_range(0, 2 * PERIOD)
+    var snd = Sound.from_config(eng, cfg)
+    snd.set_end_callback(Tally(fired, destroyed))
+    snd.start()
+    _ = periods_until_fired(eng, fired, limit=6)
+    assert_equal(count(fired), 1)
+    assert_true(snd.at_end())
+
+
+def test_a_copy_of_a_sound_has_its_own_end_callback() raises:
+    var eng = _stopped_engine()
+    var fired_src = counter()
+    var fired_copy = counter()
+    var destroyed = counter()
+    var src = Sound.from_file(eng, WAV_PATH, flags=PASS_THROUGH)
+    src.set_end_callback(Tally(fired_src, destroyed))
+    var dup = Sound.copy_of(src, flags=PASS_THROUGH)
+
+    # The copy starts without a handler: it can run out and nothing is called.
+    dup.seek(dup.length_in_frames() - 2 * PERIOD)
+    dup.start()
+    read_periods(eng, 5)
+    assert_equal(count(fired_src), 0)
+    assert_true(dup.at_end())
+
+    dup.set_end_callback(Tally(fired_copy, destroyed))
+    dup.start()                                  # from the top, so seek back to the end
+    dup.seek(dup.length_in_frames() - 2 * PERIOD)
+    read_periods(eng, 5)
+    assert_equal(count(fired_copy), 1)
+    assert_equal(count(fired_src), 0)            # the source's handler is the source's own
+    assert_true(dup.at_end() and not src.is_playing())
+
+
+def test_replacing_the_end_handler_destroys_the_old_one_exactly_once() raises:
+    var eng = _stopped_engine()
+    var fired = counter()
+    var destroyed = counter()
+    var mark = counter()
+    var marker_destroyed = counter()
+    var snd = Sound.from_data_source(eng, _source(eng, SOURCE_PERIODS), flags=PASS_THROUGH)
+
+    snd.set_end_callback(Tally(fired, destroyed))
+    assert_equal(count(destroyed), 0)
+    # A different handler type takes over: the old one is gone before set returns.
+    snd.set_end_callback(Marker(mark, 7, marker_destroyed))
+    assert_equal(count(destroyed), 1)
+    assert_equal(count(marker_destroyed), 0)
+
+    snd.start()
+    _ = periods_until_fired(eng, mark)
+    assert_equal(count(mark), 7)                 # the new one ran, once
+    assert_equal(count(fired), 0)                # the old one never did
+    assert_equal(count(destroyed), 1)            # and was not destroyed again
+
+    # Same type again: replaced once more, the Marker is destroyed once.
+    snd.set_end_callback(Tally(fired, destroyed))
+    assert_equal(count(marker_destroyed), 1)
+    assert_equal(count(destroyed), 1)
+    assert_equal(count(mark), 7)
+    assert_true(snd.at_end())
+
+
+def test_clearing_the_end_handler_destroys_it_and_nothing_fires() raises:
+    var eng = _stopped_engine()
+    var fired = counter()
+    var destroyed = counter()
+    var snd = Sound.from_data_source(eng, _source(eng, SOURCE_PERIODS), flags=PASS_THROUGH)
+    snd.set_end_callback(Tally(fired, destroyed))
+    snd.clear_end_callback()
+    assert_equal(count(destroyed), 1)
+
+    snd.start()
+    read_periods(eng, SOURCE_PERIODS + 4)
+    assert_true(snd.at_end())                    # it did end ...
+    assert_equal(count(fired), 0)                # ... and nobody was told
+
+    snd.clear_end_callback()                     # nothing to clear: fine
+    assert_equal(count(destroyed), 1)
+
+    # A handler can be attached again afterwards.
+    snd.set_end_callback(Tally(fired, destroyed))
+    snd.start()
+    _ = periods_until_fired(eng, fired)
+    assert_equal(count(fired), 1)
+    assert_equal(count(destroyed), 1)
+    assert_true(snd.at_end())
+
+
+def test_dropping_the_sound_destroys_its_end_handler() raises:
+    var eng = _stopped_engine()
+    var fired = counter()
+    var destroyed = counter()
+    var snd = Sound.from_data_source(eng, _source(eng, SOURCE_PERIODS), flags=PASS_THROUGH)
+    snd.set_end_callback(Tally(fired, destroyed))
+    snd.start()
+    read_periods(eng, 1)
+    assert_equal(count(destroyed), 0)
+    assert_true(snd.is_playing())
+    _ = snd^                                     # drop it
+    assert_equal(count(destroyed), 1)
+    assert_equal(count(fired), 0)                # never reached its end
+    read_periods(eng, SOURCE_PERIODS + 4)       # the engine carries on without it
+    assert_equal(count(fired), 0)
+
+
+def test_uninitialising_a_sound_destroys_its_end_handler() raises:
+    var eng = _stopped_engine()
+    var fired = counter()
+    var destroyed = counter()
+    var snd = Sound.from_data_source(eng, _source(eng, SOURCE_PERIODS), flags=PASS_THROUGH)
+    snd.set_end_callback(Tally(fired, destroyed))
+    var lib = eng[]._lib.copy()
+    assert_equal(soundraw.sound_uninit(lib[], snd._ptr), 0)
+    assert_equal(count(destroyed), 1)
+    with assert_raises():                        # and the dead sound takes no more
+        snd.set_end_callback(Tally(fired, destroyed))
+    assert_equal(count(destroyed), 2)            # refused, so the new one was destroyed here
+    assert_equal(count(fired), 0)
+
+
+def test_end_callback_errors_leave_no_handler_behind() raises:
+    var eng = _stopped_engine()
+    var fired = counter()
+    var destroyed = counter()
+
+    # No data source, so no end: refused, and the handler is destroyed (once).
+    var cfg = SoundConfig.create(_lib())
+    var bare = Sound.from_config(eng, cfg)
+    with assert_raises():
+        bare.set_end_callback(Tally(fired, destroyed))
+    assert_equal(count(destroyed), 1)
+    bare.clear_end_callback()                    # nothing attached is not an error
+    assert_equal(count(destroyed), 1)
+
+    # A sound that was never initialised.
+    var lib = _lib()
+    var never = Sound(lib.copy(), eng.copy(), soundraw.sound_alloc(lib[]))
+    with assert_raises():
+        never.set_end_callback(Tally(fired, destroyed))
+    assert_equal(count(destroyed), 2)
+    with assert_raises():
+        never.clear_end_callback()
+    assert_equal(count(fired), 0)
+    assert_equal(count(destroyed), 2)
+
+
+def test_the_end_callback_runs_on_the_audio_thread_of_a_running_engine() raises:
+    """Real time, null backend: the device thread pulls frames and runs the handler."""
+    var eng = ArcPointer(Engine.create(_lib(), use_null_backend=True))
+    var fired = counter()
+    var destroyed = counter()
+    var snd = Sound.from_data_source(eng, _source(eng, 2), flags=PASS_THROUGH)   # 20 ms of audio
+    snd.set_end_callback(Tally(fired, destroyed))
+    snd.start()
+    for _ in range(100):                         # wait up to a second
+        if count(fired) > 0:
+            break
+        sleep(0.01)
+    assert_equal(count(fired), 1)
+    sleep(0.05)
+    assert_equal(count(fired), 1)                # and not again
+    assert_equal(count(destroyed), 0)
+    assert_true(snd.at_end())                    # last use of `snd`: it is dropped after this
+
+
+def test_swapping_the_handler_while_the_audio_thread_ends_the_sound_is_safe() raises:
+    """The shim's lock: no handler is destroyed while it runs, each one exactly once.
+
+    A running engine, a 20 ms sound restarted as soon as it stops (so the audio
+    thread ends it again and again), and handlers that take about a millisecond in
+    `on_end`. Meanwhile this thread keeps swapping the handler. Every swap that lands
+    in the middle of a call has to wait for the call to finish before the old
+    handler is destroyed.
+    """
+    var eng = ArcPointer(Engine.create(_lib(), use_null_backend=True))
+    var fired = counter()
+    var destroyed = counter()
+    var bad = counter()
+    var snd = Sound.from_data_source(eng, _source(eng, 2), flags=PASS_THROUGH)
+    var made = 0
+    for _ in range(300):
+        snd.set_end_callback(Busy(fired, destroyed, bad))
+        made += 1
+        snd.start()                              # a no-op while it still plays
+        sleep(0.0004)
+    snd.clear_end_callback()
+
+    assert_equal(count(bad), 0)                  # none destroyed mid-call
+    assert_equal(count(destroyed), made)         # every one destroyed, none twice
+    assert_true(count(fired) > 0)                # and the audio thread did call them
+    assert_true(snd.is_looping() == False)
 
 
 def main() raises:

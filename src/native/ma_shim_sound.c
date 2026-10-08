@@ -21,6 +21,19 @@ typedef struct ma_shim_sound {
     ma_sound sound;
     int initialized;
     int refs;
+    /* End callback. miniaudio gets ONE trampoline (shim_sound_end_tramp) with this
+     * wrapper as its user data, installed once right after init while the sound is
+     * still stopped -- miniaudio reads endCallback/pEndCallbackUserData from the
+     * audio thread with no synchronisation, so they are never rewritten once the
+     * sound can run. What the trampoline forwards to (end_fn/end_user/end_drop) is
+     * swapped under end_lock, and the trampoline calls end_fn while holding it, so
+     * once a swap returns the old handler is no longer running and never will
+     * again: its owner (end_drop) can free it. */
+    int end_installed;          /* trampoline registered with miniaudio (sound has a data source) */
+    ma_spinlock end_lock;
+    ma_shim_sound_end_fn end_fn;
+    ma_shim_sound_end_drop_fn end_drop;
+    void* end_user;
 } ma_shim_sound;
 
 /* Internal cross-family accessors (see ma_shim_internal.h). */
@@ -50,6 +63,58 @@ void shimint_sound_release(void* sound_handle) {
     }
 }
 
+/* ---- end callback plumbing (see the ma_shim_sound struct) ---- */
+
+/* Called by miniaudio on the audio thread (or whichever thread is pulling frames
+ * from the engine) when the sound reaches its end. */
+static void shim_sound_end_tramp(void* user, ma_sound* sound) {
+    ma_shim_sound* h = (ma_shim_sound*)user;
+    (void)sound;
+    ma_spinlock_lock(&h->end_lock);
+    if (h->end_fn != NULL) {
+        h->end_fn(h->end_user);
+    }
+    ma_spinlock_unlock(&h->end_lock);
+}
+
+/* Registers the trampoline with miniaudio. Only sounds backed by a data source
+ * can reach an end; for the others miniaudio refuses and end_installed stays 0. */
+static void shim_sound_end_install(ma_shim_sound* h) {
+    h->end_installed =
+        (ma_sound_set_end_callback(&h->sound, shim_sound_end_tramp, h) == MA_SUCCESS);
+}
+
+/* Makes (fn, drop, user) the current handler and destroys the one it replaces,
+ * once nothing can be running it. */
+static void shim_sound_end_swap(
+    ma_shim_sound* h, ma_shim_sound_end_fn fn, ma_shim_sound_end_drop_fn drop, void* user
+) {
+    ma_shim_sound_end_drop_fn old_drop;
+    void* old_user;
+
+    ma_spinlock_lock(&h->end_lock);
+    old_drop = h->end_drop;
+    old_user = h->end_user;
+    h->end_fn = fn;
+    h->end_drop = drop;
+    h->end_user = user;
+    ma_spinlock_unlock(&h->end_lock);
+
+    if (old_drop != NULL) {
+        old_drop(old_user);
+    }
+}
+
+/* Uninitialises the ma_sound (if it is) and lets go of the handler. */
+static void shim_sound_teardown(ma_shim_sound* h) {
+    if (h->initialized) {
+        ma_sound_uninit(&h->sound);
+        h->initialized = 0;
+    }
+    h->end_installed = 0;
+    shim_sound_end_swap(h, NULL, NULL, NULL);
+}
+
 void* ma_shim_sound_alloc(void) {
     ma_shim_sound* h = (ma_shim_sound*)calloc(1, sizeof(ma_shim_sound));
     if (h != NULL) {
@@ -64,10 +129,7 @@ void ma_shim_sound_free(void* handle) {
     if (h == NULL) {
         return;
     }
-    if (h->initialized) {
-        ma_sound_uninit(&h->sound);
-        h->initialized = 0;
-    }
+    shim_sound_teardown(h);
     shimint_sound_release(h);
 }
 
@@ -82,13 +144,11 @@ int ma_shim_sound_init_from_file(
     if (h == NULL || engine == NULL || file_path == NULL) {
         return MA_INVALID_ARGS;
     }
-    if (h->initialized) {
-        ma_sound_uninit(&h->sound);
-        h->initialized = 0;
-    }
+    shim_sound_teardown(h);
     result = ma_sound_init_from_file(engine, file_path, flags, NULL, NULL, &h->sound);
     if (result == MA_SUCCESS) {
         h->initialized = 1;
+        shim_sound_end_install(h);
     }
     return (int)result;
 }
@@ -99,11 +159,7 @@ int ma_shim_sound_uninit(void* handle) {
     if (h == NULL) {
         return MA_INVALID_ARGS;
     }
-    if (!h->initialized) {
-        return MA_SUCCESS;
-    }
-    ma_sound_uninit(&h->sound);
-    h->initialized = 0;
+    shim_sound_teardown(h);
     return MA_SUCCESS;
 }
 
@@ -879,13 +935,11 @@ int ma_shim_sound_init_copy(void* handle, void* engine_handle, void* existing_ha
     if (h == NULL || engine == NULL || existing == NULL || !existing->initialized) {
         return MA_INVALID_ARGS;
     }
-    if (h->initialized) {
-        ma_sound_uninit(&h->sound);
-        h->initialized = 0;
-    }
+    shim_sound_teardown(h);
     result = ma_sound_init_copy(engine, &existing->sound, flags, NULL, &h->sound);
     if (result == MA_SUCCESS) {
         h->initialized = 1;
+        shim_sound_end_install(h);
     }
     return (int)result;
 }
@@ -907,13 +961,11 @@ int ma_shim_sound_init_from_data_source(
     if (h == NULL || engine == NULL || ds == NULL) {
         return MA_INVALID_ARGS;
     }
-    if (h->initialized) {
-        ma_sound_uninit(&h->sound);
-        h->initialized = 0;
-    }
+    shim_sound_teardown(h);
     result = ma_sound_init_from_data_source(engine, ds, flags, NULL, &h->sound);
     if (result == MA_SUCCESS) {
         h->initialized = 1;
+        shim_sound_end_install(h);
     }
     return (int)result;
 }
@@ -927,6 +979,42 @@ void* ma_shim_sound_get_engine(void* handle) {
         return NULL;
     }
     return shimint_engine_handle(ma_sound_get_engine(&h->sound));
+}
+
+/* ---- end callback ----
+ *
+ * Attaches a handler that runs when the sound reaches its end (not looping, not
+ * stopped by a scheduled stop time). `fn(user)` runs on the audio thread -- or
+ * whichever thread is pulling frames from the engine -- with the handler lock held,
+ * so it must be short and must not call back into this sound (set/clear/uninit/free
+ * would wait on the lock it holds). `drop(user)`, if non-NULL, destroys `user`; the
+ * shim calls it exactly once, from the calling thread, when the handler is replaced,
+ * cleared, or the sound is uninitialised/freed, and only after `fn` can no longer be
+ * running. On failure the caller keeps ownership of `user` (drop is not called).
+ * MA_INVALID_OPERATION: the sound has no data source, so it has no end. */
+/* @binds ma_sound_set_end_callback */
+int ma_shim_sound_set_end_callback(
+    void* handle, ma_shim_sound_end_fn fn, ma_shim_sound_end_drop_fn drop, void* user
+) {
+    ma_shim_sound* h = (ma_shim_sound*)handle;
+    if (h == NULL || !h->initialized || fn == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    if (!h->end_installed) {
+        return MA_INVALID_OPERATION;
+    }
+    shim_sound_end_swap(h, fn, drop, user);
+    return MA_SUCCESS;
+}
+
+/* Detaches the current handler (if any) and destroys it via its `drop`. */
+int ma_shim_sound_clear_end_callback(void* handle) {
+    ma_shim_sound* h = (ma_shim_sound*)handle;
+    if (h == NULL || !h->initialized) {
+        return MA_INVALID_ARGS;
+    }
+    shim_sound_end_swap(h, NULL, NULL, NULL);
+    return MA_SUCCESS;
 }
 
 /* ---- ma_sound_config ----
@@ -1159,13 +1247,11 @@ int ma_shim_sound_init_ex(void* handle, void* engine_handle, void* config_handle
     if (h == NULL || engine == NULL || c == NULL) {
         return MA_INVALID_ARGS;
     }
-    if (h->initialized) {
-        ma_sound_uninit(&h->sound);
-        h->initialized = 0;
-    }
+    shim_sound_teardown(h);
     result = ma_sound_init_ex(engine, &c->config, &h->sound);
     if (result == MA_SUCCESS) {
         h->initialized = 1;
+        shim_sound_end_install(h);
     }
     return (int)result;
 }
