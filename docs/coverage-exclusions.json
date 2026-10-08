@@ -30,7 +30,8 @@
         "ma_resource_manager_unregister_file_w",
         "ma_vfs_open_and_read_file_w",
         "ma_vfs_open_w",
-        "ma_vfs_or_default_open_w"
+        "ma_vfs_or_default_open_w",
+        "ma_wfopen"
       ]
     },
     "deprecated_assert_false": {
@@ -105,6 +106,14 @@
         "ma_engine_node_init",
         "ma_engine_node_init_preallocated",
         "ma_engine_node_uninit"
+      ]
+    },
+    "win32_only_not_exported": {
+      "rationale": "Defined only under MA_WIN32 (WCHAR is a Win32 type), so the linux-64 build exports no such symbol: `nm -D --defined-only build/libma_shim.so` has none of them. There is nothing to bind on this platform. The portable wchar_t helpers (ma_wcslen, ma_wcscmp, ma_wcscpy_s) are bound instead.",
+      "functions": [
+        "ma_strcmp_WCHAR",
+        "ma_strcpy_s_WCHAR",
+        "ma_strlen_WCHAR"
       ]
     }
   }

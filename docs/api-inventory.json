@@ -5,6 +5,17 @@
     "ma_stbvorbis_"
   ],
   "families": {
+    "alloc": {
+      "count": 6,
+      "functions": [
+        "ma_aligned_free",
+        "ma_aligned_malloc",
+        "ma_calloc",
+        "ma_free",
+        "ma_malloc",
+        "ma_realloc"
+      ]
+    },
     "audio_buffer": {
       "count": 25,
       "functions": [
@@ -91,6 +102,23 @@
         "ma_channel_converter_uninit"
       ]
     },
+    "channel_map": {
+      "count": 12,
+      "functions": [
+        "ma_channel_map_contains_channel_position",
+        "ma_channel_map_copy",
+        "ma_channel_map_copy_or_default",
+        "ma_channel_map_find_channel_position",
+        "ma_channel_map_get_channel",
+        "ma_channel_map_init_blank",
+        "ma_channel_map_init_standard",
+        "ma_channel_map_is_blank",
+        "ma_channel_map_is_equal",
+        "ma_channel_map_is_valid",
+        "ma_channel_map_to_string",
+        "ma_channel_position_to_string"
+      ]
+    },
     "context": {
       "count": 9,
       "functions": [
@@ -106,72 +134,16 @@
       ]
     },
     "core": {
-      "count": 98,
+      "count": 1,
       "functions": [
-        "ma_aligned_free",
-        "ma_aligned_malloc",
-        "ma_atomic_vec3f_get",
-        "ma_atomic_vec3f_init",
-        "ma_atomic_vec3f_set",
-        "ma_calloc",
-        "ma_channel_map_contains_channel_position",
-        "ma_channel_map_copy",
-        "ma_channel_map_copy_or_default",
-        "ma_channel_map_find_channel_position",
-        "ma_channel_map_get_channel",
-        "ma_channel_map_init_blank",
-        "ma_channel_map_init_standard",
-        "ma_channel_map_is_blank",
-        "ma_channel_map_is_equal",
-        "ma_channel_map_is_valid",
-        "ma_channel_map_to_string",
-        "ma_channel_position_to_string",
-        "ma_debug_fill_pcm_frames_with_sine_wave",
-        "ma_decode_file",
-        "ma_decode_from_vfs",
-        "ma_decode_memory",
-        "ma_decoding_backend_config_init",
-        "ma_deinterleave_pcm_frames",
-        "ma_dlclose",
-        "ma_dlopen",
-        "ma_dlsym",
-        "ma_duplex_rb_init",
-        "ma_duplex_rb_uninit",
-        "ma_flac_get_cursor_in_pcm_frames",
-        "ma_flac_get_data_format",
-        "ma_flac_get_length_in_pcm_frames",
-        "ma_flac_init",
-        "ma_flac_init_file",
-        "ma_flac_init_file_w",
-        "ma_flac_init_memory",
-        "ma_flac_read_pcm_frames",
-        "ma_flac_seek_to_pcm_frame",
-        "ma_flac_uninit",
+        "ma_result_description"
+      ]
+    },
+    "crt_util": {
+      "count": 15,
+      "functions": [
         "ma_fopen",
-        "ma_free",
-        "ma_interleave_pcm_frames",
-        "ma_is_backend_enabled",
-        "ma_is_loopback_supported",
         "ma_itoa_s",
-        "ma_malloc",
-        "ma_mp3_get_cursor_in_pcm_frames",
-        "ma_mp3_get_data_format",
-        "ma_mp3_get_length_in_pcm_frames",
-        "ma_mp3_init",
-        "ma_mp3_init_file",
-        "ma_mp3_init_file_w",
-        "ma_mp3_init_memory",
-        "ma_mp3_read_pcm_frames",
-        "ma_mp3_seek_to_pcm_frame",
-        "ma_mp3_uninit",
-        "ma_offset_pcm_frames_const_ptr",
-        "ma_offset_pcm_frames_ptr",
-        "ma_realloc",
-        "ma_result_description",
-        "ma_silence_pcm_frames",
-        "ma_spinlock_lock",
-        "ma_spinlock_lock_noyield",
-        "ma_spinlock_unlock",
         "ma_strappend",
         "ma_strcat_s",
         "ma_strcmp",
@@ -181,27 +153,6 @@
         "ma_strlen_WCHAR",
         "ma_strncat_s",
         "ma_strncpy_s",
-        "ma_vec3f_cross",
-        "ma_vec3f_dist",
-        "ma_vec3f_dot",
-        "ma_vec3f_init_3f",
-        "ma_vec3f_len",
-        "ma_vec3f_len2",
-        "ma_vec3f_neg",
-        "ma_vec3f_normalize",
-        "ma_vec3f_sub",
-        "ma_version",
-        "ma_version_string",
-        "ma_wav_get_cursor_in_pcm_frames",
-        "ma_wav_get_data_format",
-        "ma_wav_get_length_in_pcm_frames",
-        "ma_wav_init",
-        "ma_wav_init_file",
-        "ma_wav_init_file_w",
-        "ma_wav_init_memory",
-        "ma_wav_read_pcm_frames",
-        "ma_wav_seek_to_pcm_frame",
-        "ma_wav_uninit",
         "ma_wcscmp",
         "ma_wcscpy_s",
         "ma_wcslen",
@@ -262,6 +213,15 @@
         "ma_data_source_set_next_callback",
         "ma_data_source_set_range_in_pcm_frames",
         "ma_data_source_uninit"
+      ]
+    },
+    "decode_util": {
+      "count": 4,
+      "functions": [
+        "ma_decode_file",
+        "ma_decode_from_vfs",
+        "ma_decode_memory",
+        "ma_decoding_backend_config_init"
       ]
     },
     "decoder": {
@@ -344,6 +304,21 @@
         "ma_device_uninit"
       ]
     },
+    "dl": {
+      "count": 3,
+      "functions": [
+        "ma_dlclose",
+        "ma_dlopen",
+        "ma_dlsym"
+      ]
+    },
+    "duplex_rb": {
+      "count": 2,
+      "functions": [
+        "ma_duplex_rb_init",
+        "ma_duplex_rb_uninit"
+      ]
+    },
     "encoder": {
       "count": 10,
       "functions": [
@@ -420,6 +395,21 @@
         "ma_fader_set_fade_ex"
       ]
     },
+    "flac": {
+      "count": 10,
+      "functions": [
+        "ma_flac_get_cursor_in_pcm_frames",
+        "ma_flac_get_data_format",
+        "ma_flac_get_length_in_pcm_frames",
+        "ma_flac_init",
+        "ma_flac_init_file",
+        "ma_flac_init_file_w",
+        "ma_flac_init_memory",
+        "ma_flac_read_pcm_frames",
+        "ma_flac_seek_to_pcm_frame",
+        "ma_flac_uninit"
+      ]
+    },
     "format_util": {
       "count": 27,
       "functions": [
@@ -450,6 +440,17 @@
         "ma_get_enabled_backends",
         "ma_get_format_name",
         "ma_get_format_priority_index"
+      ]
+    },
+    "frame_util": {
+      "count": 6,
+      "functions": [
+        "ma_debug_fill_pcm_frames_with_sine_wave",
+        "ma_deinterleave_pcm_frames",
+        "ma_interleave_pcm_frames",
+        "ma_offset_pcm_frames_const_ptr",
+        "ma_offset_pcm_frames_ptr",
+        "ma_silence_pcm_frames"
       ]
     },
     "gainer": {
@@ -614,6 +615,21 @@
         "ma_lpf_process_pcm_frames",
         "ma_lpf_reinit",
         "ma_lpf_uninit"
+      ]
+    },
+    "mp3": {
+      "count": 10,
+      "functions": [
+        "ma_mp3_get_cursor_in_pcm_frames",
+        "ma_mp3_get_data_format",
+        "ma_mp3_get_length_in_pcm_frames",
+        "ma_mp3_init",
+        "ma_mp3_init_file",
+        "ma_mp3_init_file_w",
+        "ma_mp3_init_memory",
+        "ma_mp3_read_pcm_frames",
+        "ma_mp3_seek_to_pcm_frame",
+        "ma_mp3_uninit"
       ]
     },
     "node": {
@@ -952,6 +968,15 @@
         "ma_rb_uninit"
       ]
     },
+    "runtime_info": {
+      "count": 4,
+      "functions": [
+        "ma_is_backend_enabled",
+        "ma_is_loopback_supported",
+        "ma_version",
+        "ma_version_string"
+      ]
+    },
     "slot_allocator": {
       "count": 7,
       "functions": [
@@ -1177,6 +1202,14 @@
         "ma_spatializer_uninit"
       ]
     },
+    "spinlock": {
+      "count": 3,
+      "functions": [
+        "ma_spinlock_lock",
+        "ma_spinlock_lock_noyield",
+        "ma_spinlock_unlock"
+      ]
+    },
     "splitter_node": {
       "count": 3,
       "functions": [
@@ -1214,6 +1247,23 @@
         "ma_semaphore_wait"
       ]
     },
+    "vec3f": {
+      "count": 12,
+      "functions": [
+        "ma_atomic_vec3f_get",
+        "ma_atomic_vec3f_init",
+        "ma_atomic_vec3f_set",
+        "ma_vec3f_cross",
+        "ma_vec3f_dist",
+        "ma_vec3f_dot",
+        "ma_vec3f_init_3f",
+        "ma_vec3f_len",
+        "ma_vec3f_len2",
+        "ma_vec3f_neg",
+        "ma_vec3f_normalize",
+        "ma_vec3f_sub"
+      ]
+    },
     "vfs": {
       "count": 19,
       "functions": [
@@ -1236,6 +1286,21 @@
         "ma_vfs_seek",
         "ma_vfs_tell",
         "ma_vfs_write"
+      ]
+    },
+    "wav": {
+      "count": 10,
+      "functions": [
+        "ma_wav_get_cursor_in_pcm_frames",
+        "ma_wav_get_data_format",
+        "ma_wav_get_length_in_pcm_frames",
+        "ma_wav_init",
+        "ma_wav_init_file",
+        "ma_wav_init_file_w",
+        "ma_wav_init_memory",
+        "ma_wav_read_pcm_frames",
+        "ma_wav_seek_to_pcm_frame",
+        "ma_wav_uninit"
       ]
     },
     "waveform": {
