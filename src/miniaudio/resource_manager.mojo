@@ -33,6 +33,7 @@ from std.memory import ArcPointer
 
 from miniaudio._lib import MaLib, null_handle
 from miniaudio.decoder import SampleFormat, SAMPLE_FORMAT_F32
+from miniaudio.engine import Engine
 from miniaudio.result import MA_SUCCESS, MA_AT_END
 import miniaudio._ffi.resource_manager_raw as raw
 
@@ -54,16 +55,41 @@ struct DataFormat(Copyable, Movable):
 
 
 struct ResourceManager(Movable):
-    """The sound cache and its job queue (RAII)."""
+    """The sound cache and its job queue (RAII).
+
+    `ResourceManager.of_engine` is a *borrowed* view of the manager an engine
+    loads its sounds through (ma_engine_get_resource_manager): files registered
+    on it are visible to the engine's sounds and data objects built against it
+    share the engine's cache. Dropping the view leaves the manager alone. A view
+    keeps the engine alive for as long as it exists, and so does everything built
+    against it (they hold the view).
+    """
 
     var _lib: ArcPointer[MaLib]
     var _ptr: OpaquePointer[MutUntrackedOrigin]
+    var _owner: Optional[ArcPointer[Engine]]  # set for a borrowed view of an engine's manager
 
     def __init__(
         out self, var lib: ArcPointer[MaLib], ptr: OpaquePointer[MutUntrackedOrigin]
     ):
         self._lib = lib^
         self._ptr = ptr
+        self._owner = None
+
+    @staticmethod
+    def of_engine(engine: ArcPointer[Engine]) raises -> Self:
+        """A non-owning view of the engine's resource manager."""
+        var lib = engine[]._lib.copy()
+        var ptr = raw.resource_manager_alloc(lib[])
+        if ptr == null_handle():
+            raise Error("resource_manager_alloc failed (out of memory)")
+        var code = raw.resource_manager_borrow_engine(lib[], ptr, engine[]._ptr)
+        if code != MA_SUCCESS:
+            raw.resource_manager_free(lib[], ptr)
+            raise Error(lib[].describe("engine resource manager borrow failed", code))
+        var view = Self(lib^, ptr)
+        view._owner = engine.copy()
+        return view^
 
     @staticmethod
     def create(

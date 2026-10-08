@@ -8,6 +8,11 @@ A sound must not outlive its engine, so `Sound` holds an `ArcPointer[Engine]`
 that keeps the engine alive; `__deinit__` uninits the sound (while the engine is
 still valid) before releasing that reference. `at_end()` polls completion (the
 constrained, shim-friendly stand-in for ma_sound_set_end_callback).
+
+A sound can come from a file (`from_file`), from a `DataSource` you built
+(`from_data_source`; the sound keeps the source alive), or from a `SoundConfig`
+(`from_config`), which adds what the other two cannot say: a slice of the source
+to play, loop points, an initial seek position, a group or node to feed into.
 """
 
 from std.memory import ArcPointer
@@ -16,61 +21,36 @@ from miniaudio._lib import MaLib, null_handle
 from miniaudio.result import MA_SUCCESS
 from miniaudio.decoder import SampleFormat
 from miniaudio.engine import Engine
+from miniaudio.data_source import DataSource
+from miniaudio.sound_group import SoundGroup
+from miniaudio.node import EngineNode
+from miniaudio._sound_types import (
+    AttenuationModel,
+    Positioning,
+    PanMode,
+    ATTENUATION_NONE,
+    ATTENUATION_INVERSE,
+    ATTENUATION_LINEAR,
+    ATTENUATION_EXPONENTIAL,
+    POSITIONING_ABSOLUTE,
+    POSITIONING_RELATIVE,
+    PAN_MODE_BALANCE,
+    PAN_MODE_PAN,
+    SOUND_FLAG_STREAM,
+    SOUND_FLAG_DECODE,
+    SOUND_FLAG_ASYNC,
+    SOUND_FLAG_WAIT_INIT,
+    SOUND_FLAG_UNKNOWN_LENGTH,
+    SOUND_FLAG_LOOPING,
+    SOUND_FLAG_NO_DEFAULT_ATTACHMENT,
+    SOUND_FLAG_NO_PITCH,
+    SOUND_FLAG_NO_SPATIALIZATION,
+    SOUND_SOURCE_CHANNEL_COUNT,
+    FRAME_RANGE_END,
+)
 from miniaudio._ffi.sound_raw import Vec3, MaCone, MaDataFormat
 import miniaudio._ffi.sound_raw as raw
-
-
-@fieldwise_init
-struct AttenuationModel(ImplicitlyCopyable, Movable, Equatable):
-    """Spatial distance attenuation model. Codes match ma_attenuation_model."""
-
-    var code: UInt32
-
-    def __eq__(self, other: Self) -> Bool:
-        return self.code == other.code
-
-    def __ne__(self, other: Self) -> Bool:
-        return self.code != other.code
-
-
-comptime ATTENUATION_NONE = AttenuationModel(0)
-comptime ATTENUATION_INVERSE = AttenuationModel(1)
-comptime ATTENUATION_LINEAR = AttenuationModel(2)
-comptime ATTENUATION_EXPONENTIAL = AttenuationModel(3)
-
-
-@fieldwise_init
-struct Positioning(ImplicitlyCopyable, Movable, Equatable):
-    """Spatial positioning mode. Codes match ma_positioning."""
-
-    var code: UInt32
-
-    def __eq__(self, other: Self) -> Bool:
-        return self.code == other.code
-
-    def __ne__(self, other: Self) -> Bool:
-        return self.code != other.code
-
-
-comptime POSITIONING_ABSOLUTE = Positioning(0)
-comptime POSITIONING_RELATIVE = Positioning(1)
-
-
-@fieldwise_init
-struct PanMode(ImplicitlyCopyable, Movable, Equatable):
-    """Stereo pan mode. Codes match ma_pan_mode."""
-
-    var code: UInt32
-
-    def __eq__(self, other: Self) -> Bool:
-        return self.code == other.code
-
-    def __ne__(self, other: Self) -> Bool:
-        return self.code != other.code
-
-
-comptime PAN_MODE_BALANCE = PanMode(0)
-comptime PAN_MODE_PAN = PanMode(1)
+import miniaudio._ffi.data_source_raw as dsraw
 
 
 @fieldwise_init
@@ -86,6 +66,9 @@ struct Sound(Movable):
     var _lib: ArcPointer[MaLib]
     var _engine: ArcPointer[Engine]  # keeps the owning engine alive
     var _ptr: OpaquePointer[MutUntrackedOrigin]
+    var _source: Optional[ArcPointer[DataSource]]  # keeps a caller-supplied source alive
+    var _group: Optional[ArcPointer[SoundGroup]]  # keeps the group it feeds alive
+    var _node: Optional[ArcPointer[EngineNode]]  # keeps the engine node it feeds alive
 
     def __init__(
         out self,
@@ -96,6 +79,9 @@ struct Sound(Movable):
         self._lib = lib^
         self._engine = engine^
         self._ptr = ptr
+        self._source = None
+        self._group = None
+        self._node = None
 
     @staticmethod
     def from_file(
@@ -110,6 +96,89 @@ struct Sound(Movable):
             raw.sound_free(lib[], ptr)
             raise Error(lib[].describe("sound init from file failed", code))
         return Self(lib^, engine.copy(), ptr)
+
+    @staticmethod
+    def from_data_source(
+        engine: ArcPointer[Engine],
+        source: ArcPointer[DataSource],
+        *,
+        flags: UInt32 = 0,
+    ) raises -> Self:
+        """A sound that plays from a `DataSource` you built.
+
+        The sound reads the source on the engine's audio thread, so it keeps the
+        source alive for as long as it exists. A borrowed view (`Sound.data_source`)
+        is refused: it owns nothing for the sound to keep.
+        """
+        var lib = engine[]._lib.copy()
+        var ptr = raw.sound_alloc(lib[])
+        if ptr == null_handle():
+            raise Error("sound_alloc failed (out of memory)")
+        var code = raw.sound_init_from_data_source(
+            lib[], ptr, engine[]._ptr, source[]._ptr, flags
+        )
+        if code != MA_SUCCESS:
+            raw.sound_free(lib[], ptr)
+            raise Error(lib[].describe("sound init from data source failed", code))
+        var snd = Self(lib^, engine.copy(), ptr)
+        snd._source = source.copy()
+        return snd^
+
+    @staticmethod
+    def from_config(engine: ArcPointer[Engine], config: SoundConfig) raises -> Self:
+        """A sound built from a `SoundConfig` (ma_sound_init_ex).
+
+        The config supplies a file path, a data source, or neither (which gives a
+        group-like sound with no data of its own). The sound keeps alive whatever
+        the config handed it: its data source, and the group or engine node it
+        feeds into (a node that goes away detaches everything attached to it).
+        """
+        var lib = engine[]._lib.copy()
+        var ptr = raw.sound_alloc(lib[])
+        if ptr == null_handle():
+            raise Error("sound_alloc failed (out of memory)")
+        var code = raw.sound_init_ex(lib[], ptr, engine[]._ptr, config._ptr)
+        if code != MA_SUCCESS:
+            raw.sound_free(lib[], ptr)
+            raise Error(lib[].describe("sound init_ex failed", code))
+        var snd = Self(lib^, engine.copy(), ptr)
+        snd._source = config._source.copy()
+        snd._group = config._group.copy()
+        snd._node = config._node.copy()
+        return snd^
+
+    def engine(self) raises -> ArcPointer[Engine]:
+        """The engine this sound belongs to (ma_sound_get_engine).
+
+        miniaudio hands back the very engine the sound was created against; the
+        shim reports that engine's handle, and this checks it is the one held
+        here before returning a shared reference to it.
+        """
+        var handle = raw.sound_get_engine(self._lib[], self._ptr)
+        if handle == null_handle():
+            raise Error("sound has no engine (not initialised)")
+        if handle != self._engine[]._ptr:
+            raise Error("sound reports an engine other than the one it was built with")
+        return self._engine.copy()
+
+    def data_source(self) raises -> DataSource:
+        """A borrowed view of the data source this sound plays from (ma_sound_get_data_source).
+
+        For a sound built with `from_data_source` it is that very source
+        (`view.is_same(source)`); for one loaded from a file it is the resource
+        manager's source behind it. The view's generic read / seek / range /
+        loop-point / format calls act on what the sound plays; dropping it leaves
+        the sound alone, and once the sound is gone the view's calls raise.
+        """
+        var ptr = dsraw.data_source_alloc(self._lib[])
+        if ptr == null_handle():
+            raise Error("data_source_alloc failed (out of memory)")
+        var code = dsraw.data_source_borrow_sound(self._lib[], ptr, self._ptr)
+        if code != MA_SUCCESS:
+            dsraw.data_source_free(self._lib[], ptr)
+            raise Error(self._lib[].describe("sound data source borrow failed", code))
+        var fmt = self.data_format()
+        return DataSource(self._lib.copy(), ptr, fmt.channels)
 
     def start(mut self) raises:
         var code = raw.sound_start(self._lib[], self._ptr)
@@ -443,3 +512,179 @@ struct Sound(Movable):
         # Uninit the sound while the engine (held via _engine) is still valid.
         if self._ptr != null_handle():
             raw.sound_free(self._lib[], self._ptr)
+
+
+struct SoundConfig(Movable):
+    """Everything a sound's init can be told (ma_sound_config), behind a handle.
+
+    miniaudio passes this struct around by value; here it lives on the shim's
+    heap and is filled in through setters, then handed to `Sound.from_config`.
+    `create` starts from miniaudio's defaults (ma_sound_config_init);
+    `for_engine` starts from the defaults for one engine (ma_sound_config_init_2),
+    which picks up that engine's mono-expansion and pitch-resampling settings.
+
+    Beyond what `Sound.from_file` can say it controls:
+
+    - `set_range` / `set_loop_point`: the slice of the source to play, and where
+      a looping sound jumps back to;
+    - `set_initial_seek_point`: where in the source playback starts;
+    - `set_group` / `set_engine_node`: the node the sound feeds, instead of the
+      engine's endpoint;
+    - `set_flags`, `set_channels`, `set_volume_smooth_time`, ...
+
+    The config holds whatever it points at (a data source, a group, an engine
+    node) alive until it is dropped, so building the sound later is safe.
+    """
+
+    var _lib: ArcPointer[MaLib]
+    var _ptr: OpaquePointer[MutUntrackedOrigin]
+    var _source: Optional[ArcPointer[DataSource]]
+    var _group: Optional[ArcPointer[SoundGroup]]
+    var _node: Optional[ArcPointer[EngineNode]]
+
+    def __init__(
+        out self, var lib: ArcPointer[MaLib], ptr: OpaquePointer[MutUntrackedOrigin]
+    ):
+        self._lib = lib^
+        self._ptr = ptr
+        self._source = None
+        self._group = None
+        self._node = None
+
+    @staticmethod
+    def create(lib: ArcPointer[MaLib]) raises -> Self:
+        """miniaudio's default config (ma_sound_config_init)."""
+        var ptr = raw.sound_config_alloc(lib[])
+        if ptr == null_handle():
+            raise Error("sound_config_alloc failed (out of memory)")
+        var code = raw.sound_config_init(lib[], ptr)
+        if code != MA_SUCCESS:
+            raw.sound_config_free(lib[], ptr)
+            raise Error(lib[].describe("sound config init failed", code))
+        return Self(lib.copy(), ptr)
+
+    @staticmethod
+    def for_engine(engine: ArcPointer[Engine]) raises -> Self:
+        """The default config for one engine (ma_sound_config_init_2)."""
+        var lib = engine[]._lib.copy()
+        var ptr = raw.sound_config_alloc(lib[])
+        if ptr == null_handle():
+            raise Error("sound_config_alloc failed (out of memory)")
+        var code = raw.sound_config_init_for_engine(lib[], ptr, engine[]._ptr)
+        if code != MA_SUCCESS:
+            raw.sound_config_free(lib[], ptr)
+            raise Error(lib[].describe("sound config init for engine failed", code))
+        return Self(lib^, ptr)
+
+    def set_file_path(mut self, path: String) raises:
+        """Load the sound from a file through the engine's resource manager."""
+        var code = raw.sound_config_set_file_path(self._lib[], self._ptr, path)
+        if code != MA_SUCCESS:
+            raise Error(self._lib[].describe("sound config set_file_path failed", code))
+
+    def clear_file_path(mut self) raises:
+        var code = raw.sound_config_clear_file_path(self._lib[], self._ptr)
+        if code != MA_SUCCESS:
+            raise Error(self._lib[].describe("sound config clear_file_path failed", code))
+
+    def set_data_source(mut self, source: ArcPointer[DataSource]) raises:
+        """Play from a `DataSource` you built. A borrowed view is refused."""
+        var code = raw.sound_config_set_data_source(
+            self._lib[], self._ptr, source[]._ptr
+        )
+        if code != MA_SUCCESS:
+            raise Error(self._lib[].describe("sound config set_data_source failed", code))
+        self._source = source.copy()
+
+    def clear_data_source(mut self) raises:
+        var code = raw.sound_config_set_data_source(
+            self._lib[], self._ptr, null_handle()
+        )
+        if code != MA_SUCCESS:
+            raise Error(self._lib[].describe("sound config clear_data_source failed", code))
+        self._source = None
+
+    def set_group(
+        mut self, group: ArcPointer[SoundGroup], *, input_bus: UInt32 = 0
+    ) raises:
+        """Feed the new sound into a sound group instead of the endpoint."""
+        var code = raw.sound_config_set_initial_attachment_group(
+            self._lib[], self._ptr, group[]._ptr, input_bus
+        )
+        if code != MA_SUCCESS:
+            raise Error(self._lib[].describe("sound config set_group failed", code))
+        self._group = group.copy()
+        self._node = None
+
+    def set_engine_node(
+        mut self, node: ArcPointer[EngineNode], *, input_bus: UInt32 = 0
+    ) raises:
+        """Feed the new sound into an `EngineNode` instead of the endpoint."""
+        var code = raw.sound_config_set_initial_attachment_node(
+            self._lib[], self._ptr, node[]._ptr, input_bus
+        )
+        if code != MA_SUCCESS:
+            raise Error(self._lib[].describe("sound config set_engine_node failed", code))
+        self._node = node.copy()
+        self._group = None
+
+    def clear_attachment(mut self) raises:
+        """Back to the default: attach straight to the engine's endpoint."""
+        var code = raw.sound_config_set_initial_attachment_node(
+            self._lib[], self._ptr, null_handle(), UInt32(0)
+        )
+        if code != MA_SUCCESS:
+            raise Error(self._lib[].describe("sound config clear_attachment failed", code))
+        self._group = None
+        self._node = None
+
+    def set_flags(mut self, flags: UInt32) raises:
+        """`SOUND_FLAG_*` values OR-ed together."""
+        var code = raw.sound_config_set_flags(self._lib[], self._ptr, flags)
+        if code != MA_SUCCESS:
+            raise Error(self._lib[].describe("sound config set_flags failed", code))
+
+    def set_channels(
+        mut self, channels_in: UInt32, channels_out: UInt32 = UInt32(0)
+    ) raises:
+        """0 means the engine's channel count; `channels_out` may also be
+        `SOUND_SOURCE_CHANNEL_COUNT` to follow the data source."""
+        var code = raw.sound_config_set_channels(
+            self._lib[], self._ptr, channels_in, channels_out
+        )
+        if code != MA_SUCCESS:
+            raise Error(self._lib[].describe("sound config set_channels failed", code))
+
+    def set_volume_smooth_time(mut self, frames: UInt32) raises:
+        """Frames over which volume changes are smoothed (0 for none)."""
+        var code = raw.sound_config_set_volume_smooth_time(self._lib[], self._ptr, frames)
+        if code != MA_SUCCESS:
+            raise Error(self._lib[].describe("sound config set_volume_smooth_time failed", code))
+
+    def set_mono_expansion_mode(mut self, mode: Int) raises:
+        """An ma_mono_expansion_mode code (0 duplicate, 1 average, 2 stereo-only)."""
+        var code = raw.sound_config_set_mono_expansion_mode(self._lib[], self._ptr, mode)
+        if code != MA_SUCCESS:
+            raise Error(self._lib[].describe("sound config set_mono_expansion_mode failed", code))
+
+    def set_initial_seek_point(mut self, frame: UInt64) raises:
+        """Where in the source (in frames) playback starts."""
+        var code = raw.sound_config_set_initial_seek_point(self._lib[], self._ptr, frame)
+        if code != MA_SUCCESS:
+            raise Error(self._lib[].describe("sound config set_initial_seek_point failed", code))
+
+    def set_range(mut self, beg: UInt64, end: UInt64 = FRAME_RANGE_END) raises:
+        """The slice of the source to play; `end` defaults to the end of the source."""
+        var code = raw.sound_config_set_range(self._lib[], self._ptr, beg, end)
+        if code != MA_SUCCESS:
+            raise Error(self._lib[].describe("sound config set_range failed", code))
+
+    def set_loop_point(mut self, beg: UInt64, end: UInt64 = FRAME_RANGE_END) raises:
+        """Where a looping sound jumps back from (`end`) and to (`beg`)."""
+        var code = raw.sound_config_set_loop_point(self._lib[], self._ptr, beg, end)
+        if code != MA_SUCCESS:
+            raise Error(self._lib[].describe("sound config set_loop_point failed", code))
+
+    def __deinit__(deinit self):
+        if self._ptr != null_handle():
+            raw.sound_config_free(self._lib[], self._ptr)

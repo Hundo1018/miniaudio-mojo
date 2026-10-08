@@ -18,6 +18,7 @@ from std.memory import ArcPointer
 from miniaudio._lib import MaLib, null_handle
 from miniaudio.result import MA_SUCCESS
 from miniaudio.decoder import Decoder
+from miniaudio.engine import Engine
 import miniaudio._ffi.device_raw as raw
 
 
@@ -59,19 +60,46 @@ struct DeviceInfo(Copyable, Movable):
 
 
 struct Device(Movable):
+    """A playback device (RAII).
+
+    `Device.play` builds a device that streams a `Decoder`. `Device.of_engine` is
+    instead a *borrowed* view of the playback device an engine owns
+    (ma_engine_get_device): the state, volume, name, info and `pump` calls act on
+    that device, and dropping the view leaves it alone. A view keeps the engine
+    alive for as long as it exists, and has no decoder of its own (the engine
+    drives its device), so `frames_processed` is always 0 for it.
+    """
+
     var _lib: ArcPointer[MaLib]
     var _ptr: OpaquePointer[MutUntrackedOrigin]
-    var _source: Decoder  # kept alive for the device's lifetime; the cb pulls from it
+    var _source: Optional[Decoder]  # kept alive for the device's lifetime; the cb pulls from it
+    var _owner: Optional[ArcPointer[Engine]]  # set for a borrowed view of an engine's device
 
     def __init__(
         out self,
         var lib: ArcPointer[MaLib],
         ptr: OpaquePointer[MutUntrackedOrigin],
-        var source: Decoder,
+        var source: Optional[Decoder],
     ):
         self._lib = lib^
         self._ptr = ptr
         self._source = source^
+        self._owner = None
+
+    @staticmethod
+    def of_engine(engine: ArcPointer[Engine]) raises -> Self:
+        """A non-owning view of the engine's playback device (ma_engine_get_device)."""
+        var lib = engine[]._lib.copy()
+        var ptr = raw.device_alloc(lib[])
+        if ptr == null_handle():
+            raise Error("device_alloc failed (out of memory)")
+        var code = raw.device_borrow_engine(lib[], ptr, engine[]._ptr)
+        if code != MA_SUCCESS:
+            raw.device_free(lib[], ptr)
+            raise Error(lib[].describe("engine device borrow failed", code))
+        var view = Self(lib^, ptr, None)
+        view._owner = engine.copy()
+        return view^
 
     @staticmethod
     def play(

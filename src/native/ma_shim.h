@@ -143,6 +143,13 @@ unsigned int       ma_shim_device_get_channels(void* handle);
 unsigned int       ma_shim_device_get_sample_rate(void* handle);
 unsigned long long ma_shim_device_get_frames_processed(void* handle);
 
+/* Make a device handle (ma_shim_device_alloc) a non-owning view of the engine's
+ * own playback device. The view answers the same state / volume / name / info /
+ * pump questions about that device; freeing or uninitialising it leaves the
+ * device alone. The engine must outlive the view. Fails if the engine has no
+ * device. */
+int ma_shim_device_borrow_engine(void* handle, void* engine_handle);
+
 /* Device state. get_state returns an ma_device_state code (0 = uninitialized,
  * which is also the sentinel for a null/uninitialised handle). is_started
  * returns 1/0, and 0 for a null/uninitialised handle. */

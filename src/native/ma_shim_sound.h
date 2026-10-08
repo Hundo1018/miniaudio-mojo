@@ -111,6 +111,38 @@ unsigned long long ma_shim_sound_get_time_in_milliseconds(void* handle);
 /* init_copy */
 int   ma_shim_sound_init_copy(void* handle, void* engine_handle, void* existing_handle, unsigned int flags);
 
+/* init from a data source (a handle from ma_shim_data_source_alloc + init_buffer).
+ * The data source must outlive the sound. */
+int   ma_shim_sound_init_from_data_source(
+    void* handle, void* engine_handle, void* data_source_handle, unsigned int flags);
+
+/* The shim handle of the engine the sound belongs to (NULL if not initialised). */
+void* ma_shim_sound_get_engine(void* handle);
+
+/* ---- sound config (miniaudio passes ma_sound_config by value; the shim keeps
+ * one behind a handle). Every setter requires a prior config_init*. ---- */
+void* ma_shim_sound_config_alloc(void);
+void  ma_shim_sound_config_free(void* config);
+int   ma_shim_sound_config_init(void* config);
+int   ma_shim_sound_config_init_for_engine(void* config, void* engine_handle);
+
+int   ma_shim_sound_config_set_file_path(void* config, const char* path);
+int   ma_shim_sound_config_set_data_source(void* config, void* data_source_handle);
+int   ma_shim_sound_config_set_initial_attachment_group(
+    void* config, void* group_handle, unsigned int input_bus);
+int   ma_shim_sound_config_set_initial_attachment_node(
+    void* config, void* node_handle, unsigned int input_bus);
+int   ma_shim_sound_config_set_flags(void* config, unsigned int flags);
+int   ma_shim_sound_config_set_channels(void* config, unsigned int channels_in, unsigned int channels_out);
+int   ma_shim_sound_config_set_volume_smooth_time(void* config, unsigned int frames);
+int   ma_shim_sound_config_set_mono_expansion_mode(void* config, int mode);
+int   ma_shim_sound_config_set_initial_seek_point(void* config, unsigned long long frame);
+int   ma_shim_sound_config_set_range(void* config, unsigned long long beg, unsigned long long end);
+int   ma_shim_sound_config_set_loop_point(void* config, unsigned long long beg, unsigned long long end);
+
+/* Initialise a sound from a config (file path, data source, or neither). */
+int   ma_shim_sound_init_ex(void* handle, void* engine_handle, void* config);
+
 #ifdef __cplusplus
 }
 #endif

@@ -50,8 +50,22 @@ from miniaudio.device import (
     JOB_QUEUE_FLAG_NON_BLOCKING,
 )
 from miniaudio.engine import Engine
-from miniaudio.sound import Sound
-from miniaudio.sound_group import SoundGroup
+from miniaudio.sound import (
+    Sound,
+    SoundConfig,
+    SOUND_FLAG_STREAM,
+    SOUND_FLAG_DECODE,
+    SOUND_FLAG_ASYNC,
+    SOUND_FLAG_WAIT_INIT,
+    SOUND_FLAG_UNKNOWN_LENGTH,
+    SOUND_FLAG_LOOPING,
+    SOUND_FLAG_NO_DEFAULT_ATTACHMENT,
+    SOUND_FLAG_NO_PITCH,
+    SOUND_FLAG_NO_SPATIALIZATION,
+    SOUND_SOURCE_CHANNEL_COUNT,
+    FRAME_RANGE_END,
+)
+from miniaudio.sound_group import SoundGroup, SoundGroupConfig
 from miniaudio.data_source import (
     DataSource,
     DataSourceNode,
@@ -105,6 +119,8 @@ from miniaudio.node import (
     OffsetNode,
     DelayNode,
     SplitterNode,
+    EndpointNode,
+    EngineNode,
     NODE_STATE_STARTED,
     NODE_STATE_STOPPED,
 )

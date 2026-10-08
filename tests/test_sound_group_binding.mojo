@@ -11,6 +11,8 @@ from miniaudio._lib import MaLib, null_handle
 from miniaudio.result import MA_SUCCESS, MA_INVALID_ARGS
 import miniaudio._ffi.engine_raw as eraw
 import miniaudio._ffi.sound_group_raw as raw
+import miniaudio._ffi.sound_raw as sraw
+import miniaudio._ffi.data_source_raw as dsraw
 
 
 def _lib() raises -> MaLib:
@@ -237,6 +239,352 @@ def test_new_ops_null_handle_invalid() raises:
     raw.sound_group_set_start_time_in_milliseconds(lib, n, 0)
     raw.sound_group_set_stop_time_in_pcm_frames(lib, n, 0)
     raw.sound_group_set_stop_time_in_milliseconds(lib, n, 0)
+
+
+# ---------------------------------------------------------------------------
+# the engine back-reference, ma_sound_group_config behind a handle, init_ex
+# ---------------------------------------------------------------------------
+
+comptime PERIOD: Int = 480  # frames the engine renders per pass (10 ms at 48 kHz)
+comptime FLAG_NO_PITCH: UInt32 = 0x2000
+comptime LEFT: Float32 = 0.25
+comptime RIGHT: Float32 = -0.5
+
+
+def _engine(lib: MaLib) raises -> OpaquePointer[MutUntrackedOrigin]:
+    """A null-backend engine with its device stopped, so the test is the only reader."""
+    var eng = eraw.engine_alloc(lib)
+    assert_equal(eraw.engine_init(lib, eng, True), MA_SUCCESS)
+    assert_equal(eraw.engine_stop(lib, eng), MA_SUCCESS)
+    return eng
+
+
+def _pull(
+    lib: MaLib, eng: OpaquePointer[MutUntrackedOrigin]
+) raises -> List[Float32]:
+    """One engine period of stereo frames. The engine renders whole periods, so a
+    setting changed between two pulls is heard in the second."""
+    var buf = List[Float32]()
+    buf.resize(PERIOD * 2, Float32(0))
+    var rc = eraw.engine_read_pcm_frames(lib, eng, buf, UInt64(PERIOD))
+    assert_equal(rc.result, MA_SUCCESS)
+    buf.resize(Int(rc.value) * 2, Float32(0))
+    return buf^
+
+
+def _peak(samples: List[Float32]) -> Float32:
+    var peak = Float32(0)
+    for i in range(len(samples)):
+        var v = samples[i]
+        if v < Float32(0):
+            v = -v
+        if v > peak:
+            peak = v
+    return peak
+
+
+def _playing_sound(
+    lib: MaLib,
+    eng: OpaquePointer[MutUntrackedOrigin],
+    ds: OpaquePointer[MutUntrackedOrigin],
+    group: OpaquePointer[MutUntrackedOrigin],
+) raises -> OpaquePointer[MutUntrackedOrigin]:
+    """A started sound, playing `ds` into `group` (pitch and spatialization off)."""
+    var cfg = sraw.sound_config_alloc(lib)
+    assert_equal(sraw.sound_config_init(lib, cfg), MA_SUCCESS)
+    assert_equal(sraw.sound_config_set_data_source(lib, cfg, ds), MA_SUCCESS)
+    assert_equal(sraw.sound_config_set_flags(lib, cfg, 0x2000 | 0x4000), MA_SUCCESS)
+    assert_equal(
+        sraw.sound_config_set_initial_attachment_group(lib, cfg, group, 0), MA_SUCCESS
+    )
+    var snd = sraw.sound_alloc(lib)
+    assert_equal(sraw.sound_init_ex(lib, snd, eng, cfg), MA_SUCCESS)
+    sraw.sound_config_free(lib, cfg)
+    assert_equal(sraw.sound_start(lib, snd), MA_SUCCESS)
+    return snd
+
+
+def _source(lib: MaLib, eng: OpaquePointer[MutUntrackedOrigin]) raises -> OpaquePointer[MutUntrackedOrigin]:
+    """A long stereo buffer source: LEFT on the left channel, RIGHT on the right."""
+    var samples = List[Float32]()
+    for _ in range(PERIOD * 8):
+        samples.append(LEFT)
+        samples.append(RIGHT)
+    var ds = dsraw.data_source_alloc(lib)
+    assert_equal(
+        dsraw.data_source_init_buffer(
+            lib, ds, samples, UInt64(PERIOD * 8), 2, eraw.engine_get_sample_rate(lib, eng)
+        ),
+        MA_SUCCESS,
+    )
+    return ds
+
+
+def test_get_engine_is_the_engine_the_group_was_built_with() raises:
+    var lib = _lib()
+    var eng = _engine(lib)
+    var other = _engine(lib)
+    var grp = raw.sound_group_alloc(lib)
+    assert_equal(raw.sound_group_init(lib, grp, eng, 0), MA_SUCCESS)
+
+    assert_true(raw.sound_group_get_engine(lib, grp) == eng)
+    assert_true(raw.sound_group_get_engine(lib, grp) != other)
+
+    # Not initialised / not there: nothing to report.
+    assert_equal(raw.sound_group_uninit(lib, grp), MA_SUCCESS)
+    assert_true(raw.sound_group_get_engine(lib, grp) == null_handle())
+    assert_true(raw.sound_group_get_engine(lib, null_handle()) == null_handle())
+
+    raw.sound_group_free(lib, grp)
+    eraw.engine_free(lib, other)
+    eraw.engine_free(lib, eng)
+
+
+def test_group_config_builds_the_same_kind_of_group_as_init() raises:
+    var lib = _lib()
+    var eng = _engine(lib)
+    var plain = raw.sound_group_alloc(lib)
+    assert_equal(raw.sound_group_init(lib, plain, eng, 0), MA_SUCCESS)
+
+    var cfg = raw.sound_group_config_alloc(lib)
+    assert_true(cfg != null_handle())
+    assert_equal(raw.sound_group_config_init(lib, cfg), MA_SUCCESS)
+    var grp = raw.sound_group_alloc(lib)
+    assert_equal(raw.sound_group_init_ex(lib, grp, eng, cfg), MA_SUCCESS)
+
+    # Same defaults: full volume, playing, and (a group's default) not spatialised.
+    assert_equal(raw.sound_group_get_volume(lib, grp), raw.sound_group_get_volume(lib, plain))
+    assert_equal(
+        raw.sound_group_is_spatialization_enabled(lib, grp),
+        raw.sound_group_is_spatialization_enabled(lib, plain),
+    )
+    assert_equal(raw.sound_group_is_spatialization_enabled(lib, grp), 0)
+    assert_equal(raw.sound_group_is_playing(lib, grp), raw.sound_group_is_playing(lib, plain))
+    assert_true(raw.sound_group_get_engine(lib, grp) == eng)
+
+    raw.sound_group_free(lib, grp)
+    raw.sound_group_free(lib, plain)
+    raw.sound_group_config_free(lib, cfg)
+    eraw.engine_free(lib, eng)
+
+
+def test_group_config_for_engine_is_a_working_starting_point() raises:
+    var lib = _lib()
+    var eng = _engine(lib)
+    var cfg = raw.sound_group_config_alloc(lib)
+    assert_equal(raw.sound_group_config_init_for_engine(lib, cfg, eng), MA_SUCCESS)
+    var grp = raw.sound_group_alloc(lib)
+    assert_equal(raw.sound_group_init_ex(lib, grp, eng, cfg), MA_SUCCESS)
+    assert_equal(raw.sound_group_set_volume(lib, grp, 0.5), MA_SUCCESS)
+    assert_equal(raw.sound_group_get_volume(lib, grp), Float32(0.5))
+
+    raw.sound_group_free(lib, grp)
+    raw.sound_group_config_free(lib, cfg)
+    eraw.engine_free(lib, eng)
+
+
+def test_group_config_flags_change_what_the_group_does() raises:
+    """A group resamples (a frame of latency) unless NO_PITCH is in its flags."""
+    var lib = _lib()
+    var eng = _engine(lib)
+    var ds = _source(lib, eng)
+
+    var cfg = raw.sound_group_config_alloc(lib)
+    assert_equal(raw.sound_group_config_init(lib, cfg), MA_SUCCESS)
+    var pitched = raw.sound_group_alloc(lib)
+    assert_equal(raw.sound_group_init_ex(lib, pitched, eng, cfg), MA_SUCCESS)
+    var s1 = _playing_sound(lib, eng, ds, pitched)
+    var through_resampler = _pull(lib, eng)
+    assert_equal(through_resampler[0], Float32(0))      # the resampler's latency
+    assert_equal(through_resampler[2], LEFT)
+    assert_equal(sraw.sound_stop(lib, s1), MA_SUCCESS)
+    sraw.sound_free(lib, s1)
+
+    assert_equal(raw.sound_group_config_set_flags(lib, cfg, FLAG_NO_PITCH), MA_SUCCESS)
+    var direct = raw.sound_group_alloc(lib)
+    assert_equal(raw.sound_group_init_ex(lib, direct, eng, cfg), MA_SUCCESS)
+    assert_equal(raw.sound_group_stop(lib, pitched), MA_SUCCESS)
+    var s2 = _playing_sound(lib, eng, ds, direct)
+    var bypassed = _pull(lib, eng)
+    assert_equal(bypassed[0], LEFT)
+    assert_equal(bypassed[1], RIGHT)
+    assert_equal(sraw.sound_get_engine(lib, s2) == eng, True)
+
+    sraw.sound_free(lib, s2)
+    raw.sound_group_free(lib, direct)
+    raw.sound_group_free(lib, pitched)
+    raw.sound_group_config_free(lib, cfg)
+    dsraw.data_source_free(lib, ds)
+    eraw.engine_free(lib, eng)
+
+
+def test_group_config_parent_nests_one_group_inside_another() raises:
+    var lib = _lib()
+    var eng = _engine(lib)
+    var ds = _source(lib, eng)
+
+    var parent = raw.sound_group_alloc(lib)
+    assert_equal(raw.sound_group_init(lib, parent, eng, FLAG_NO_PITCH), MA_SUCCESS)
+    var cfg = raw.sound_group_config_alloc(lib)
+    assert_equal(raw.sound_group_config_init(lib, cfg), MA_SUCCESS)
+    assert_equal(raw.sound_group_config_set_flags(lib, cfg, FLAG_NO_PITCH), MA_SUCCESS)
+    assert_equal(raw.sound_group_config_set_parent(lib, cfg, parent, 0), MA_SUCCESS)
+    var child = raw.sound_group_alloc(lib)
+    assert_equal(raw.sound_group_init_ex(lib, child, eng, cfg), MA_SUCCESS)
+
+    # sound -> child -> parent -> endpoint
+    var snd = _playing_sound(lib, eng, ds, child)
+    var heard = _pull(lib, eng)
+    assert_equal(heard[0], LEFT)
+    assert_equal(heard[1], RIGHT)
+
+    # The parent is the only way out, so shutting it silences the child's sound.
+    assert_equal(raw.sound_group_set_volume(lib, parent, 0.0), MA_SUCCESS)
+    assert_equal(_peak(_pull(lib, eng)), Float32(0))
+
+    # Clearing the parent puts a group on the endpoint directly.
+    assert_equal(raw.sound_group_config_set_parent(lib, cfg, null_handle(), 0), MA_SUCCESS)
+    var top = raw.sound_group_alloc(lib)
+    assert_equal(raw.sound_group_init_ex(lib, top, eng, cfg), MA_SUCCESS)
+    assert_equal(sraw.sound_stop(lib, snd), MA_SUCCESS)
+    var snd2 = _playing_sound(lib, eng, ds, top)
+    assert_true(_peak(_pull(lib, eng)) > Float32(0.2))
+
+    sraw.sound_free(lib, snd2)
+    sraw.sound_free(lib, snd)
+    raw.sound_group_free(lib, top)
+    raw.sound_group_free(lib, child)
+    raw.sound_group_free(lib, parent)
+    raw.sound_group_config_free(lib, cfg)
+    dsraw.data_source_free(lib, ds)
+    eraw.engine_free(lib, eng)
+
+
+def test_group_config_channels_decide_what_can_be_attached() raises:
+    """A group's input channel count has to match what is fed into it."""
+    var lib = _lib()
+    var eng = _engine(lib)
+    var ds = _source(lib, eng)    # stereo
+
+    var cfg = raw.sound_group_config_alloc(lib)
+    assert_equal(raw.sound_group_config_init(lib, cfg), MA_SUCCESS)
+    assert_equal(raw.sound_group_config_set_channels(lib, cfg, 2, 2), MA_SUCCESS)
+    var stereo = raw.sound_group_alloc(lib)
+    assert_equal(raw.sound_group_init_ex(lib, stereo, eng, cfg), MA_SUCCESS)
+    var ok = _playing_sound(lib, eng, ds, stereo)
+    assert_true(_peak(_pull(lib, eng)) > Float32(0.2))
+
+    assert_equal(raw.sound_group_config_set_channels(lib, cfg, 1, 2), MA_SUCCESS)
+    var mono = raw.sound_group_alloc(lib)
+    assert_equal(raw.sound_group_init_ex(lib, mono, eng, cfg), MA_SUCCESS)
+    # A stereo sound cannot feed a mono input.
+    var scfg = sraw.sound_config_alloc(lib)
+    assert_equal(sraw.sound_config_init(lib, scfg), MA_SUCCESS)
+    assert_equal(sraw.sound_config_set_data_source(lib, scfg, ds), MA_SUCCESS)
+    assert_equal(sraw.sound_config_set_initial_attachment_group(lib, scfg, mono, 0), MA_SUCCESS)
+    var bad = sraw.sound_alloc(lib)
+    assert_true(sraw.sound_init_ex(lib, bad, eng, scfg) != MA_SUCCESS)
+
+    sraw.sound_config_free(lib, scfg)
+    sraw.sound_free(lib, bad)
+    sraw.sound_free(lib, ok)
+    raw.sound_group_free(lib, mono)
+    raw.sound_group_free(lib, stereo)
+    raw.sound_group_config_free(lib, cfg)
+    dsraw.data_source_free(lib, ds)
+    eraw.engine_free(lib, eng)
+
+
+def test_group_config_volume_smoothing_ramps_a_volume_change() raises:
+    var lib = _lib()
+    var eng = _engine(lib)
+    var ds = _source(lib, eng)
+
+    var cfg = raw.sound_group_config_alloc(lib)
+    assert_equal(raw.sound_group_config_init(lib, cfg), MA_SUCCESS)
+    assert_equal(raw.sound_group_config_set_flags(lib, cfg, FLAG_NO_PITCH), MA_SUCCESS)
+    var abrupt = raw.sound_group_alloc(lib)
+    assert_equal(raw.sound_group_init_ex(lib, abrupt, eng, cfg), MA_SUCCESS)
+    assert_equal(raw.sound_group_config_set_volume_smooth_time(lib, cfg, UInt32(PERIOD)), MA_SUCCESS)
+    var smooth = raw.sound_group_alloc(lib)
+    assert_equal(raw.sound_group_init_ex(lib, smooth, eng, cfg), MA_SUCCESS)
+
+    # Warm up, then cut the volume to zero.
+    var s1 = _playing_sound(lib, eng, ds, abrupt)
+    assert_true(_peak(_pull(lib, eng)) > Float32(0.2))
+    assert_equal(raw.sound_group_set_volume(lib, abrupt, 0.0), MA_SUCCESS)
+    assert_equal(_peak(_pull(lib, eng)), Float32(0))
+    assert_equal(sraw.sound_stop(lib, s1), MA_SUCCESS)
+
+    var ds2 = _source(lib, eng)
+    var s2 = _playing_sound(lib, eng, ds2, smooth)
+    assert_true(_peak(_pull(lib, eng)) > Float32(0.2))
+    assert_equal(raw.sound_group_set_volume(lib, smooth, 0.0), MA_SUCCESS)
+    # Smoothed: still sounding at the start of the period it was cut in.
+    var ramp = _pull(lib, eng)
+    assert_true(_peak(ramp) > Float32(0.1))
+
+    sraw.sound_free(lib, s2)
+    sraw.sound_free(lib, s1)
+    raw.sound_group_free(lib, smooth)
+    raw.sound_group_free(lib, abrupt)
+    raw.sound_group_config_free(lib, cfg)
+    dsraw.data_source_free(lib, ds2)
+    dsraw.data_source_free(lib, ds)
+    eraw.engine_free(lib, eng)
+
+
+def test_group_config_negative_paths() raises:
+    var lib = _lib()
+    var eng = _engine(lib)
+    var blank = raw.sound_group_config_alloc(lib)   # never initialised
+    var grp = raw.sound_group_alloc(lib)
+
+    assert_equal(raw.sound_group_config_init(lib, null_handle()), MA_INVALID_ARGS)
+    assert_equal(
+        raw.sound_group_config_init_for_engine(lib, blank, null_handle()), MA_INVALID_ARGS
+    )
+    assert_equal(
+        raw.sound_group_config_init_for_engine(lib, null_handle(), eng), MA_INVALID_ARGS
+    )
+
+    # Unready configs reject every setter and init_ex.
+    assert_equal(raw.sound_group_config_set_flags(lib, blank, 0), MA_INVALID_ARGS)
+    assert_equal(
+        raw.sound_group_config_set_parent(lib, blank, null_handle(), 0), MA_INVALID_ARGS
+    )
+    assert_equal(raw.sound_group_config_set_channels(lib, blank, 0, 0), MA_INVALID_ARGS)
+    assert_equal(raw.sound_group_config_set_volume_smooth_time(lib, blank, 0), MA_INVALID_ARGS)
+    assert_equal(raw.sound_group_init_ex(lib, grp, eng, blank), MA_INVALID_ARGS)
+    assert_equal(raw.sound_group_config_set_flags(lib, null_handle(), 0), MA_INVALID_ARGS)
+    assert_equal(
+        raw.sound_group_config_set_parent(lib, null_handle(), null_handle(), 0),
+        MA_INVALID_ARGS,
+    )
+    assert_equal(raw.sound_group_config_set_channels(lib, null_handle(), 0, 0), MA_INVALID_ARGS)
+    assert_equal(
+        raw.sound_group_config_set_volume_smooth_time(lib, null_handle(), 0), MA_INVALID_ARGS
+    )
+
+    var good = raw.sound_group_config_alloc(lib)
+    assert_equal(raw.sound_group_config_init(lib, good), MA_SUCCESS)
+    # A bus wider than miniaudio supports is an error here, not an abort there.
+    assert_equal(raw.sound_group_config_set_channels(lib, good, 4096, 0), MA_INVALID_ARGS)
+    assert_equal(raw.sound_group_config_set_channels(lib, good, 0, 4096), MA_INVALID_ARGS)
+    assert_equal(raw.sound_group_init_ex(lib, null_handle(), eng, good), MA_INVALID_ARGS)
+    assert_equal(raw.sound_group_init_ex(lib, grp, null_handle(), good), MA_INVALID_ARGS)
+    # A parent that was never initialised is not a parent.
+    var parent = raw.sound_group_alloc(lib)
+    assert_equal(raw.sound_group_config_set_parent(lib, good, parent, 0), MA_INVALID_ARGS)
+    # A failed init leaves the group uninitialised.
+    assert_equal(raw.sound_group_start(lib, grp), MA_INVALID_ARGS)
+
+    raw.sound_group_config_free(lib, null_handle())
+    raw.sound_group_free(lib, parent)
+    raw.sound_group_config_free(lib, good)
+    raw.sound_group_free(lib, grp)
+    raw.sound_group_config_free(lib, blank)
+    eraw.engine_free(lib, eng)
 
 
 def main() raises:

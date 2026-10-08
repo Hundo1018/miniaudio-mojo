@@ -7,6 +7,25 @@ raises `Error` on failure, shares the library via `ArcPointer[MaLib]`.
 
 `use_null_backend=True` runs on miniaudio's null backend (no hardware) for
 deterministic tests; the engine clock still advances while started.
+
+**What the engine owns, as views.** The engine owns a node graph, an endpoint, a
+log, a playback device and a resource manager. Each is available as a *borrowed
+view* of the owning family's own type, built from an `ArcPointer[Engine]`:
+
+    NodeGraph.of_engine(engine)        # miniaudio.node
+    EndpointNode.of_engine(engine)     # miniaudio.node
+    Log.of_engine(engine)              # miniaudio.sync
+    Device.of_engine(engine)           # miniaudio.device
+    ResourceManager.of_engine(engine)  # miniaudio.resource_manager
+
+A view is used exactly like the type it is a view of, never tears down what it
+points at when dropped, and keeps the engine alive for as long as it exists. They
+are constructors on the view types rather than methods here only because those
+modules import `Engine`, not the other way round.
+
+The engine renders its node graph a whole period (480 frames at 48 kHz) at a
+time and serves reads from that block, so a setting changed mid-period is heard
+from the next period on; pull whole periods when you read it yourself (`read`).
 """
 
 from std.memory import ArcPointer

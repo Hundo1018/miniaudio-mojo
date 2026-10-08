@@ -1,4 +1,5 @@
 #include "ma_shim.h"
+#include "ma_shim_internal.h"
 
 #include "miniaudio.h"
 
@@ -520,7 +521,41 @@ typedef struct ma_shim_device {
     unsigned long long frames_processed;  /* observable: frames pulled in the callback */
     ma_device_info info;              /* snapshot filled by ma_shim_device_info_load */
     int has_info;                     /* whether `info` holds a successful snapshot */
+    void* engine;                     /* non-NULL: borrowed view of this engine's device */
 } ma_shim_device;
+
+/* A device handle is either a device the shim built (`device`) or a borrowed view
+ * of an engine's playback device (`engine` set). A view does not own the device,
+ * so it is never uninitialised from here, and it resolves the engine's device
+ * afresh on every use -- if the engine has been uninitialised, or was built
+ * without a device, the view simply reports "not ready". */
+static ma_device* ma_shim_device__ptr(ma_shim_device* h) {
+    if (h == NULL || !h->initialized) {
+        return NULL;
+    }
+    if (h->engine != NULL) {
+        ma_engine* engine = shimint_engine_ptr(h->engine);
+        return (engine != NULL) ? ma_engine_get_device(engine) : NULL;
+    }
+    return &h->device;
+}
+
+/* Release whatever the handle holds: uninitialise a device it owns (and the
+ * context it built), or hand a borrowed one back untouched. */
+static void ma_shim_device__release(ma_shim_device* h) {
+    if (h->initialized) {
+        if (h->engine == NULL) {
+            ma_device_uninit(&h->device);
+        }
+        h->initialized = 0;
+    }
+    h->engine = NULL;
+    h->has_info = 0;
+    if (h->has_context) {
+        ma_context_uninit(&h->context);
+        h->has_context = 0;
+    }
+}
 
 /* Shim-owned data callback: pull f32 frames from the source decoder into the
  * output buffer, zero-fill the tail at end-of-stream, and count frames. Runs on
@@ -553,14 +588,7 @@ void ma_shim_device_free(void* handle) {
     if (h == NULL) {
         return;
     }
-    if (h->initialized) {
-        ma_device_uninit(&h->device);
-        h->initialized = 0;
-    }
-    if (h->has_context) {
-        ma_context_uninit(&h->context);
-        h->has_context = 0;
-    }
+    ma_shim_device__release(h);
     free(h);
 }
 
@@ -590,14 +618,7 @@ int ma_shim_device_init_playback_from_decoder(
         sample_rate = sample_rate_override;
     }
 
-    if (h->initialized) {
-        ma_device_uninit(&h->device);
-        h->initialized = 0;
-    }
-    if (h->has_context) {
-        ma_context_uninit(&h->context);
-        h->has_context = 0;
-    }
+    ma_shim_device__release(h);
 
     if (use_null_backend) {
         ma_backend backends[1];
@@ -636,19 +657,21 @@ int ma_shim_device_init_playback_from_decoder(
 /* @binds ma_device_start */
 int ma_shim_device_start(void* handle) {
     ma_shim_device* h = (ma_shim_device*)handle;
-    if (h == NULL || !h->initialized) {
+    ma_device* dev = ma_shim_device__ptr(h);
+    if (dev == NULL) {
         return MA_INVALID_ARGS;
     }
-    return (int)ma_device_start(&h->device);
+    return (int)ma_device_start(dev);
 }
 
 /* @binds ma_device_stop */
 int ma_shim_device_stop(void* handle) {
     ma_shim_device* h = (ma_shim_device*)handle;
-    if (h == NULL || !h->initialized) {
+    ma_device* dev = ma_shim_device__ptr(h);
+    if (dev == NULL) {
         return MA_INVALID_ARGS;
     }
-    return (int)ma_device_stop(&h->device);
+    return (int)ma_device_stop(dev);
 }
 
 /* @binds ma_device_uninit */
@@ -657,33 +680,26 @@ int ma_shim_device_uninit(void* handle) {
     if (h == NULL) {
         return MA_INVALID_ARGS;
     }
-    if (!h->initialized) {
-        return MA_SUCCESS;
-    }
-    ma_device_uninit(&h->device);
-    h->initialized = 0;
-    h->has_info = 0;
-    if (h->has_context) {
-        ma_context_uninit(&h->context);
-        h->has_context = 0;
-    }
+    ma_shim_device__release(h);
     return MA_SUCCESS;
 }
 
 unsigned int ma_shim_device_get_channels(void* handle) {
     ma_shim_device* h = (ma_shim_device*)handle;
-    if (h == NULL || !h->initialized) {
+    ma_device* dev = ma_shim_device__ptr(h);
+    if (dev == NULL) {
         return 0;
     }
-    return (unsigned int)h->device.playback.channels;
+    return (unsigned int)dev->playback.channels;
 }
 
 unsigned int ma_shim_device_get_sample_rate(void* handle) {
     ma_shim_device* h = (ma_shim_device*)handle;
-    if (h == NULL || !h->initialized) {
+    ma_device* dev = ma_shim_device__ptr(h);
+    if (dev == NULL) {
         return 0;
     }
-    return (unsigned int)h->device.sampleRate;
+    return (unsigned int)dev->sampleRate;
 }
 
 unsigned long long ma_shim_device_get_frames_processed(void* handle) {
@@ -729,14 +745,7 @@ int ma_shim_device_init_ex_playback_from_decoder(
         backend_list[i] = (ma_backend)backends[i];
     }
 
-    if (h->initialized) {
-        ma_device_uninit(&h->device);
-        h->initialized = 0;
-    }
-    if (h->has_context) {
-        ma_context_uninit(&h->context);
-        h->has_context = 0;
-    }
+    ma_shim_device__release(h);
     h->has_info = 0;
 
     context_config = ma_context_config_init();
@@ -767,58 +776,82 @@ int ma_shim_device_init_ex_playback_from_decoder(
     return (int)result;
 }
 
+/* Turn a device handle into a non-owning view of the engine's playback device
+ * (ma_engine_get_device). State, volume, name, info and the backend data
+ * callback then act on the engine's own device; freeing or uninitialising the
+ * view leaves that device alone. The engine must outlive the view. Fails if the
+ * engine was built without a device. */
+/* @binds ma_engine_get_device */
+int ma_shim_device_borrow_engine(void* handle, void* engine_handle) {
+    ma_shim_device* h = (ma_shim_device*)handle;
+    ma_engine* engine = shimint_engine_ptr(engine_handle);
+    if (h == NULL || engine == NULL || ma_engine_get_device(engine) == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    ma_shim_device__release(h);
+    h->engine = engine_handle;
+    h->initialized = 1;
+    return MA_SUCCESS;
+}
+
 /* @binds ma_device_get_state */
 int ma_shim_device_get_state(void* handle) {
     ma_shim_device* h = (ma_shim_device*)handle;
-    if (h == NULL || !h->initialized) {
+    ma_device* dev = ma_shim_device__ptr(h);
+    if (dev == NULL) {
         return (int)ma_device_state_uninitialized;
     }
-    return (int)ma_device_get_state(&h->device);
+    return (int)ma_device_get_state(dev);
 }
 
 /* @binds ma_device_is_started */
 int ma_shim_device_is_started(void* handle) {
     ma_shim_device* h = (ma_shim_device*)handle;
-    if (h == NULL || !h->initialized) {
+    ma_device* dev = ma_shim_device__ptr(h);
+    if (dev == NULL) {
         return 0;
     }
-    return ma_device_is_started(&h->device) ? 1 : 0;
+    return ma_device_is_started(dev) ? 1 : 0;
 }
 
 /* @binds ma_device_set_master_volume */
 int ma_shim_device_set_master_volume(void* handle, float volume) {
     ma_shim_device* h = (ma_shim_device*)handle;
-    if (h == NULL || !h->initialized) {
+    ma_device* dev = ma_shim_device__ptr(h);
+    if (dev == NULL) {
         return MA_INVALID_ARGS;
     }
-    return (int)ma_device_set_master_volume(&h->device, volume);
+    return (int)ma_device_set_master_volume(dev, volume);
 }
 
 /* @binds ma_device_get_master_volume */
 int ma_shim_device_get_master_volume(void* handle, float* out_volume) {
     ma_shim_device* h = (ma_shim_device*)handle;
-    if (h == NULL || !h->initialized || out_volume == NULL) {
+    ma_device* dev = ma_shim_device__ptr(h);
+    if (dev == NULL || out_volume == NULL) {
         return MA_INVALID_ARGS;
     }
-    return (int)ma_device_get_master_volume(&h->device, out_volume);
+    return (int)ma_device_get_master_volume(dev, out_volume);
 }
 
 /* @binds ma_device_set_master_volume_db */
 int ma_shim_device_set_master_volume_db(void* handle, float gain_db) {
     ma_shim_device* h = (ma_shim_device*)handle;
-    if (h == NULL || !h->initialized) {
+    ma_device* dev = ma_shim_device__ptr(h);
+    if (dev == NULL) {
         return MA_INVALID_ARGS;
     }
-    return (int)ma_device_set_master_volume_db(&h->device, gain_db);
+    return (int)ma_device_set_master_volume_db(dev, gain_db);
 }
 
 /* @binds ma_device_get_master_volume_db */
 int ma_shim_device_get_master_volume_db(void* handle, float* out_gain_db) {
     ma_shim_device* h = (ma_shim_device*)handle;
-    if (h == NULL || !h->initialized || out_gain_db == NULL) {
+    ma_device* dev = ma_shim_device__ptr(h);
+    if (dev == NULL || out_gain_db == NULL) {
         return MA_INVALID_ARGS;
     }
-    return (int)ma_device_get_master_volume_db(&h->device, out_gain_db);
+    return (int)ma_device_get_master_volume_db(dev, out_gain_db);
 }
 
 /* @binds ma_device_get_name */
@@ -830,22 +863,24 @@ int ma_shim_device_get_name(
     size_t* out_length
 ) {
     ma_shim_device* h = (ma_shim_device*)handle;
-    if (h == NULL || !h->initialized) {
+    ma_device* dev = ma_shim_device__ptr(h);
+    if (dev == NULL) {
         return MA_INVALID_ARGS;
     }
     return (int)ma_device_get_name(
-        &h->device, (ma_device_type)device_type, out_name, name_cap, out_length
+        dev, (ma_device_type)device_type, out_name, name_cap, out_length
     );
 }
 
 /* @binds ma_device_get_info */
 int ma_shim_device_info_load(void* handle, int device_type) {
     ma_shim_device* h = (ma_shim_device*)handle;
+    ma_device* dev = ma_shim_device__ptr(h);
     ma_result result;
-    if (h == NULL || !h->initialized) {
+    if (dev == NULL) {
         return MA_INVALID_ARGS;
     }
-    result = ma_device_get_info(&h->device, (ma_device_type)device_type, &h->info);
+    result = ma_device_get_info(dev, (ma_device_type)device_type, &h->info);
     h->has_info = (result == MA_SUCCESS) ? 1 : 0;
     return (int)result;
 }
@@ -954,18 +989,18 @@ int ma_shim_device_id_equal(
     int device_type,
     int* out_equal
 ) {
-    ma_shim_device* a = (ma_shim_device*)handle_a;
-    ma_shim_device* b = (ma_shim_device*)handle_b;
+    ma_device* dev_a = ma_shim_device__ptr((ma_shim_device*)handle_a);
+    ma_device* dev_b = ma_shim_device__ptr((ma_shim_device*)handle_b);
     ma_device_info info_a;
     ma_device_info info_b;
 
-    if (a == NULL || b == NULL || !a->initialized || !b->initialized || out_equal == NULL) {
+    if (dev_a == NULL || dev_b == NULL || out_equal == NULL) {
         return MA_INVALID_ARGS;
     }
-    if (ma_device_get_info(&a->device, (ma_device_type)device_type, &info_a) != MA_SUCCESS) {
+    if (ma_device_get_info(dev_a, (ma_device_type)device_type, &info_a) != MA_SUCCESS) {
         return MA_INVALID_OPERATION;
     }
-    if (ma_device_get_info(&b->device, (ma_device_type)device_type, &info_b) != MA_SUCCESS) {
+    if (ma_device_get_info(dev_b, (ma_device_type)device_type, &info_b) != MA_SUCCESS) {
         return MA_INVALID_OPERATION;
     }
     *out_equal = ma_device_id_equal(&info_a.id, &info_b.id) ? 1 : 0;
@@ -975,11 +1010,12 @@ int ma_shim_device_id_equal(
 /* @binds ma_device_get_context */
 int ma_shim_device_get_context_backend(void* handle, int* out_backend) {
     ma_shim_device* h = (ma_shim_device*)handle;
+    ma_device* dev = ma_shim_device__ptr(h);
     ma_context* pContext;
-    if (h == NULL || !h->initialized || out_backend == NULL) {
+    if (dev == NULL || out_backend == NULL) {
         return MA_INVALID_ARGS;
     }
-    pContext = ma_device_get_context(&h->device);
+    pContext = ma_device_get_context(dev);
     if (pContext == NULL) {
         return MA_INVALID_OPERATION;
     }
@@ -990,10 +1026,11 @@ int ma_shim_device_get_context_backend(void* handle, int* out_backend) {
 /* @binds ma_device_get_log */
 int ma_shim_device_has_log(void* handle, int* out_has_log) {
     ma_shim_device* h = (ma_shim_device*)handle;
-    if (h == NULL || !h->initialized || out_has_log == NULL) {
+    ma_device* dev = ma_shim_device__ptr(h);
+    if (dev == NULL || out_has_log == NULL) {
         return MA_INVALID_ARGS;
     }
-    *out_has_log = (ma_device_get_log(&h->device) != NULL) ? 1 : 0;
+    *out_has_log = (ma_device_get_log(dev) != NULL) ? 1 : 0;
     return MA_SUCCESS;
 }
 
@@ -1005,11 +1042,12 @@ int ma_shim_device_handle_backend_data_callback(
     unsigned int frame_count
 ) {
     ma_shim_device* h = (ma_shim_device*)handle;
-    if (h == NULL || !h->initialized) {
+    ma_device* dev = ma_shim_device__ptr(h);
+    if (dev == NULL) {
         return MA_INVALID_ARGS;
     }
     return (int)ma_device_handle_backend_data_callback(
-        &h->device, output, input, (ma_uint32)frame_count
+        dev, output, input, (ma_uint32)frame_count
     );
 }
 

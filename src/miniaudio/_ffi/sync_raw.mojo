@@ -401,3 +401,12 @@ def slot_allocator_free_slot(lib: MaLib, a: OpaquePointer[MutUntrackedOrigin], s
     return Int(
         lib.handle.call["ma_shim_slot_allocator_free_slot", Int32](a, slot)
     )
+
+
+def log_borrow_engine(
+    lib: MaLib,
+    lg: OpaquePointer[MutUntrackedOrigin],
+    engine: OpaquePointer[MutUntrackedOrigin],
+) -> Int:
+    """Make `lg` a non-owning view of the engine's log (ma_engine_get_log)."""
+    return Int(lib.handle.call["ma_shim_log_borrow_engine", Int32](lg, engine))

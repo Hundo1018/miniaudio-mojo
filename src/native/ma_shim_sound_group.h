@@ -81,6 +81,24 @@ void  ma_shim_sound_group_set_start_time_in_milliseconds(void* handle, unsigned 
 void  ma_shim_sound_group_set_stop_time_in_pcm_frames(void* handle, unsigned long long abs_time);
 void  ma_shim_sound_group_set_stop_time_in_milliseconds(void* handle, unsigned long long abs_time);
 
+/* The shim handle of the engine the group belongs to (NULL if not initialised). */
+void* ma_shim_sound_group_get_engine(void* handle);
+
+/* ---- sound group config (miniaudio passes ma_sound_group_config by value; the
+ * shim keeps one behind a handle). Every setter requires a prior config_init*. ---- */
+void* ma_shim_sound_group_config_alloc(void);
+void  ma_shim_sound_group_config_free(void* config);
+int   ma_shim_sound_group_config_init(void* config);
+int   ma_shim_sound_group_config_init_for_engine(void* config, void* engine_handle);
+
+int   ma_shim_sound_group_config_set_flags(void* config, unsigned int flags);
+int   ma_shim_sound_group_config_set_parent(void* config, void* parent_handle, unsigned int input_bus);
+int   ma_shim_sound_group_config_set_channels(void* config, unsigned int channels_in, unsigned int channels_out);
+int   ma_shim_sound_group_config_set_volume_smooth_time(void* config, unsigned int frames);
+
+/* Initialise a group from a config. */
+int   ma_shim_sound_group_init_ex(void* handle, void* engine_handle, void* config);
+
 #ifdef __cplusplus
 }
 #endif

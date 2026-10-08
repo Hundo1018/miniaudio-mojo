@@ -44,6 +44,41 @@ def noise_init(
     )
 
 
+def noise_get_heap_size(
+    lib: MaLib, format: Int, channels: UInt32, noise_type: Int
+) -> MaCount:
+    """Heap miniaudio needs for this config (0 for white noise), without building one."""
+    var holder = [UInt64(0)]
+    var code = Int(
+        lib.handle.call["ma_shim_noise_get_heap_size", Int32](
+            Int32(format), channels, Int32(noise_type), holder.unsafe_ptr()
+        )
+    )
+    return MaCount(code, holder[0])
+
+
+def noise_init_preallocated(
+    lib: MaLib,
+    ns: OpaquePointer[MutUntrackedOrigin],
+    format: Int,
+    channels: UInt32,
+    noise_type: Int,
+    seed: Int32,
+    amplitude: Float64,
+) -> Int:
+    """Init through miniaudio's preallocated-heap path with a shim-owned block."""
+    return Int(
+        lib.handle.call["ma_shim_noise_init_preallocated", Int32](
+            ns,
+            Int32(format),
+            channels,
+            Int32(noise_type),
+            seed,
+            amplitude,
+        )
+    )
+
+
 def noise_uninit(lib: MaLib, ns: OpaquePointer[MutUntrackedOrigin]) -> Int:
     return Int(lib.handle.call["ma_shim_noise_uninit", Int32](ns))
 

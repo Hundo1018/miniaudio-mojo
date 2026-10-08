@@ -1,4 +1,5 @@
 #include "ma_shim_sync.h"
+#include "ma_shim_internal.h"
 #include "miniaudio.h"
 
 #include <stdarg.h>
@@ -452,12 +453,18 @@ int ma_shim_job_queue_process(void* handle) {
 
 /* ================= log ================= */
 
+/* A log handle is either a log the shim built (`log`) or a borrowed view of an
+ * engine's log (`engine` set). A view does not own the log, so it is never
+ * uninitialised from here, and it resolves the engine's log afresh on every use.
+ * The one thing a view does leave behind is a registered callback, which holds a
+ * pointer to this handle; teardown unregisters it. */
 typedef struct ma_shim_log_state {
     ma_log          log;
     ma_log_callback callback;   /* what register/unregister were given */
     unsigned int    message_count;
     int             registered;
     int             initialized;
+    void*           engine;     /* non-NULL: borrowed view of this engine's log */
 } ma_shim_log_state;
 
 /* The shim's own callback: counts what it is handed so Mojo can observe that
@@ -471,10 +478,37 @@ static void shim_log_callback(void* pUserData, ma_uint32 level, const char* pMes
     }
 }
 
+/* The ma_log this handle stands for, or NULL if it is not ready (an engine can
+ * also have no log at all). */
+static ma_log* log_ptr(ma_shim_log_state* h) {
+    if (h == NULL || !h->initialized) { return NULL; }
+    if (h->engine != NULL) {
+        ma_engine* engine = shimint_engine_ptr(h->engine);
+        return (engine != NULL) ? ma_engine_get_log(engine) : NULL;
+    }
+    return &h->log;
+}
+
 static ma_shim_log_state* log_ready(void* handle) {
     ma_shim_log_state* h = (ma_shim_log_state*)handle;
-    if (h == NULL || !h->initialized) { return NULL; }
+    if (log_ptr(h) == NULL) { return NULL; }
     return h;
+}
+
+/* Release whatever the handle holds: uninitialise a log it owns, or hand a
+ * borrowed one back (taking our callback off it first). */
+static void log_teardown(ma_shim_log_state* h) {
+    if (h->initialized) {
+        if (h->engine == NULL) {
+            ma_log_uninit(&h->log);
+        } else if (h->registered) {
+            ma_log* log = log_ptr(h);
+            if (log != NULL) { ma_log_unregister_callback(log, h->callback); }
+        }
+    }
+    h->engine = NULL;
+    h->registered = 0;
+    h->initialized = 0;
 }
 
 void* ma_shim_log_alloc(void) { return calloc(1, sizeof(ma_shim_log_state)); }
@@ -483,7 +517,7 @@ void* ma_shim_log_alloc(void) { return calloc(1, sizeof(ma_shim_log_state)); }
 void ma_shim_log_free(void* handle) {
     ma_shim_log_state* h = (ma_shim_log_state*)handle;
     if (h == NULL) { return; }
-    if (h->initialized) { ma_log_uninit(&h->log); }
+    log_teardown(h);
     free(h);
 }
 
@@ -492,9 +526,8 @@ int ma_shim_log_init(void* handle) {
     ma_shim_log_state* h = (ma_shim_log_state*)handle;
     ma_result          result;
     if (h == NULL) { return MA_INVALID_ARGS; }
-    if (h->initialized) { ma_log_uninit(&h->log); h->initialized = 0; }
+    log_teardown(h);
     h->message_count = 0;
-    h->registered = 0;
     result = ma_log_init(NULL, &h->log);
     if (result == MA_SUCCESS) { h->initialized = 1; }
     return (int)result;
@@ -504,7 +537,24 @@ int ma_shim_log_init(void* handle) {
 int ma_shim_log_uninit(void* handle) {
     ma_shim_log_state* h = (ma_shim_log_state*)handle;
     if (h == NULL) { return MA_INVALID_ARGS; }
-    if (h->initialized) { ma_log_uninit(&h->log); h->initialized = 0; }
+    log_teardown(h);
+    return MA_SUCCESS;
+}
+
+/* Turn a log handle into a non-owning view of the engine's log
+ * (ma_engine_get_log). Posting, callbacks and the message count then act on the
+ * engine's own log. The engine must outlive the view. */
+/* @binds ma_engine_get_log */
+int ma_shim_log_borrow_engine(void* handle, void* engine_handle) {
+    ma_shim_log_state* h = (ma_shim_log_state*)handle;
+    ma_engine*         engine = shimint_engine_ptr(engine_handle);
+    if (h == NULL || engine == NULL || ma_engine_get_log(engine) == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    log_teardown(h);
+    h->message_count = 0;
+    h->engine = engine_handle;
+    h->initialized = 1;
     return MA_SUCCESS;
 }
 
@@ -512,7 +562,7 @@ int ma_shim_log_uninit(void* handle) {
 int ma_shim_log_post(void* handle, unsigned int level, const char* message) {
     ma_shim_log_state* h = log_ready(handle);
     if (h == NULL || message == NULL) { return MA_INVALID_ARGS; }
-    return (int)ma_log_post(&h->log, (ma_uint32)level, message);
+    return (int)ma_log_post(log_ptr(h), (ma_uint32)level, message);
 }
 
 /* @binds ma_log_postf */
@@ -521,7 +571,7 @@ int ma_shim_log_postf(
 ) {
     ma_shim_log_state* h = log_ready(handle);
     if (h == NULL || format == NULL || arg == NULL) { return MA_INVALID_ARGS; }
-    return (int)ma_log_postf(&h->log, (ma_uint32)level, format, arg);
+    return (int)ma_log_postf(log_ptr(h), (ma_uint32)level, format, arg);
 }
 
 /* Wraps the va_list form: Mojo cannot build one, so the shim makes it here. */
@@ -541,7 +591,7 @@ int ma_shim_log_postv(
 ) {
     ma_shim_log_state* h = log_ready(handle);
     if (h == NULL || format == NULL || arg == NULL) { return MA_INVALID_ARGS; }
-    return log_postv_forward(&h->log, (ma_uint32)level, format, arg);
+    return log_postv_forward(log_ptr(h), (ma_uint32)level, format, arg);
 }
 
 /* @binds ma_log_callback_init, ma_log_register_callback */
@@ -551,7 +601,7 @@ int ma_shim_log_register_callback(void* handle) {
 
     if (h == NULL) { return MA_INVALID_ARGS; }
     h->callback = ma_log_callback_init(shim_log_callback, h);
-    result = ma_log_register_callback(&h->log, h->callback);
+    result = ma_log_register_callback(log_ptr(h), h->callback);
     if (result == MA_SUCCESS) { h->registered = 1; }
     return (int)result;
 }
@@ -562,7 +612,7 @@ int ma_shim_log_unregister_callback(void* handle) {
     ma_result          result;
 
     if (h == NULL || !h->registered) { return MA_INVALID_ARGS; }
-    result = ma_log_unregister_callback(&h->log, h->callback);
+    result = ma_log_unregister_callback(log_ptr(h), h->callback);
     if (result == MA_SUCCESS) { h->registered = 0; }
     return (int)result;
 }

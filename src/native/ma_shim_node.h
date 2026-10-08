@@ -106,6 +106,45 @@ int ma_shim_node_set_time(void* handle, unsigned long long local_time);
 /* "Does this node belong to that graph?" — get_node_graph as an identity test. */
 int ma_shim_node_belongs_to_graph(void* handle, void* graph_handle, int* out_same);
 
+/* ================= borrowed views of an engine's graph ================= */
+
+/* Make a graph handle (ma_shim_node_graph_alloc) a non-owning view of the
+ * engine's own node graph. The view is used like any graph handle; freeing or
+ * uninitialising it leaves the engine's graph alone. The engine must outlive it. */
+int ma_shim_node_graph_borrow_engine(void* graph_handle, void* engine_handle);
+
+/* Make a node handle (ma_shim_node_alloc) a non-owning view of the engine's
+ * endpoint node. It can be attached to, queried, and have its bus volume set
+ * through the generic ma_shim_node_* operations. */
+int ma_shim_node_borrow_engine_endpoint(void* node_handle, void* engine_handle);
+
+/* "Is this node that graph's endpoint?" — ma_node_graph_get_endpoint as an identity test. */
+int ma_shim_node_is_graph_endpoint(void* node_handle, void* graph_handle, int* out_same);
+
+/* ================= ma_engine_node ================= */
+
+/* A group-flavoured engine node: one input bus fed by upstream nodes, run
+ * through the engine's pitch / fade / spatialise / pan stage, one output bus.
+ * `flags` are MA_SOUND_FLAG_* (NO_PITCH, NO_SPATIALIZATION apply); channels of 0
+ * mean "the engine's"; the generic ma_shim_node_* operations work on the handle. */
+void* ma_shim_engine_node_alloc(void);
+void  ma_shim_engine_node_free(void* handle);
+
+int ma_shim_engine_node_get_heap_size(
+    void* engine_handle, unsigned int flags,
+    unsigned int channels_in, unsigned int channels_out, unsigned int volume_smooth_time,
+    unsigned long long* out_heap_size);
+int ma_shim_engine_node_init(
+    void* handle, void* engine_handle, unsigned int flags,
+    unsigned int channels_in, unsigned int channels_out, unsigned int volume_smooth_time,
+    unsigned int pinned_listener_index);
+/* Same, through miniaudio's preallocated-heap path with a shim-owned block. */
+int ma_shim_engine_node_init_preallocated(
+    void* handle, void* engine_handle, unsigned int flags,
+    unsigned int channels_in, unsigned int channels_out, unsigned int volume_smooth_time,
+    unsigned int pinned_listener_index);
+int ma_shim_engine_node_uninit(void* handle);
+
 /* ================= ma_delay_node ================= */
 
 void* ma_shim_delay_node_alloc(void);

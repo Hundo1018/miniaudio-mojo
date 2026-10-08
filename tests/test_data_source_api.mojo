@@ -279,5 +279,25 @@ def test_invalid_range_raises() raises:
         ds.set_range(100, 10)
 
 
+def test_next_callback_continues_a_read_past_the_end() raises:
+    """When a source runs out mid-read, its next-callback supplies the rest."""
+    var lib = _lib()
+    var ones = List[Float32]()
+    ones.resize(4, Float32(1))
+    var twos = List[Float32]()
+    twos.resize(4, Float32(2))
+    var first = DataSource.from_frames(lib, ones, channels=1, sample_rate=SAMPLE_RATE)
+    var second = DataSource.from_frames(lib, twos, channels=1, sample_rate=SAMPLE_RATE)
+
+    first.set_next_callback(second)
+    var got = first.read_frames(UInt64(8))
+    assert_equal(len(got), 8)
+    for i in range(4):
+        assert_equal(got[i], Float32(1))
+        assert_equal(got[4 + i], Float32(2))
+    # `second` was read by the chain, so it has been consumed too.
+    assert_equal(second.cursor_frames(), UInt64(4))
+
+
 def main() raises:
     TestSuite.discover_tests[__functions_in_module()]().run()

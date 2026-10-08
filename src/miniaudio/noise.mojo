@@ -35,6 +35,24 @@ struct Noise(Movable):
         self._channels = channels
 
     @staticmethod
+    def heap_size(
+        lib: ArcPointer[MaLib],
+        *,
+        format: Int = 5,
+        channels: UInt32 = 1,
+        noise_type: Int = raw.NOISE_TYPE_WHITE,
+    ) raises -> UInt64:
+        """Working-heap bytes a generator of this shape needs, without building one.
+
+        White noise keeps no per-channel state, so its heap is 0; pink and
+        brownian noise scale with the channel count.
+        """
+        var rc = raw.noise_get_heap_size(lib[], format, channels, noise_type)
+        if rc.result != MA_SUCCESS:
+            raise Error(lib[].describe("noise heap_size failed", rc.result))
+        return rc.value
+
+    @staticmethod
     def create(
         lib: ArcPointer[MaLib],
         *,
@@ -43,19 +61,28 @@ struct Noise(Movable):
         noise_type: Int = raw.NOISE_TYPE_WHITE,
         seed: Int32 = Int32(0),
         amplitude: Float64 = 1.0,
+        preallocated: Bool = False,
     ) raises -> Self:
         """Create and initialise a noise generator.
 
         format: ma_format code (5 = f32). channels: output channel count.
         noise_type: one of NoiseTypeWhite / Pink / Brownian.
         seed: random seed (0 = default). amplitude: 0.0–1.0.
+        preallocated: route init through miniaudio's get_heap_size +
+        init_preallocated path with a shim-owned heap (same output either way).
         """
         var ptr = raw.noise_alloc(lib[])
         if ptr == null_handle():
             raise Error("noise_alloc failed (out of memory)")
-        var code = raw.noise_init(
-            lib[], ptr, format, channels, noise_type, seed, amplitude
-        )
+        var code: Int
+        if preallocated:
+            code = raw.noise_init_preallocated(
+                lib[], ptr, format, channels, noise_type, seed, amplitude
+            )
+        else:
+            code = raw.noise_init(
+                lib[], ptr, format, channels, noise_type, seed, amplitude
+            )
         if code != MA_SUCCESS:
             raw.noise_free(lib[], ptr)
             raise Error(lib[].describe("noise init failed", code))

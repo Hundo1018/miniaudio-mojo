@@ -3,6 +3,7 @@
 
 #include "miniaudio.h"
 
+#include <stddef.h>
 #include <stdlib.h>
 
 /*
@@ -25,6 +26,15 @@ ma_engine* shimint_engine_ptr(void* engine_handle) {
         return NULL;
     }
     return &h->engine;
+}
+
+/* Inverse of shimint_engine_ptr. The ma_engine is the first member of the shim
+ * wrapper (asserted below), so its address is the handle's address -- which is
+ * also what makes a NULL engine come back as NULL. */
+_Static_assert(offsetof(ma_shim_engine, engine) == 0, "ma_engine must be the first member");
+
+void* shimint_engine_handle(ma_engine* engine) {
+    return (void*)engine;
 }
 
 void* ma_shim_engine_alloc(void) {

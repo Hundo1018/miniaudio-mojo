@@ -113,6 +113,12 @@ void  ma_shim_log_free(void* handle);
 int   ma_shim_log_init(void* handle);
 int   ma_shim_log_uninit(void* handle);
 
+/* Make a log handle (ma_shim_log_alloc) a non-owning view of the engine's own
+ * log. Posting and callbacks then act on that log; freeing or uninitialising the
+ * view unregisters its callback and leaves the log alone. The engine must
+ * outlive the view. Fails if the engine has no log. */
+int   ma_shim_log_borrow_engine(void* handle, void* engine_handle);
+
 int ma_shim_log_post(void* handle, unsigned int level, const char* message);
 int ma_shim_log_postf(void* handle, unsigned int level, const char* format, const char* arg);
 int ma_shim_log_postv(void* handle, unsigned int level, const char* format, const char* arg);

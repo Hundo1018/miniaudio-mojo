@@ -38,7 +38,17 @@ struct DataFormat(Copyable, Movable):
 
 
 struct DataSource(Movable):
-    """Buffer-backed ma_data_source (RAII). Owns its shim handle and samples."""
+    """A data source (RAII).
+
+    `from_frames` builds a buffer-backed source that owns its handle and samples.
+    `Sound.data_source` returns a *borrowed view* of the source a sound plays
+    from instead: the same read / seek / range / loop-point / format calls act on
+    it, dropping it leaves the sound alone, and once the sound is gone every call
+    on the view raises. A view cannot be chained to another source, backed by a
+    `DataSourceNode`, or handed to a `Sound` -- anything that would keep its
+    pointer past the view's life is refused. Reading from it while the sound is
+    playing competes with the engine's audio thread.
+    """
 
     var _lib: ArcPointer[MaLib]
     var _ptr: OpaquePointer[MutUntrackedOrigin]
@@ -317,6 +327,17 @@ struct DataSource(Movable):
                     "data source has_next_callback failed", rc.result
                 )
             )
+        return rc.value
+
+    def is_same(self, other: DataSource) raises -> Bool:
+        """Whether both handles stand for the same underlying data source.
+
+        A view of a sound's data source (`Sound.data_source`) is the same source
+        as the one the sound was built from.
+        """
+        var rc = raw.data_source_is_same(self._lib[], self._ptr, other._ptr)
+        if rc.result != MA_SUCCESS:
+            raise Error(self._lib[].describe("data source identity failed", rc.result))
         return rc.value
 
     def __deinit__(deinit self):

@@ -20,6 +20,7 @@ Signal or release first — that is how the tests here use them.
 from std.memory import ArcPointer
 
 from miniaudio._lib import MaLib, null_handle
+from miniaudio.engine import Engine
 from miniaudio.result import MA_SUCCESS, MA_INVALID_ARGS
 import miniaudio._ffi.sync_raw as raw
 
@@ -399,14 +400,21 @@ struct Log(Movable):
     A log callback has to be a C function, so the shim owns one that counts the
     messages it is handed. `message_count` is how a registered callback becomes
     observable from Mojo.
+
+    `Log.of_engine` is a *borrowed* view of the log an engine uses: it posts to,
+    and registers its callback on, the engine's own log, and dropping it takes
+    the callback back off and leaves the log alone. It keeps the engine alive for
+    as long as it exists.
     """
 
     var _lib: ArcPointer[MaLib]
     var _ptr: OpaquePointer[MutUntrackedOrigin]
+    var _owner: Optional[ArcPointer[Engine]]  # set for a borrowed view of an engine's log
 
     def __init__(out self, var lib: ArcPointer[MaLib], ptr: OpaquePointer[MutUntrackedOrigin]):
         self._lib = lib^
         self._ptr = ptr
+        self._owner = None
 
     @staticmethod
     def create(lib: ArcPointer[MaLib]) raises -> Self:
@@ -418,6 +426,21 @@ struct Log(Movable):
             raw.log_free(lib[], ptr)
             raise Error(lib[].describe("log init failed", code))
         return Self(lib.copy(), ptr)
+
+    @staticmethod
+    def of_engine(engine: ArcPointer[Engine]) raises -> Self:
+        """A non-owning view of the log the engine uses (ma_engine_get_log)."""
+        var lib = engine[]._lib.copy()
+        var ptr = raw.log_alloc(lib[])
+        if ptr == null_handle():
+            raise Error("log_alloc failed (out of memory)")
+        var code = raw.log_borrow_engine(lib[], ptr, engine[]._ptr)
+        if code != MA_SUCCESS:
+            raw.log_free(lib[], ptr)
+            raise Error(lib[].describe("engine log borrow failed", code))
+        var view = Self(lib^, ptr)
+        view._owner = engine.copy()
+        return view^
 
     @staticmethod
     def level_name(lib: ArcPointer[MaLib], level: UInt32) raises -> String:

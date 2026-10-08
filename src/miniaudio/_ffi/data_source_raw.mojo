@@ -11,7 +11,7 @@ is reachable from Mojo without a device, engine, or file.
 
 from miniaudio._lib import MaLib
 from miniaudio._ffi.decoder_raw import MaCount
-from miniaudio._ffi.device_raw import MaFloat
+from miniaudio._ffi.device_raw import MaFloat, MaBool
 
 
 @fieldwise_init
@@ -419,3 +419,26 @@ def data_source_node_is_looping(
     return (
         Int(lib.handle.call["ma_shim_data_source_node_is_looping", Int32](node)) != 0
     )
+
+def data_source_borrow_sound(
+    lib: MaLib,
+    ds: OpaquePointer[MutUntrackedOrigin],
+    snd: OpaquePointer[MutUntrackedOrigin],
+) -> Int:
+    """Make `ds` a non-owning view of a sound's data source (ma_sound_get_data_source)."""
+    return Int(lib.handle.call["ma_shim_data_source_borrow_sound", Int32](ds, snd))
+
+
+def data_source_is_same(
+    lib: MaLib,
+    ds: OpaquePointer[MutUntrackedOrigin],
+    other: OpaquePointer[MutUntrackedOrigin],
+) -> MaBool:
+    """Identity: do the two handles resolve to the same underlying data source?"""
+    var holder = [Int32(0)]
+    var code = Int(
+        lib.handle.call["ma_shim_data_source_is_same", Int32](
+            ds, other, holder.unsafe_ptr()
+        )
+    )
+    return MaBool(code, holder[0] != Int32(0))

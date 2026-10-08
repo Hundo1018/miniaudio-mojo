@@ -5,7 +5,7 @@ Mirrors decoder_raw.mojo. A sound is initialised against an engine handle
 policy lives in the API layer (sound.mojo).
 """
 
-from miniaudio._lib import MaLib
+from miniaudio._lib import MaLib, null_handle
 from miniaudio._ffi.decoder_raw import MaCount
 
 
@@ -616,4 +616,197 @@ def sound_init_copy(
         lib.handle.call["ma_shim_sound_init_copy", Int32](
             snd, engine, existing, flags
         )
+    )
+
+
+# ---- init from a data source, engine back-reference ----
+
+
+def sound_init_from_data_source(
+    lib: MaLib,
+    snd: OpaquePointer[MutUntrackedOrigin],
+    engine: OpaquePointer[MutUntrackedOrigin],
+    data_source: OpaquePointer[MutUntrackedOrigin],
+    flags: UInt32,
+) -> Int:
+    """The data source must outlive the sound; a borrowed view is refused."""
+    return Int(
+        lib.handle.call["ma_shim_sound_init_from_data_source", Int32](
+            snd, engine, data_source, flags
+        )
+    )
+
+
+def sound_get_engine(
+    lib: MaLib, snd: OpaquePointer[MutUntrackedOrigin]
+) -> OpaquePointer[MutUntrackedOrigin]:
+    """The shim handle of the engine the sound belongs to (null if not initialised)."""
+    return lib.handle.call[
+        "ma_shim_sound_get_engine", OpaquePointer[MutUntrackedOrigin]
+    ](snd)
+
+
+# ---- ma_sound_config behind a handle ----
+
+
+def sound_config_alloc(lib: MaLib) -> OpaquePointer[MutUntrackedOrigin]:
+    return lib.handle.call[
+        "ma_shim_sound_config_alloc", OpaquePointer[MutUntrackedOrigin]
+    ]()
+
+
+def sound_config_free(lib: MaLib, cfg: OpaquePointer[MutUntrackedOrigin]):
+    lib.handle.call["ma_shim_sound_config_free", NoneType](cfg)
+
+
+def sound_config_init(lib: MaLib, cfg: OpaquePointer[MutUntrackedOrigin]) -> Int:
+    return Int(lib.handle.call["ma_shim_sound_config_init", Int32](cfg))
+
+
+def sound_config_init_for_engine(
+    lib: MaLib,
+    cfg: OpaquePointer[MutUntrackedOrigin],
+    engine: OpaquePointer[MutUntrackedOrigin],
+) -> Int:
+    return Int(
+        lib.handle.call["ma_shim_sound_config_init_for_engine", Int32](cfg, engine)
+    )
+
+
+def sound_config_set_file_path(
+    lib: MaLib, cfg: OpaquePointer[MutUntrackedOrigin], path: String
+) -> Int:
+    var path_c = path + "\x00"
+    return Int(
+        lib.handle.call["ma_shim_sound_config_set_file_path", Int32](
+            cfg, path_c.as_bytes().unsafe_ptr()
+        )
+    )
+
+
+def sound_config_clear_file_path(
+    lib: MaLib, cfg: OpaquePointer[MutUntrackedOrigin]
+) -> Int:
+    return Int(
+        lib.handle.call["ma_shim_sound_config_set_file_path", Int32](
+            cfg, null_handle()
+        )
+    )
+
+
+def sound_config_set_data_source(
+    lib: MaLib,
+    cfg: OpaquePointer[MutUntrackedOrigin],
+    data_source: OpaquePointer[MutUntrackedOrigin],
+) -> Int:
+    """A null data source clears it; a borrowed view is refused."""
+    return Int(
+        lib.handle.call["ma_shim_sound_config_set_data_source", Int32](
+            cfg, data_source
+        )
+    )
+
+
+def sound_config_set_initial_attachment_group(
+    lib: MaLib,
+    cfg: OpaquePointer[MutUntrackedOrigin],
+    group: OpaquePointer[MutUntrackedOrigin],
+    input_bus: UInt32,
+) -> Int:
+    """Attach the new sound to a sound group's input bus (null group clears)."""
+    return Int(
+        lib.handle.call["ma_shim_sound_config_set_initial_attachment_group", Int32](
+            cfg, group, input_bus
+        )
+    )
+
+
+def sound_config_set_initial_attachment_node(
+    lib: MaLib,
+    cfg: OpaquePointer[MutUntrackedOrigin],
+    node: OpaquePointer[MutUntrackedOrigin],
+    input_bus: UInt32,
+) -> Int:
+    """Attach the new sound to any shim node's input bus (null node clears)."""
+    return Int(
+        lib.handle.call["ma_shim_sound_config_set_initial_attachment_node", Int32](
+            cfg, node, input_bus
+        )
+    )
+
+
+def sound_config_set_flags(
+    lib: MaLib, cfg: OpaquePointer[MutUntrackedOrigin], flags: UInt32
+) -> Int:
+    return Int(lib.handle.call["ma_shim_sound_config_set_flags", Int32](cfg, flags))
+
+
+def sound_config_set_channels(
+    lib: MaLib,
+    cfg: OpaquePointer[MutUntrackedOrigin],
+    channels_in: UInt32,
+    channels_out: UInt32,
+) -> Int:
+    return Int(
+        lib.handle.call["ma_shim_sound_config_set_channels", Int32](
+            cfg, channels_in, channels_out
+        )
+    )
+
+
+def sound_config_set_volume_smooth_time(
+    lib: MaLib, cfg: OpaquePointer[MutUntrackedOrigin], frames: UInt32
+) -> Int:
+    return Int(
+        lib.handle.call["ma_shim_sound_config_set_volume_smooth_time", Int32](
+            cfg, frames
+        )
+    )
+
+
+def sound_config_set_mono_expansion_mode(
+    lib: MaLib, cfg: OpaquePointer[MutUntrackedOrigin], mode: Int
+) -> Int:
+    return Int(
+        lib.handle.call["ma_shim_sound_config_set_mono_expansion_mode", Int32](
+            cfg, Int32(mode)
+        )
+    )
+
+
+def sound_config_set_initial_seek_point(
+    lib: MaLib, cfg: OpaquePointer[MutUntrackedOrigin], frame: UInt64
+) -> Int:
+    return Int(
+        lib.handle.call["ma_shim_sound_config_set_initial_seek_point", Int32](
+            cfg, frame
+        )
+    )
+
+
+def sound_config_set_range(
+    lib: MaLib, cfg: OpaquePointer[MutUntrackedOrigin], beg: UInt64, end: UInt64
+) -> Int:
+    return Int(
+        lib.handle.call["ma_shim_sound_config_set_range", Int32](cfg, beg, end)
+    )
+
+
+def sound_config_set_loop_point(
+    lib: MaLib, cfg: OpaquePointer[MutUntrackedOrigin], beg: UInt64, end: UInt64
+) -> Int:
+    return Int(
+        lib.handle.call["ma_shim_sound_config_set_loop_point", Int32](cfg, beg, end)
+    )
+
+
+def sound_init_ex(
+    lib: MaLib,
+    snd: OpaquePointer[MutUntrackedOrigin],
+    engine: OpaquePointer[MutUntrackedOrigin],
+    cfg: OpaquePointer[MutUntrackedOrigin],
+) -> Int:
+    """Init from a config (file path, data source, or neither: a group-like sound)."""
+    return Int(
+        lib.handle.call["ma_shim_sound_init_ex", Int32](snd, engine, cfg)
     )

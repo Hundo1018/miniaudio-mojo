@@ -570,3 +570,152 @@ void ma_shim_sound_group_set_stop_time_in_milliseconds(void* handle, unsigned lo
     }
     ma_sound_group_set_stop_time_in_milliseconds(&h->group, (ma_uint64)abs_time);
 }
+
+/* ---- internal cross-family accessor ---- */
+
+/* A group is a ma_sound whose first member is its engine node, whose first
+ * member is a ma_node_base: the group's address IS its ma_node*. */
+ma_node* shimint_sound_group_node(void* group_handle) {
+    ma_shim_sound_group* h = (ma_shim_sound_group*)group_handle;
+    if (h == NULL || !h->initialized) {
+        return NULL;
+    }
+    return (ma_node*)&h->group;
+}
+
+/* Returns the shim handle of the engine this group belongs to (NULL when the
+ * group is not initialised). It is the same handle the group was created with. */
+/* @binds ma_sound_group_get_engine */
+void* ma_shim_sound_group_get_engine(void* handle) {
+    ma_shim_sound_group* h = (ma_shim_sound_group*)handle;
+    if (h == NULL || !h->initialized) {
+        return NULL;
+    }
+    return shimint_engine_handle(ma_sound_group_get_engine(&h->group));
+}
+
+/* ---- ma_sound_group_config ----
+ *
+ * Same idea as the sound config: miniaudio passes the struct by value, so the
+ * shim keeps one behind a handle with setters. A group ignores the file-path and
+ * data-source fields (it is a sound without a data source), so only what a group
+ * can use is settable. */
+typedef struct ma_shim_sound_group_config {
+    ma_sound_group_config config;
+    int                   initialized;
+} ma_shim_sound_group_config;
+
+static ma_shim_sound_group_config* group_config_ready(void* handle) {
+    ma_shim_sound_group_config* c = (ma_shim_sound_group_config*)handle;
+    if (c == NULL || !c->initialized) {
+        return NULL;
+    }
+    return c;
+}
+
+void* ma_shim_sound_group_config_alloc(void) {
+    return calloc(1, sizeof(ma_shim_sound_group_config));
+}
+
+void ma_shim_sound_group_config_free(void* handle) {
+    free(handle);
+}
+
+/* @binds ma_sound_group_config_init */
+int ma_shim_sound_group_config_init(void* handle) {
+    ma_shim_sound_group_config* c = (ma_shim_sound_group_config*)handle;
+    if (c == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    c->config = ma_sound_group_config_init();
+    c->initialized = 1;
+    return MA_SUCCESS;
+}
+
+/* @binds ma_sound_group_config_init_2 */
+int ma_shim_sound_group_config_init_for_engine(void* handle, void* engine_handle) {
+    ma_shim_sound_group_config* c = (ma_shim_sound_group_config*)handle;
+    ma_engine* engine = shimint_engine_ptr(engine_handle);
+    if (c == NULL || engine == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    c->config = ma_sound_group_config_init_2(engine);
+    c->initialized = 1;
+    return MA_SUCCESS;
+}
+
+int ma_shim_sound_group_config_set_flags(void* handle, unsigned int flags) {
+    ma_shim_sound_group_config* c = group_config_ready(handle);
+    if (c == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    c->config.flags = (ma_uint32)flags;
+    return MA_SUCCESS;
+}
+
+/* Attach the new group to a parent group's input bus. NULL clears it (back to
+ * the engine endpoint). */
+int ma_shim_sound_group_config_set_parent(
+    void* handle, void* parent_handle, unsigned int input_bus
+) {
+    ma_shim_sound_group_config* c = group_config_ready(handle);
+    ma_node* node = NULL;
+    if (c == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    if (parent_handle != NULL) {
+        node = shimint_sound_group_node(parent_handle);
+        if (node == NULL) {
+            return MA_INVALID_ARGS;
+        }
+    }
+    c->config.pInitialAttachment = node;
+    c->config.initialAttachmentInputBusIndex = (ma_uint32)input_bus;
+    return MA_SUCCESS;
+}
+
+int ma_shim_sound_group_config_set_channels(
+    void* handle, unsigned int channels_in, unsigned int channels_out
+) {
+    ma_shim_sound_group_config* c = group_config_ready(handle);
+    if (c == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    /* A bus wider than MA_MAX_CHANNELS would trip an assert (abort) inside miniaudio. */
+    if (channels_in > MA_MAX_CHANNELS || channels_out > MA_MAX_CHANNELS) {
+        return MA_INVALID_ARGS;
+    }
+    c->config.channelsIn = (ma_uint32)channels_in;
+    c->config.channelsOut = (ma_uint32)channels_out;
+    return MA_SUCCESS;
+}
+
+int ma_shim_sound_group_config_set_volume_smooth_time(void* handle, unsigned int frames) {
+    ma_shim_sound_group_config* c = group_config_ready(handle);
+    if (c == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    c->config.volumeSmoothTimeInPCMFrames = (ma_uint32)frames;
+    return MA_SUCCESS;
+}
+
+/* @binds ma_sound_group_init_ex */
+int ma_shim_sound_group_init_ex(void* handle, void* engine_handle, void* config_handle) {
+    ma_shim_sound_group* h = (ma_shim_sound_group*)handle;
+    ma_shim_sound_group_config* c = group_config_ready(config_handle);
+    ma_engine* engine = shimint_engine_ptr(engine_handle);
+    ma_result result;
+
+    if (h == NULL || engine == NULL || c == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    if (h->initialized) {
+        ma_sound_group_uninit(&h->group);
+        h->initialized = 0;
+    }
+    result = ma_sound_group_init_ex(engine, &c->config, &h->group);
+    if (result == MA_SUCCESS) {
+        h->initialized = 1;
+    }
+    return (int)result;
+}

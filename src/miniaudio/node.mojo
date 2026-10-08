@@ -16,6 +16,17 @@ series produce twice the offset.
 Nodes keep their graph alive: every node holds a reference to the `NodeGraph`
 it was built against, so the graph cannot be dropped out from under it.
 
+**The engine's own graph.** An `Engine` owns a node graph of its own, with the
+engine's endpoint at the end of it. `NodeGraph.of_engine` and
+`EndpointNode.of_engine` are *borrowed* views of those two: they let you build
+nodes into the engine's graph and read or steer its endpoint, and dropping a view
+never tears anything down. A view keeps the engine alive for as long as it exists
+(and so does every node built against it, because those hold the view).
+
+`EngineNode` is miniaudio's own engine node -- the pitch / fade / spatialise / pan
+stage a sound group is made of -- built stand-alone into the engine's graph. Only
+the group flavour is exposed; see its docstring for why.
+
 **A node's attachment lasts only as long as the node value.** Dropping a node
 detaches it, and Mojo destroys a value after its *last use*, not at the end of
 the enclosing scope. A source node that is only ever touched when it is attached
@@ -32,6 +43,7 @@ it after the graph read, or hold it in a longer-lived binding.
 from std.memory import ArcPointer
 
 from miniaudio._lib import MaLib, null_handle
+from miniaudio.engine import Engine
 from miniaudio.result import MA_SUCCESS
 import miniaudio._ffi.node_raw as raw
 
@@ -41,11 +53,18 @@ comptime NODE_STATE_STOPPED = Int(1)
 
 
 struct NodeGraph(Movable):
-    """A standalone graph of processing nodes feeding an endpoint (RAII)."""
+    """A graph of processing nodes feeding an endpoint (RAII).
+
+    `create` builds a standalone graph that this value owns. `of_engine` is a
+    non-owning view of the graph an `Engine` owns: it is used exactly the same way
+    (build nodes into it, attach to its endpoint, read from it), and dropping it
+    leaves the engine's graph alone.
+    """
 
     var _lib: ArcPointer[MaLib]
     var _ptr: OpaquePointer[MutUntrackedOrigin]
     var _channels: UInt32
+    var _owner: Optional[ArcPointer[Engine]]  # set for a borrowed view of an engine's graph
 
     def __init__(
         out self,
@@ -56,6 +75,30 @@ struct NodeGraph(Movable):
         self._lib = lib^
         self._ptr = ptr
         self._channels = channels
+        self._owner = None
+
+    @staticmethod
+    def of_engine(engine: ArcPointer[Engine]) raises -> Self:
+        """A non-owning view of the engine's own node graph (ma_engine_get_node_graph).
+
+        Reading from it competes with the engine's audio thread while the engine
+        is running; stop the engine first when you want to pull frames yourself.
+        """
+        var lib = engine[]._lib.copy()
+        var ptr = raw.node_graph_alloc(lib[])
+        if ptr == null_handle():
+            raise Error("node_graph_alloc failed (out of memory)")
+        var code = raw.node_graph_borrow_engine(lib[], ptr, engine[]._ptr)
+        if code != MA_SUCCESS:
+            raw.node_graph_free(lib[], ptr)
+            raise Error(lib[].describe("engine node graph borrow failed", code))
+        var rc = raw.node_graph_get_channels(lib[], ptr)
+        if rc.result != MA_SUCCESS:
+            raw.node_graph_free(lib[], ptr)
+            raise Error(lib[].describe("engine node graph channels failed", rc.result))
+        var view = Self(lib^, ptr, rc.value)
+        view._owner = engine.copy()
+        return view^
 
     @staticmethod
     def create(lib: ArcPointer[MaLib], *, channels: UInt32 = 2) raises -> Self:
@@ -215,6 +258,26 @@ struct OffsetNode(Movable):
         other_input_bus: UInt32 = 0,
     ) raises:
         """Feed this node's output into a splitter node's input."""
+        self._attach(other._ptr, output_bus, other_input_bus)
+
+    def attach_to(
+        mut self,
+        other: EngineNode,
+        *,
+        output_bus: UInt32 = 0,
+        other_input_bus: UInt32 = 0,
+    ) raises:
+        """Feed this node's output into an engine node's input."""
+        self._attach(other._ptr, output_bus, other_input_bus)
+
+    def attach_to(
+        mut self,
+        other: EndpointNode,
+        *,
+        output_bus: UInt32 = 0,
+        other_input_bus: UInt32 = 0,
+    ) raises:
+        """Feed this node's output into the engine's endpoint."""
         self._attach(other._ptr, output_bus, other_input_bus)
 
     def _attach(
@@ -517,3 +580,337 @@ struct SplitterNode(Movable):
     def __deinit__(deinit self):
         if self._ptr != null_handle():
             raw.splitter_node_free(self._lib[], self._ptr)
+
+
+struct EndpointNode(Movable):
+    """The engine's endpoint node: a borrowed view, not an owner.
+
+    Everything an engine plays ends up here. `of_engine` wraps it so it can be
+    attached to (`OffsetNode.attach_to`, `EngineNode.attach_to`) and asked the
+    usual node questions. Its output bus volume *is* the engine's volume, so
+    `set_volume` here and `Engine.set_volume` are the same knob.
+
+    Dropping the view leaves the endpoint where it was. It keeps the engine alive
+    for as long as it exists.
+    """
+
+    var _lib: ArcPointer[MaLib]
+    var _engine: ArcPointer[Engine]
+    var _ptr: OpaquePointer[MutUntrackedOrigin]
+
+    def __init__(
+        out self,
+        var lib: ArcPointer[MaLib],
+        var engine: ArcPointer[Engine],
+        ptr: OpaquePointer[MutUntrackedOrigin],
+    ):
+        self._lib = lib^
+        self._engine = engine^
+        self._ptr = ptr
+
+    @staticmethod
+    def of_engine(engine: ArcPointer[Engine]) raises -> Self:
+        """The engine's endpoint node (ma_engine_get_endpoint)."""
+        var lib = engine[]._lib.copy()
+        var ptr = raw.node_alloc(lib[])
+        if ptr == null_handle():
+            raise Error("node_alloc failed (out of memory)")
+        var code = raw.node_borrow_engine_endpoint(lib[], ptr, engine[]._ptr)
+        if code != MA_SUCCESS:
+            raw.node_free(lib[], ptr)
+            raise Error(lib[].describe("engine endpoint borrow failed", code))
+        return Self(lib^, engine.copy(), ptr)
+
+    def is_endpoint_of(self, graph: ArcPointer[NodeGraph]) raises -> Bool:
+        """Whether this is that graph's endpoint (identity, not just membership)."""
+        var rc = raw.node_is_graph_endpoint(self._lib[], self._ptr, graph[]._ptr)
+        if rc.result != MA_SUCCESS:
+            raise Error(self._lib[].describe("endpoint identity failed", rc.result))
+        return rc.value
+
+    def belongs_to(self, graph: ArcPointer[NodeGraph]) raises -> Bool:
+        """Whether this node lives in that graph."""
+        var rc = raw.node_belongs_to_graph(self._lib[], self._ptr, graph[]._ptr)
+        if rc.result != MA_SUCCESS:
+            raise Error(self._lib[].describe("node graph identity failed", rc.result))
+        return rc.value
+
+    def set_volume(mut self, volume: Float32, *, output_bus: UInt32 = 0) raises:
+        var code = raw.node_set_output_bus_volume(
+            self._lib[], self._ptr, output_bus, volume
+        )
+        if code != MA_SUCCESS:
+            raise Error(self._lib[].describe("endpoint set volume failed", code))
+
+    def volume(self, *, output_bus: UInt32 = 0) raises -> Float32:
+        var rc = raw.node_get_output_bus_volume(self._lib[], self._ptr, output_bus)
+        if rc.result != MA_SUCCESS:
+            raise Error(self._lib[].describe("endpoint volume failed", rc.result))
+        return rc.value
+
+    def input_bus_count(self) raises -> UInt32:
+        var rc = raw.node_get_input_bus_count(self._lib[], self._ptr)
+        if rc.result != MA_SUCCESS:
+            raise Error(
+                self._lib[].describe("endpoint input bus count failed", rc.result)
+            )
+        return rc.value
+
+    def output_bus_count(self) raises -> UInt32:
+        var rc = raw.node_get_output_bus_count(self._lib[], self._ptr)
+        if rc.result != MA_SUCCESS:
+            raise Error(
+                self._lib[].describe("endpoint output bus count failed", rc.result)
+            )
+        return rc.value
+
+    def input_channels(self, *, bus: UInt32 = 0) raises -> UInt32:
+        var rc = raw.node_get_input_channels(self._lib[], self._ptr, bus)
+        if rc.result != MA_SUCCESS:
+            raise Error(
+                self._lib[].describe("endpoint input channels failed", rc.result)
+            )
+        return rc.value
+
+    def output_channels(self, *, bus: UInt32 = 0) raises -> UInt32:
+        var rc = raw.node_get_output_channels(self._lib[], self._ptr, bus)
+        if rc.result != MA_SUCCESS:
+            raise Error(
+                self._lib[].describe("endpoint output channels failed", rc.result)
+            )
+        return rc.value
+
+    def state(self) raises -> Int:
+        var rc = raw.node_get_state(self._lib[], self._ptr)
+        if rc.result != MA_SUCCESS:
+            raise Error(self._lib[].describe("endpoint state failed", rc.result))
+        return rc.value
+
+    def time(self) raises -> UInt64:
+        """The endpoint's local time, in frames."""
+        var rc = raw.node_get_time(self._lib[], self._ptr)
+        if rc.result != MA_SUCCESS:
+            raise Error(self._lib[].describe("endpoint time failed", rc.result))
+        return rc.value
+
+    def uninit(mut self) raises:
+        """Hand the view back early; the endpoint itself is untouched."""
+        var code = raw.node_uninit(self._lib[], self._ptr)
+        if code != MA_SUCCESS:
+            raise Error(self._lib[].describe("endpoint view uninit failed", code))
+
+    def __deinit__(deinit self):
+        if self._ptr != null_handle():
+            raw.node_free(self._lib[], self._ptr)
+
+
+struct EngineNode(Movable):
+    """miniaudio's engine node, built stand-alone into an engine's graph (RAII).
+
+    An engine node is the stage a sound group is made of: one input bus fed by
+    upstream nodes, run through the engine's pitch / fade / spatialise / pan
+    stage, and out one output bus. Build one, feed it with `OffsetNode.attach_to`
+    (or route a sound into it), and attach it on to the engine's endpoint.
+
+    Only the *group* flavour of engine node is exposed. The sound flavour's
+    processing callback reinterprets the node as the `ma_sound` that encloses it
+    and reads that sound's data source and seek state, none of which a bare node
+    has; `Sound` is how to get one of those. Pass `SOUND_FLAG_NO_PITCH` and
+    `SOUND_FLAG_NO_SPATIALIZATION` as `flags` for a pure pass-through.
+
+    It holds the engine alive (through the graph view it is built against).
+    """
+
+    var _lib: ArcPointer[MaLib]
+    var _graph: ArcPointer[NodeGraph]
+    var _ptr: OpaquePointer[MutUntrackedOrigin]
+
+    def __init__(
+        out self,
+        var lib: ArcPointer[MaLib],
+        var graph: ArcPointer[NodeGraph],
+        ptr: OpaquePointer[MutUntrackedOrigin],
+    ):
+        self._lib = lib^
+        self._graph = graph^
+        self._ptr = ptr
+
+    @staticmethod
+    def heap_size(
+        engine: ArcPointer[Engine],
+        *,
+        flags: UInt32 = 0,
+        channels_in: UInt32 = 0,
+        channels_out: UInt32 = 0,
+        volume_smooth_time: UInt32 = 0,
+    ) raises -> UInt64:
+        """Working-heap bytes for an engine node of this shape, without building one."""
+        var lib = engine[]._lib.copy()
+        var rc = raw.engine_node_get_heap_size(
+            lib[], engine[]._ptr, flags, channels_in, channels_out, volume_smooth_time
+        )
+        if rc.result != MA_SUCCESS:
+            raise Error(lib[].describe("engine node heap size failed", rc.result))
+        return rc.value
+
+    @staticmethod
+    def create(
+        engine: ArcPointer[Engine],
+        *,
+        flags: UInt32 = 0,
+        channels_in: UInt32 = 0,
+        channels_out: UInt32 = 0,
+        volume_smooth_time: UInt32 = 0,
+        pinned_listener_index: UInt32 = 0,
+        preallocated: Bool = False,
+    ) raises -> Self:
+        """Build an engine node. Channels of 0 mean the engine's channel count.
+
+        `flags` are `SOUND_FLAG_*` (`NO_PITCH` and `NO_SPATIALIZATION` apply).
+        `pinned_listener_index` must name an existing listener (255 means "the
+        closest one"). `preallocated` routes init through miniaudio's
+        preallocated-heap path.
+        """
+        var graph = ArcPointer(NodeGraph.of_engine(engine))
+        var lib = engine[]._lib.copy()
+        var ptr = raw.engine_node_alloc(lib[])
+        if ptr == null_handle():
+            raise Error("engine_node_alloc failed (out of memory)")
+
+        var code: Int
+        if preallocated:
+            code = raw.engine_node_init_preallocated(
+                lib[], ptr, engine[]._ptr, flags, channels_in, channels_out,
+                volume_smooth_time, pinned_listener_index,
+            )
+        else:
+            code = raw.engine_node_init(
+                lib[], ptr, engine[]._ptr, flags, channels_in, channels_out,
+                volume_smooth_time, pinned_listener_index,
+            )
+        if code != MA_SUCCESS:
+            raw.engine_node_free(lib[], ptr)
+            raise Error(lib[].describe("engine node init failed", code))
+        return Self(lib^, graph^, ptr)
+
+    def attach_to_endpoint(
+        mut self, *, output_bus: UInt32 = 0, endpoint_input_bus: UInt32 = 0
+    ) raises:
+        """Feed this node's output straight into the engine's endpoint."""
+        var code = raw.node_attach_to_endpoint(
+            self._lib[], self._ptr, output_bus, self._graph[]._ptr, endpoint_input_bus
+        )
+        if code != MA_SUCCESS:
+            raise Error(self._lib[].describe("engine node attach to endpoint failed", code))
+
+    def attach_to(
+        mut self,
+        other: EngineNode,
+        *,
+        output_bus: UInt32 = 0,
+        other_input_bus: UInt32 = 0,
+    ) raises:
+        """Feed this node's output into another engine node's input."""
+        var code = raw.node_attach_output_bus(
+            self._lib[], self._ptr, output_bus, other._ptr, other_input_bus
+        )
+        if code != MA_SUCCESS:
+            raise Error(self._lib[].describe("engine node attach failed", code))
+
+    def attach_to(
+        mut self,
+        other: EndpointNode,
+        *,
+        output_bus: UInt32 = 0,
+        other_input_bus: UInt32 = 0,
+    ) raises:
+        """Feed this node's output into the engine's endpoint (through its view)."""
+        var code = raw.node_attach_output_bus(
+            self._lib[], self._ptr, output_bus, other._ptr, other_input_bus
+        )
+        if code != MA_SUCCESS:
+            raise Error(self._lib[].describe("engine node attach failed", code))
+
+    def detach(mut self, *, output_bus: UInt32 = 0) raises:
+        var code = raw.node_detach_output_bus(self._lib[], self._ptr, output_bus)
+        if code != MA_SUCCESS:
+            raise Error(self._lib[].describe("engine node detach failed", code))
+
+    def detach_all(mut self) raises:
+        var code = raw.node_detach_all_output_buses(self._lib[], self._ptr)
+        if code != MA_SUCCESS:
+            raise Error(self._lib[].describe("engine node detach all failed", code))
+
+    def set_volume(mut self, volume: Float32, *, output_bus: UInt32 = 0) raises:
+        var code = raw.node_set_output_bus_volume(
+            self._lib[], self._ptr, output_bus, volume
+        )
+        if code != MA_SUCCESS:
+            raise Error(self._lib[].describe("engine node set volume failed", code))
+
+    def volume(self, *, output_bus: UInt32 = 0) raises -> Float32:
+        var rc = raw.node_get_output_bus_volume(self._lib[], self._ptr, output_bus)
+        if rc.result != MA_SUCCESS:
+            raise Error(self._lib[].describe("engine node volume failed", rc.result))
+        return rc.value
+
+    def input_bus_count(self) raises -> UInt32:
+        var rc = raw.node_get_input_bus_count(self._lib[], self._ptr)
+        if rc.result != MA_SUCCESS:
+            raise Error(
+                self._lib[].describe("engine node input bus count failed", rc.result)
+            )
+        return rc.value
+
+    def output_bus_count(self) raises -> UInt32:
+        var rc = raw.node_get_output_bus_count(self._lib[], self._ptr)
+        if rc.result != MA_SUCCESS:
+            raise Error(
+                self._lib[].describe("engine node output bus count failed", rc.result)
+            )
+        return rc.value
+
+    def input_channels(self, *, bus: UInt32 = 0) raises -> UInt32:
+        var rc = raw.node_get_input_channels(self._lib[], self._ptr, bus)
+        if rc.result != MA_SUCCESS:
+            raise Error(
+                self._lib[].describe("engine node input channels failed", rc.result)
+            )
+        return rc.value
+
+    def output_channels(self, *, bus: UInt32 = 0) raises -> UInt32:
+        var rc = raw.node_get_output_channels(self._lib[], self._ptr, bus)
+        if rc.result != MA_SUCCESS:
+            raise Error(
+                self._lib[].describe("engine node output channels failed", rc.result)
+            )
+        return rc.value
+
+    def set_state(mut self, state: Int) raises:
+        """NODE_STATE_STARTED or NODE_STATE_STOPPED."""
+        var code = raw.node_set_state(self._lib[], self._ptr, state)
+        if code != MA_SUCCESS:
+            raise Error(self._lib[].describe("engine node set state failed", code))
+
+    def state(self) raises -> Int:
+        var rc = raw.node_get_state(self._lib[], self._ptr)
+        if rc.result != MA_SUCCESS:
+            raise Error(self._lib[].describe("engine node state failed", rc.result))
+        return rc.value
+
+    def belongs_to(self, graph: ArcPointer[NodeGraph]) raises -> Bool:
+        """Whether this node lives in that graph."""
+        var rc = raw.node_belongs_to_graph(self._lib[], self._ptr, graph[]._ptr)
+        if rc.result != MA_SUCCESS:
+            raise Error(self._lib[].describe("node graph identity failed", rc.result))
+        return rc.value
+
+    def uninit(mut self) raises:
+        """Detach and release the node early; the handle stays valid but empty."""
+        var code = raw.engine_node_uninit(self._lib[], self._ptr)
+        if code != MA_SUCCESS:
+            raise Error(self._lib[].describe("engine node uninit failed", code))
+
+    def __deinit__(deinit self):
+        if self._ptr != null_handle():
+            raw.engine_node_free(self._lib[], self._ptr)

@@ -41,6 +41,18 @@ int ma_shim_data_source_init_buffer(
 );
 int ma_shim_data_source_uninit(void* handle);
 
+/* Make a data-source handle (ma_shim_data_source_alloc) a non-owning view of a
+ * sound's data source. The generic read / seek / range / loop-point / format
+ * calls then act on what the sound plays from. The view holds the sound's
+ * bookkeeping alive but not the sound: once the sound is uninitialised every
+ * call on the view fails with MA_INVALID_ARGS. A view is refused anywhere the
+ * pointer would be kept (set_current, set_next, set_next_callback, a data source
+ * node, a sound built from a data source). Fails if the sound has no data source. */
+int ma_shim_data_source_borrow_sound(void* handle, void* sound_handle);
+
+/* Identity: do the two handles resolve to the same underlying data source? */
+int ma_shim_data_source_is_same(void* handle, void* other_handle, int* out_same);
+
 /* read/seek */
 int ma_shim_data_source_read_pcm_frames(
     void* handle,

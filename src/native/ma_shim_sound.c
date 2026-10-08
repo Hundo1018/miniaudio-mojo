@@ -4,19 +4,58 @@
 #include "miniaudio.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 /*
  * Bookkeeping wrapper: the raw ma_sound plus an `initialized` flag (idempotent
  * free/uninit; ops-before-init fail with MA_INVALID_ARGS). The sound is owned by
  * an engine; the engine handle is resolved via shimint_engine_ptr.
+ *
+ * `refs` counts who is holding the wrapper: the owner (one reference, dropped by
+ * ma_shim_sound_free) plus any borrowed data-source view. The ma_sound is torn
+ * down when the owner lets go, whatever the count; the wrapper itself is freed
+ * only once the last view has gone, so a view outliving its sound finds an empty
+ * shell and fails cleanly instead of dangling.
  */
 typedef struct ma_shim_sound {
     ma_sound sound;
     int initialized;
+    int refs;
 } ma_shim_sound;
 
+/* Internal cross-family accessors (see ma_shim_internal.h). */
+ma_sound* shimint_sound_ptr(void* sound_handle) {
+    ma_shim_sound* h = (ma_shim_sound*)sound_handle;
+    if (h == NULL || !h->initialized) {
+        return NULL;
+    }
+    return &h->sound;
+}
+
+void shimint_sound_retain(void* sound_handle) {
+    ma_shim_sound* h = (ma_shim_sound*)sound_handle;
+    if (h != NULL) {
+        h->refs += 1;
+    }
+}
+
+void shimint_sound_release(void* sound_handle) {
+    ma_shim_sound* h = (ma_shim_sound*)sound_handle;
+    if (h == NULL) {
+        return;
+    }
+    h->refs -= 1;
+    if (h->refs <= 0) {
+        free(h);
+    }
+}
+
 void* ma_shim_sound_alloc(void) {
-    return calloc(1, sizeof(ma_shim_sound));
+    ma_shim_sound* h = (ma_shim_sound*)calloc(1, sizeof(ma_shim_sound));
+    if (h != NULL) {
+        h->refs = 1;
+    }
+    return h;
 }
 
 /* @binds ma_sound_uninit */
@@ -29,7 +68,7 @@ void ma_shim_sound_free(void* handle) {
         ma_sound_uninit(&h->sound);
         h->initialized = 0;
     }
-    free(h);
+    shimint_sound_release(h);
 }
 
 /* @binds ma_sound_init_from_file */
@@ -845,6 +884,286 @@ int ma_shim_sound_init_copy(void* handle, void* engine_handle, void* existing_ha
         h->initialized = 0;
     }
     result = ma_sound_init_copy(engine, &existing->sound, flags, NULL, &h->sound);
+    if (result == MA_SUCCESS) {
+        h->initialized = 1;
+    }
+    return (int)result;
+}
+
+/* ---- init from a data source / borrowed accessors ---- */
+
+/* @binds ma_sound_init_from_data_source */
+int ma_shim_sound_init_from_data_source(
+    void* handle, void* engine_handle, void* data_source_handle, unsigned int flags
+) {
+    ma_shim_sound* h = (ma_shim_sound*)handle;
+    ma_engine* engine = shimint_engine_ptr(engine_handle);
+    /* The sound keeps this pointer for its whole life, so a borrowed view (which
+     * owns nothing) is not acceptable here -- and neither is NULL, which would
+     * quietly build the equivalent of a group rather than a sound. */
+    ma_data_source* ds = shimint_data_source_ptr_owned(data_source_handle);
+    ma_result result;
+
+    if (h == NULL || engine == NULL || ds == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    if (h->initialized) {
+        ma_sound_uninit(&h->sound);
+        h->initialized = 0;
+    }
+    result = ma_sound_init_from_data_source(engine, ds, flags, NULL, &h->sound);
+    if (result == MA_SUCCESS) {
+        h->initialized = 1;
+    }
+    return (int)result;
+}
+
+/* Returns the shim handle of the engine this sound belongs to (NULL when the
+ * sound is not initialised). It is the same handle the sound was created with. */
+/* @binds ma_sound_get_engine */
+void* ma_shim_sound_get_engine(void* handle) {
+    ma_shim_sound* h = (ma_shim_sound*)handle;
+    if (h == NULL || !h->initialized) {
+        return NULL;
+    }
+    return shimint_engine_handle(ma_sound_get_engine(&h->sound));
+}
+
+/* ---- ma_sound_config ----
+ *
+ * miniaudio hands the config around by value; the shim keeps one on the heap
+ * behind a handle and exposes setters. A config is only meaningful after
+ * config_init / config_init_for_engine, which fill in miniaudio's defaults
+ * (an all-zero ma_sound_config is NOT a valid one: the range and loop-point ends
+ * default to "the whole source", not 0).
+ */
+typedef struct ma_shim_sound_config {
+    ma_sound_config config;
+    char*           file_path;     /* shim-owned copy; config.pFilePath points here */
+    int             initialized;
+} ma_shim_sound_config;
+
+static ma_shim_sound_config* sound_config_ready(void* handle) {
+    ma_shim_sound_config* c = (ma_shim_sound_config*)handle;
+    if (c == NULL || !c->initialized) {
+        return NULL;
+    }
+    return c;
+}
+
+static void sound_config_clear_path(ma_shim_sound_config* c) {
+    free(c->file_path);
+    c->file_path = NULL;
+    c->config.pFilePath = NULL;
+}
+
+void* ma_shim_sound_config_alloc(void) {
+    return calloc(1, sizeof(ma_shim_sound_config));
+}
+
+void ma_shim_sound_config_free(void* handle) {
+    ma_shim_sound_config* c = (ma_shim_sound_config*)handle;
+    if (c == NULL) {
+        return;
+    }
+    free(c->file_path);
+    free(c);
+}
+
+/* @binds ma_sound_config_init */
+int ma_shim_sound_config_init(void* handle) {
+    ma_shim_sound_config* c = (ma_shim_sound_config*)handle;
+    if (c == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    sound_config_clear_path(c);
+    c->config = ma_sound_config_init();
+    c->initialized = 1;
+    return MA_SUCCESS;
+}
+
+/* @binds ma_sound_config_init_2 */
+int ma_shim_sound_config_init_for_engine(void* handle, void* engine_handle) {
+    ma_shim_sound_config* c = (ma_shim_sound_config*)handle;
+    ma_engine* engine = shimint_engine_ptr(engine_handle);
+    if (c == NULL || engine == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    sound_config_clear_path(c);
+    c->config = ma_sound_config_init_2(engine);
+    c->initialized = 1;
+    return MA_SUCCESS;
+}
+
+/* A NULL path clears it. The shim keeps its own copy of the text. */
+int ma_shim_sound_config_set_file_path(void* handle, const char* path) {
+    ma_shim_sound_config* c = sound_config_ready(handle);
+    char* copy = NULL;
+    if (c == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    if (path != NULL) {
+        size_t n = strlen(path) + 1;
+        copy = (char*)malloc(n);
+        if (copy == NULL) {
+            return MA_OUT_OF_MEMORY;
+        }
+        memcpy(copy, path, n);
+    }
+    sound_config_clear_path(c);
+    c->file_path = copy;
+    c->config.pFilePath = copy;
+    return MA_SUCCESS;
+}
+
+/* A NULL handle clears the data source. A borrowed view is refused: the sound
+ * built from this config would hold the pointer past the view's lifetime. */
+int ma_shim_sound_config_set_data_source(void* handle, void* data_source_handle) {
+    ma_shim_sound_config* c = sound_config_ready(handle);
+    ma_data_source* ds = NULL;
+    if (c == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    if (data_source_handle != NULL) {
+        ds = shimint_data_source_ptr_owned(data_source_handle);
+        if (ds == NULL) {
+            return MA_INVALID_ARGS;
+        }
+    }
+    c->config.pDataSource = ds;
+    return MA_SUCCESS;
+}
+
+/* Attach the new sound to a sound group's input bus. NULL clears the attachment
+ * (back to the engine endpoint). */
+int ma_shim_sound_config_set_initial_attachment_group(
+    void* handle, void* group_handle, unsigned int input_bus
+) {
+    ma_shim_sound_config* c = sound_config_ready(handle);
+    ma_node* node = NULL;
+    if (c == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    if (group_handle != NULL) {
+        node = shimint_sound_group_node(group_handle);
+        if (node == NULL) {
+            return MA_INVALID_ARGS;
+        }
+    }
+    c->config.pInitialAttachment = node;
+    c->config.initialAttachmentInputBusIndex = (ma_uint32)input_bus;
+    return MA_SUCCESS;
+}
+
+/* Attach the new sound to any shim node's input bus. NULL clears it. */
+int ma_shim_sound_config_set_initial_attachment_node(
+    void* handle, void* node_handle, unsigned int input_bus
+) {
+    ma_shim_sound_config* c = sound_config_ready(handle);
+    ma_node* node = NULL;
+    if (c == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    if (node_handle != NULL) {
+        node = shimint_node_ptr(node_handle);
+        if (node == NULL) {
+            return MA_INVALID_ARGS;
+        }
+    }
+    c->config.pInitialAttachment = node;
+    c->config.initialAttachmentInputBusIndex = (ma_uint32)input_bus;
+    return MA_SUCCESS;
+}
+
+int ma_shim_sound_config_set_flags(void* handle, unsigned int flags) {
+    ma_shim_sound_config* c = sound_config_ready(handle);
+    if (c == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    c->config.flags = (ma_uint32)flags;
+    return MA_SUCCESS;
+}
+
+/* 0 means "the engine's channel count" for both; channels_out may also be
+ * MA_SOUND_SOURCE_CHANNEL_COUNT (0xFFFFFFFF) to follow the data source. */
+int ma_shim_sound_config_set_channels(void* handle, unsigned int channels_in, unsigned int channels_out) {
+    ma_shim_sound_config* c = sound_config_ready(handle);
+    if (c == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    /* A bus wider than MA_MAX_CHANNELS would trip an assert (abort) inside miniaudio. */
+    if (channels_in > MA_MAX_CHANNELS
+        || (channels_out > MA_MAX_CHANNELS && channels_out != MA_SOUND_SOURCE_CHANNEL_COUNT)) {
+        return MA_INVALID_ARGS;
+    }
+    c->config.channelsIn = (ma_uint32)channels_in;
+    c->config.channelsOut = (ma_uint32)channels_out;
+    return MA_SUCCESS;
+}
+
+int ma_shim_sound_config_set_volume_smooth_time(void* handle, unsigned int frames) {
+    ma_shim_sound_config* c = sound_config_ready(handle);
+    if (c == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    c->config.volumeSmoothTimeInPCMFrames = (ma_uint32)frames;
+    return MA_SUCCESS;
+}
+
+int ma_shim_sound_config_set_mono_expansion_mode(void* handle, int mode) {
+    ma_shim_sound_config* c = sound_config_ready(handle);
+    if (c == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    c->config.monoExpansionMode = (ma_mono_expansion_mode)mode;
+    return MA_SUCCESS;
+}
+
+int ma_shim_sound_config_set_initial_seek_point(void* handle, unsigned long long frame) {
+    ma_shim_sound_config* c = sound_config_ready(handle);
+    if (c == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    c->config.initialSeekPointInPCMFrames = (ma_uint64)frame;
+    return MA_SUCCESS;
+}
+
+/* The slice of the source the sound plays. end = ~0 means "to the end". */
+int ma_shim_sound_config_set_range(void* handle, unsigned long long beg, unsigned long long end) {
+    ma_shim_sound_config* c = sound_config_ready(handle);
+    if (c == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    c->config.rangeBegInPCMFrames = (ma_uint64)beg;
+    c->config.rangeEndInPCMFrames = (ma_uint64)end;
+    return MA_SUCCESS;
+}
+
+int ma_shim_sound_config_set_loop_point(void* handle, unsigned long long beg, unsigned long long end) {
+    ma_shim_sound_config* c = sound_config_ready(handle);
+    if (c == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    c->config.loopPointBegInPCMFrames = (ma_uint64)beg;
+    c->config.loopPointEndInPCMFrames = (ma_uint64)end;
+    return MA_SUCCESS;
+}
+
+/* @binds ma_sound_init_ex */
+int ma_shim_sound_init_ex(void* handle, void* engine_handle, void* config_handle) {
+    ma_shim_sound* h = (ma_shim_sound*)handle;
+    ma_shim_sound_config* c = sound_config_ready(config_handle);
+    ma_engine* engine = shimint_engine_ptr(engine_handle);
+    ma_result result;
+
+    if (h == NULL || engine == NULL || c == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    if (h->initialized) {
+        ma_sound_uninit(&h->sound);
+        h->initialized = 0;
+    }
+    result = ma_sound_init_ex(engine, &c->config, &h->sound);
     if (result == MA_SUCCESS) {
         h->initialized = 1;
     }

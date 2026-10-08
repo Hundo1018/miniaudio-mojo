@@ -8,7 +8,13 @@
 
 /* Bookkeeping wrapper. `base` MUST stay first: every ma_data_source_* call
  * casts the handle straight to ma_data_source*, and the chaining getters
- * compare handle pointers against ma_data_source pointers. */
+ * compare handle pointers against ma_data_source pointers.
+ *
+ * A handle is either a buffer source the shim built (everything below `base`) or
+ * a borrowed view of a sound's data source (`view_sound` set; the rest unused).
+ * A view owns nothing: it keeps a reference on the sound's bookkeeping wrapper so
+ * that wrapper outlives it, and asks the sound for its data source on every use,
+ * so once the sound is gone the view fails cleanly rather than dangling. */
 typedef struct ma_shim_data_source {
     ma_data_source_base base;
     float*       frames;        /* shim-owned copy of the caller's samples */
@@ -20,6 +26,7 @@ typedef struct ma_shim_data_source {
     int          looping;
     ma_data_source* callback_next; /* what the shim-owned onGetNext returns */
     int          initialized;
+    void*        view_sound;    /* non-NULL: borrowed view of this sound's data source */
 } ma_shim_data_source;
 
 typedef struct ma_shim_data_source_node {
@@ -176,13 +183,42 @@ static ma_data_source* shimds_on_get_next(ma_data_source* pDataSource) {
 
 /* ---- helpers -------------------------------------------------------------- */
 
-/* Resolve a handle to its ma_data_source*, or NULL if null/uninitialised. */
+/* Resolve a handle to its ma_data_source*, or NULL if null/uninitialised (for a
+ * view: or if its sound has gone, or the sound has no data source). */
 static ma_data_source* shimds_ptr(void* handle) {
     ma_shim_data_source* h = (ma_shim_data_source*)handle;
-    if (h == NULL || !h->initialized) {
+    if (h == NULL) {
+        return NULL;
+    }
+    if (h->view_sound != NULL) {
+        ma_sound* sound = shimint_sound_ptr(h->view_sound);
+        return (sound != NULL) ? ma_sound_get_data_source(sound) : NULL;
+    }
+    if (!h->initialized) {
         return NULL;
     }
     return (ma_data_source*)&h->base;
+}
+
+/* Same, but NULL for a view -- for anywhere the pointer is kept. */
+static ma_data_source* shimds_ptr_owned(void* handle) {
+    ma_shim_data_source* h = (ma_shim_data_source*)handle;
+    if (h != NULL && h->view_sound != NULL) {
+        return NULL;
+    }
+    return shimds_ptr(handle);
+}
+
+ma_data_source* shimint_data_source_ptr_owned(void* handle) {
+    return shimds_ptr_owned(handle);
+}
+
+/* Let go of a borrowed view's sound, if it is one. */
+static void shimds_drop_view(ma_shim_data_source* h) {
+    if (h->view_sound != NULL) {
+        shimint_sound_release(h->view_sound);
+        h->view_sound = NULL;
+    }
 }
 
 static void shimds_release_buffer(ma_shim_data_source* h) {
@@ -205,6 +241,7 @@ void ma_shim_data_source_free(void* handle) {
     if (h == NULL) {
         return;
     }
+    shimds_drop_view(h);
     if (h->initialized) {
         ma_data_source_uninit((ma_data_source*)&h->base);
         h->initialized = 0;
@@ -230,6 +267,7 @@ int ma_shim_data_source_init_buffer(
         return MA_INVALID_ARGS;
     }
 
+    shimds_drop_view(h);
     if (h->initialized) {
         ma_data_source_uninit((ma_data_source*)&h->base);
         h->initialized = 0;
@@ -270,12 +308,55 @@ int ma_shim_data_source_uninit(void* handle) {
     if (h == NULL) {
         return MA_INVALID_ARGS;
     }
+    shimds_drop_view(h);
     if (!h->initialized) {
         return MA_SUCCESS;
     }
     ma_data_source_uninit((ma_data_source*)&h->base);
     shimds_release_buffer(h);
     h->initialized = 0;
+    return MA_SUCCESS;
+}
+
+/* Turn a data-source handle into a non-owning view of a sound's data source
+ * (ma_sound_get_data_source). The generic read / seek / range / loop-point /
+ * format queries then act on what the sound is playing from; freeing or
+ * uninitialising the view leaves the sound alone. A view cannot be handed on to
+ * anything that would keep its pointer (a chain link, a node, another sound),
+ * and once the sound is uninitialised every call on the view fails. Fails if the
+ * sound has no data source. */
+/* @binds ma_sound_get_data_source */
+int ma_shim_data_source_borrow_sound(void* handle, void* sound_handle) {
+    ma_shim_data_source* h = (ma_shim_data_source*)handle;
+    ma_sound*            sound = shimint_sound_ptr(sound_handle);
+    if (h == NULL || sound == NULL || ma_sound_get_data_source(sound) == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    shimds_drop_view(h);
+    if (h->initialized) {
+        ma_data_source_uninit((ma_data_source*)&h->base);
+        h->initialized = 0;
+    }
+    shimds_release_buffer(h);
+    shimint_sound_retain(sound_handle);
+    h->view_sound = sound_handle;
+    return MA_SUCCESS;
+}
+
+/* "Are these two handles the same underlying data source?" -- identity, so a view
+ * of a sound's source compares equal to the source the sound was built from. */
+/* @binds ma_sound_get_data_source */
+int ma_shim_data_source_is_same(void* handle, void* other_handle, int* out_same) {
+    ma_data_source* a = shimds_ptr(handle);
+    ma_data_source* b = shimds_ptr(other_handle);
+
+    if (out_same != NULL) {
+        *out_same = 0;
+    }
+    if (a == NULL || b == NULL || out_same == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    *out_same = (a == b) ? 1 : 0;
     return MA_SUCCESS;
 }
 
@@ -611,7 +692,10 @@ int ma_shim_data_source_set_current(void* handle, void* current_handle) {
     }
     /* A NULL current_handle is legal and means "no current source"; it does
      * NOT restore reading from self -- pass the handle itself for that. */
-    return (int)ma_data_source_set_current(ds, shimds_ptr(current_handle));
+    if (current_handle != NULL && shimds_ptr_owned(current_handle) == NULL) {
+        return MA_INVALID_ARGS;   /* a view, or not ready: the chain would keep a pointer it must not */
+    }
+    return (int)ma_data_source_set_current(ds, shimds_ptr_owned(current_handle));
 }
 
 /* @binds ma_data_source_get_current */
@@ -636,7 +720,10 @@ int ma_shim_data_source_set_next(void* handle, void* next_handle) {
         return MA_INVALID_ARGS;
     }
     /* A NULL next_handle is legal: it clears the chain. */
-    return (int)ma_data_source_set_next(ds, shimds_ptr(next_handle));
+    if (next_handle != NULL && shimds_ptr_owned(next_handle) == NULL) {
+        return MA_INVALID_ARGS;   /* a view, or not ready: the chain would keep a pointer it must not */
+    }
+    return (int)ma_data_source_set_next(ds, shimds_ptr_owned(next_handle));
 }
 
 /* @binds ma_data_source_get_next */
@@ -657,13 +744,16 @@ int ma_shim_data_source_next_is(void* handle, void* expected_handle, int* out_is
 /* @binds ma_data_source_set_next_callback */
 int ma_shim_data_source_set_next_callback(void* handle, void* next_handle) {
     ma_shim_data_source* h = (ma_shim_data_source*)handle;
-    ma_data_source* ds = shimds_ptr(handle);
+    ma_data_source* ds = shimds_ptr_owned(handle);   /* the callback is the shim's own vtable hook */
 
     if (ds == NULL) {
         return MA_INVALID_ARGS;
     }
+    if (next_handle != NULL && shimds_ptr_owned(next_handle) == NULL) {
+        return MA_INVALID_ARGS;
+    }
 
-    h->callback_next = shimds_ptr(next_handle);
+    h->callback_next = shimds_ptr_owned(next_handle);
     if (next_handle == NULL) {
         return (int)ma_data_source_set_next_callback(ds, NULL);
     }
@@ -712,7 +802,7 @@ int ma_shim_data_source_node_init(
 ) {
     ma_shim_data_source_node* h = (ma_shim_data_source_node*)handle;
     ma_engine* engine = shimint_engine_ptr(engine_handle);
-    ma_data_source* ds = shimds_ptr(data_source_handle);
+    ma_data_source* ds = shimds_ptr_owned(data_source_handle);
     ma_data_source_node_config config;
     ma_result result;
 

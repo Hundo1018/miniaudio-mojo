@@ -548,3 +548,14 @@ def rm_data_source_map_read(
         )
     )
     return MaCount(code, holder[0])
+
+
+def resource_manager_borrow_engine(
+    lib: MaLib,
+    rm: OpaquePointer[MutUntrackedOrigin],
+    engine: OpaquePointer[MutUntrackedOrigin],
+) -> Int:
+    """Make `rm` a non-owning view of the engine's resource manager."""
+    return Int(
+        lib.handle.call["ma_shim_resource_manager_borrow_engine", Int32](rm, engine)
+    )

@@ -5,7 +5,7 @@ that amplitude changes affect output, that seed/type changes work,
 and that different noise types produce distinct output.
 """
 
-from std.testing import assert_equal, assert_true, TestSuite
+from std.testing import assert_equal, assert_true, assert_raises, TestSuite
 from std.memory import ArcPointer
 from std.math import abs
 
@@ -92,6 +92,45 @@ def test_stereo_channels() raises:
     var ns = Noise.create(_lib(), channels=2, amplitude=1.0)
     var frames = ns.read_frames(UInt64(100))
     assert_true(len(frames) == 200)
+
+
+def test_preallocated_generator_streams_like_the_managed_one() raises:
+    """The preallocated path (heap size + init) streams identically to the managed one."""
+    var lib = _lib()
+    var managed = Noise.create(
+        lib, noise_type=NoiseTypePink, channels=UInt32(2), seed=Int32(11), amplitude=0.8
+    )
+    var prealloc = Noise.create(
+        lib,
+        noise_type=NoiseTypePink,
+        channels=UInt32(2),
+        seed=Int32(11),
+        amplitude=0.8,
+        preallocated=True,
+    )
+    var a = managed.read_frames(UInt64(300))
+    var b = prealloc.read_frames(UInt64(300))
+    assert_equal(len(a), len(b))
+    for i in range(len(a)):
+        assert_equal(a[i], b[i])
+
+
+def test_heap_size_follows_the_noise_type_and_channels() raises:
+    var lib = _lib()
+    assert_equal(Noise.heap_size(lib, noise_type=NoiseTypeWhite), UInt64(0))
+    var pink2 = Noise.heap_size(lib, noise_type=NoiseTypePink, channels=UInt32(2))
+    var pink8 = Noise.heap_size(lib, noise_type=NoiseTypePink, channels=UInt32(8))
+    assert_true(pink2 > UInt64(0))
+    assert_true(pink8 > pink2)
+    assert_true(Noise.heap_size(lib, noise_type=NoiseTypeBrownian) > UInt64(0))
+
+
+def test_preallocated_noise_rejects_bad_config() raises:
+    var lib = _lib()
+    with assert_raises():
+        _ = Noise.create(lib, channels=UInt32(0), preallocated=True)
+    with assert_raises():
+        _ = Noise.heap_size(lib, channels=UInt32(0))
 
 
 def main() raises:

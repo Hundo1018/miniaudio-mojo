@@ -2,10 +2,11 @@
   "_comment": "Functions intentionally excluded from the 100%-of-bindable denominator. Every name here MUST exist in docs/api-inventory.json (the checker typo-guards them). See docs/binding-coverage.md.",
   "categories": {
     "internal_preinit": {
-      "rationale": "Non-public implementation details; the public init functions are bound instead.",
+      "rationale": "Non-public implementation details of an init path; the public init functions are bound instead. ma_encoder_init__internal and ma_encoder_preinit are the encoder's pre-init steps. ma_sound_init_from_file_internal is exported but has no public prototype: it is the file branch of ma_sound_init_ex and relies on state that ma_sound_init_ex has already set up through the static ma_sound_preinit (the ma_sound zeroed and its seek target primed, the end callback copied), so calling it directly leaves the sound half-initialised. ma_sound_init_ex (bound, via SoundConfig.set_file_path) and ma_sound_init_from_file (bound) reach it through the supported path.",
       "functions": [
         "ma_encoder_init__internal",
-        "ma_encoder_preinit"
+        "ma_encoder_preinit",
+        "ma_sound_init_from_file_internal"
       ]
     },
     "wchar_w_variants": {
@@ -40,13 +41,6 @@
         "ma_noise_set_type"
       ]
     },
-    "heap_preallocated": {
-      "rationale": "Internal heap-sizing and preallocated-init helpers for advanced custom allocators. The standard init (which internally calls these) is bound instead.",
-      "functions": [
-        "ma_noise_get_heap_size",
-        "ma_noise_init_preallocated"
-      ]
-    },
     "custom_callback_or_vtable_ctor": {
       "rationale": "Take user-supplied function pointers / vtables (custom I/O, custom data source / node). Mojo cannot pass a function value across the FFI (see memory mojo-ffi-callback-limit). Concrete siblings (*_init_file/_memory, built-in nodes, default VFS) ARE bound; callbacks that have a meaningful shim-owned form (context enumerate, log) are bound, not excluded.",
       "functions": [
@@ -55,34 +49,7 @@
         "ma_wav_init",
         "ma_flac_init",
         "ma_mp3_init",
-        "ma_node_init",
         "ma_sound_set_end_callback"
-      ]
-    },
-    "config_struct_ctor": {
-      "rationale": "Config-struct constructors and *_ex/_internal init variants that require building/passing an ma_sound_config (or ma_sound_group_config) by value across the FFI. The concrete init paths (ma_sound_init_from_file, ma_sound_init_copy, ma_sound_group_init) are bound instead and internally build the config; modeling the full config struct in Mojo is not yet warranted.",
-      "functions": [
-        "ma_sound_config_init",
-        "ma_sound_config_init_2",
-        "ma_sound_init_ex",
-        "ma_sound_init_from_file_internal",
-        "ma_sound_group_config_init",
-        "ma_sound_group_config_init_2",
-        "ma_sound_group_init_ex"
-      ]
-    },
-    "opaque_accessor_or_unbound_family": {
-      "rationale": "Return or consume an opaque handle to a family that is not yet modeled in Mojo. ma_sound_init_from_data_source and ma_sound_get_data_source need the data_source family (not yet bound). ma_sound_get_engine / ma_sound_group_get_engine return a raw, non-owning ma_engine*: in the RAII model a Sound/SoundGroup already owns its Engine via an ArcPointer, so exposing a bare pointer is redundant and unsafe. The ma_engine_get_* accessors return raw, non-owning handles to families the engine owns internally (its ma_device) or that are not yet modeled (ma_node_graph, ma_node endpoint, ma_log, ma_resource_manager); exposing bare pointers is redundant/unsafe, mirroring the get_engine exclusion.",
-      "functions": [
-        "ma_sound_init_from_data_source",
-        "ma_sound_get_data_source",
-        "ma_sound_get_engine",
-        "ma_sound_group_get_engine",
-        "ma_engine_get_device",
-        "ma_engine_get_node_graph",
-        "ma_engine_get_endpoint",
-        "ma_engine_get_log",
-        "ma_engine_get_resource_manager"
       ]
     },
     "deprecated_superseded": {
@@ -96,16 +63,6 @@
       "rationale": "Only meaningful when implementing a custom ma_backend. ma_device_post_init is a step *within* backend device-init: it takes an ma_device_descriptor the backend negotiates (there is no valid descriptor to fabricate from pure Mojo) and miniaudio documents it as 'You do not need to call this manually unless you are doing a custom backend' and 'Unsafe' (it reinitializes internal data converters that may be in use). The two callers are inside miniaudio's own ma_device_init. Custom backends require function-pointer/vtable callbacks that cannot cross the Mojo FFI (see custom_callback_or_vtable_ctor); the standard ma_device_init / ma_device_init_ex paths ARE bound.",
       "functions": [
         "ma_device_post_init"
-      ]
-    },
-    "engine_node_subtype": {
-      "rationale": "The ma_engine_node_* functions construct/destroy an ma_engine_node — a node-graph node that ma_sound wraps internally. Binding it requires the node family (ma_node base/vtable + ma_node_graph), which is not yet modeled, plus a by-value ma_engine_node_config (config_init) and advanced heap-sizing / preallocated-init helpers. ma_sound (which owns an engine_node) is already bound and covers the user-facing need.",
-      "functions": [
-        "ma_engine_node_config_init",
-        "ma_engine_node_get_heap_size",
-        "ma_engine_node_init",
-        "ma_engine_node_init_preallocated",
-        "ma_engine_node_uninit"
       ]
     },
     "win32_only_not_exported": {

@@ -52,6 +52,13 @@ int ma_shim_resource_manager_init(
     void* handle, unsigned int job_thread_count, int non_blocking);
 int ma_shim_resource_manager_uninit(void* handle);
 
+/* Make a manager handle (ma_shim_resource_manager_alloc) a non-owning view of
+ * the engine's own resource manager. The view is used like any manager handle
+ * (register files, build data buffers / streams / sources against it); freeing
+ * or uninitialising it leaves the engine's manager alone. The engine must
+ * outlive the view and anything built against it. */
+int ma_shim_resource_manager_borrow_engine(void* handle, void* engine_handle);
+
 int ma_shim_resource_manager_has_log(void* handle, int* out_has_log);
 
 int ma_shim_resource_manager_register_file(

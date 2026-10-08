@@ -520,3 +520,129 @@ def splitter_node_attach_to_endpoint(
             n, output_bus, g
         )
     )
+
+
+# ================= borrowed views of an engine's graph =================
+
+
+def node_graph_borrow_engine(
+    lib: MaLib,
+    g: OpaquePointer[MutUntrackedOrigin],
+    engine: OpaquePointer[MutUntrackedOrigin],
+) -> Int:
+    """Make `g` a non-owning view of the engine's node graph (get_node_graph)."""
+    return Int(
+        lib.handle.call["ma_shim_node_graph_borrow_engine", Int32](g, engine)
+    )
+
+
+def node_borrow_engine_endpoint(
+    lib: MaLib,
+    n: OpaquePointer[MutUntrackedOrigin],
+    engine: OpaquePointer[MutUntrackedOrigin],
+) -> Int:
+    """Make `n` a non-owning view of the engine's endpoint node (get_endpoint)."""
+    return Int(
+        lib.handle.call["ma_shim_node_borrow_engine_endpoint", Int32](n, engine)
+    )
+
+
+def node_is_graph_endpoint(
+    lib: MaLib,
+    n: OpaquePointer[MutUntrackedOrigin],
+    g: OpaquePointer[MutUntrackedOrigin],
+) -> MaBool:
+    """get_endpoint, asked as an identity question Mojo can hold."""
+    var holder = [Int32(0)]
+    var code = Int(
+        lib.handle.call["ma_shim_node_is_graph_endpoint", Int32](
+            n, g, holder.unsafe_ptr()
+        )
+    )
+    return MaBool(code, holder[0] != Int32(0))
+
+
+# ================= ma_engine_node (group flavour) =================
+
+
+def engine_node_alloc(lib: MaLib) -> OpaquePointer[MutUntrackedOrigin]:
+    return lib.handle.call[
+        "ma_shim_engine_node_alloc", OpaquePointer[MutUntrackedOrigin]
+    ]()
+
+
+def engine_node_free(lib: MaLib, n: OpaquePointer[MutUntrackedOrigin]):
+    lib.handle.call["ma_shim_engine_node_free", NoneType](n)
+
+
+def engine_node_get_heap_size(
+    lib: MaLib,
+    engine: OpaquePointer[MutUntrackedOrigin],
+    flags: UInt32,
+    channels_in: UInt32,
+    channels_out: UInt32,
+    volume_smooth_time: UInt32,
+) -> MaCount:
+    var holder = [UInt64(0)]
+    var code = Int(
+        lib.handle.call["ma_shim_engine_node_get_heap_size", Int32](
+            engine,
+            flags,
+            channels_in,
+            channels_out,
+            volume_smooth_time,
+            holder.unsafe_ptr(),
+        )
+    )
+    return MaCount(code, holder[0])
+
+
+def engine_node_init(
+    lib: MaLib,
+    n: OpaquePointer[MutUntrackedOrigin],
+    engine: OpaquePointer[MutUntrackedOrigin],
+    flags: UInt32,
+    channels_in: UInt32,
+    channels_out: UInt32,
+    volume_smooth_time: UInt32,
+    pinned_listener_index: UInt32,
+) -> Int:
+    return Int(
+        lib.handle.call["ma_shim_engine_node_init", Int32](
+            n,
+            engine,
+            flags,
+            channels_in,
+            channels_out,
+            volume_smooth_time,
+            pinned_listener_index,
+        )
+    )
+
+
+def engine_node_init_preallocated(
+    lib: MaLib,
+    n: OpaquePointer[MutUntrackedOrigin],
+    engine: OpaquePointer[MutUntrackedOrigin],
+    flags: UInt32,
+    channels_in: UInt32,
+    channels_out: UInt32,
+    volume_smooth_time: UInt32,
+    pinned_listener_index: UInt32,
+) -> Int:
+    """Init through miniaudio's preallocated-heap path with a shim-owned block."""
+    return Int(
+        lib.handle.call["ma_shim_engine_node_init_preallocated", Int32](
+            n,
+            engine,
+            flags,
+            channels_in,
+            channels_out,
+            volume_smooth_time,
+            pinned_listener_index,
+        )
+    )
+
+
+def engine_node_uninit(lib: MaLib, n: OpaquePointer[MutUntrackedOrigin]) -> Int:
+    return Int(lib.handle.call["ma_shim_engine_node_uninit", Int32](n))

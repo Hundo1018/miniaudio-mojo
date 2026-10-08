@@ -1,4 +1,5 @@
 #include "ma_shim_resource_manager.h"
+#include "ma_shim_internal.h"
 #include "miniaudio.h"
 
 #include <stdlib.h>
@@ -13,24 +14,42 @@ MA_API ma_result ma_resource_manager_data_source_unmap(
 
 /* ================= the manager ================= */
 
+/* A manager handle is either a manager the shim built (`rm`) or a borrowed view
+ * of an engine's resource manager (`engine` set). A view does not own the
+ * manager, so it is never uninitialised from here, and it resolves the engine's
+ * manager afresh on every use. The job slot is the handle's own either way. */
 typedef struct ma_shim_rm_state {
     ma_resource_manager rm;
     ma_job              job;        /* the one job slot next_job/post_job/process_job share */
     int                 has_job;
     int                 initialized;
+    void*               engine;     /* non-NULL: borrowed view of this engine's manager */
 } ma_shim_rm_state;
 
-static void rm_teardown(ma_shim_rm_state* h) {
-    if (h->initialized) {
-        ma_resource_manager_uninit(&h->rm);
-        h->initialized = 0;
+/* The ma_resource_manager this handle stands for, or NULL if it is not ready. */
+static ma_resource_manager* rm_ptr(ma_shim_rm_state* h) {
+    if (h == NULL || !h->initialized) {
+        return NULL;
     }
+    if (h->engine != NULL) {
+        ma_engine* engine = shimint_engine_ptr(h->engine);
+        return (engine != NULL) ? ma_engine_get_resource_manager(engine) : NULL;
+    }
+    return &h->rm;
+}
+
+static void rm_teardown(ma_shim_rm_state* h) {
+    if (h->initialized && h->engine == NULL) {
+        ma_resource_manager_uninit(&h->rm);
+    }
+    h->engine = NULL;
+    h->initialized = 0;
     h->has_job = 0;
 }
 
 static ma_shim_rm_state* rm_ready(void* handle) {
     ma_shim_rm_state* h = (ma_shim_rm_state*)handle;
-    if (h == NULL || !h->initialized) {
+    if (rm_ptr(h) == NULL) {
         return NULL;
     }
     return h;
@@ -76,6 +95,24 @@ int ma_shim_resource_manager_init(
     return (int)result;
 }
 
+/* Turn a manager handle into a non-owning view of the engine's resource manager
+ * (ma_engine_get_resource_manager). Data buffers, streams and sources are then
+ * created against the engine's own manager. Freeing or uninitialising the view
+ * leaves the manager alone. The engine must outlive the view and everything
+ * built against it. */
+/* @binds ma_engine_get_resource_manager */
+int ma_shim_resource_manager_borrow_engine(void* handle, void* engine_handle) {
+    ma_shim_rm_state* h = (ma_shim_rm_state*)handle;
+    ma_engine*        engine = shimint_engine_ptr(engine_handle);
+    if (h == NULL || engine == NULL || ma_engine_get_resource_manager(engine) == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    rm_teardown(h);
+    h->engine = engine_handle;
+    h->initialized = 1;
+    return MA_SUCCESS;
+}
+
 /* @binds ma_resource_manager_uninit */
 int ma_shim_resource_manager_uninit(void* handle) {
     ma_shim_rm_state* h = (ma_shim_rm_state*)handle;
@@ -93,7 +130,7 @@ int ma_shim_resource_manager_has_log(void* handle, int* out_has_log) {
     if (h == NULL || out_has_log == NULL) {
         return MA_INVALID_ARGS;
     }
-    *out_has_log = ma_resource_manager_get_log(&h->rm) != NULL ? 1 : 0;
+    *out_has_log = ma_resource_manager_get_log(rm_ptr(h)) != NULL ? 1 : 0;
     return MA_SUCCESS;
 }
 
@@ -105,7 +142,7 @@ int ma_shim_resource_manager_register_file(
     if (h == NULL || path == NULL) {
         return MA_INVALID_ARGS;
     }
-    return (int)ma_resource_manager_register_file(&h->rm, path, (ma_uint32)flags);
+    return (int)ma_resource_manager_register_file(rm_ptr(h), path, (ma_uint32)flags);
 }
 
 /* @binds ma_resource_manager_unregister_file */
@@ -114,7 +151,7 @@ int ma_shim_resource_manager_unregister_file(void* handle, const char* path) {
     if (h == NULL || path == NULL) {
         return MA_INVALID_ARGS;
     }
-    return (int)ma_resource_manager_unregister_file(&h->rm, path);
+    return (int)ma_resource_manager_unregister_file(rm_ptr(h), path);
 }
 
 /* @binds ma_resource_manager_register_decoded_data */
@@ -133,7 +170,7 @@ int ma_shim_resource_manager_register_decoded_data(
     }
     /* miniaudio does not copy the frames; the caller keeps them alive. */
     return (int)ma_resource_manager_register_decoded_data(
-        &h->rm, name, frames, (ma_uint64)frame_count,
+        rm_ptr(h), name, frames, (ma_uint64)frame_count,
         (ma_format)format, (ma_uint32)channels, (ma_uint32)sample_rate);
 }
 
@@ -146,7 +183,7 @@ int ma_shim_resource_manager_register_encoded_data(
         return MA_INVALID_ARGS;
     }
     return (int)ma_resource_manager_register_encoded_data(
-        &h->rm, name, data, (size_t)size_in_bytes);
+        rm_ptr(h), name, data, (size_t)size_in_bytes);
 }
 
 /* @binds ma_resource_manager_unregister_data */
@@ -155,7 +192,7 @@ int ma_shim_resource_manager_unregister_data(void* handle, const char* name) {
     if (h == NULL || name == NULL) {
         return MA_INVALID_ARGS;
     }
-    return (int)ma_resource_manager_unregister_data(&h->rm, name);
+    return (int)ma_resource_manager_unregister_data(rm_ptr(h), name);
 }
 
 /* @binds ma_resource_manager_post_job_quit */
@@ -164,7 +201,7 @@ int ma_shim_resource_manager_post_job_quit(void* handle) {
     if (h == NULL) {
         return MA_INVALID_ARGS;
     }
-    return (int)ma_resource_manager_post_job_quit(&h->rm);
+    return (int)ma_resource_manager_post_job_quit(rm_ptr(h));
 }
 
 /* @binds ma_resource_manager_next_job */
@@ -176,7 +213,7 @@ int ma_shim_resource_manager_next_job(void* handle, int* out_job_type) {
     if (h == NULL || out_job_type == NULL) {
         return MA_INVALID_ARGS;
     }
-    result = ma_resource_manager_next_job(&h->rm, &h->job);
+    result = ma_resource_manager_next_job(rm_ptr(h), &h->job);
     /* MA_CANCELLED means "the job you just got is a quit job" — the job struct
      * is filled in either case, so the slot is valid for both. */
     if (result == MA_SUCCESS || result == MA_CANCELLED) {
@@ -192,7 +229,7 @@ int ma_shim_resource_manager_post_job(void* handle) {
     if (h == NULL || !h->has_job) {
         return MA_INVALID_ARGS;
     }
-    return (int)ma_resource_manager_post_job(&h->rm, &h->job);
+    return (int)ma_resource_manager_post_job(rm_ptr(h), &h->job);
 }
 
 /* @binds ma_resource_manager_process_job */
@@ -202,7 +239,7 @@ int ma_shim_resource_manager_process_job(void* handle) {
         return MA_INVALID_ARGS;
     }
     h->has_job = 0;
-    return (int)ma_resource_manager_process_job(&h->rm, &h->job);
+    return (int)ma_resource_manager_process_job(rm_ptr(h), &h->job);
 }
 
 /* @binds ma_resource_manager_process_next_job */
@@ -211,7 +248,7 @@ int ma_shim_resource_manager_process_next_job(void* handle) {
     if (h == NULL) {
         return MA_INVALID_ARGS;
     }
-    return (int)ma_resource_manager_process_next_job(&h->rm);
+    return (int)ma_resource_manager_process_next_job(rm_ptr(h));
 }
 
 /* ================= shared helpers for the three data types ================= */
@@ -413,7 +450,7 @@ int ma_shim_rm_data_buffer_init(
     data_buffer_teardown(h);
 
     result = ma_resource_manager_data_buffer_init(
-        &m->rm, path, (ma_uint32)flags, NULL, &h->data);
+        rm_ptr(m), path, (ma_uint32)flags, NULL, &h->data);
     if (result == MA_SUCCESS) {
         h->manager = m;
         h->initialized = 1;
@@ -437,7 +474,7 @@ int ma_shim_rm_data_buffer_init_ex(
     data_buffer_teardown(h);
 
     config = rm_data_source_config(path, flags, &notifications);
-    result = ma_resource_manager_data_buffer_init_ex(&m->rm, &config, &h->data);
+    result = ma_resource_manager_data_buffer_init_ex(rm_ptr(m), &config, &h->data);
     if (result == MA_SUCCESS) {
         h->manager = m;
         h->initialized = 1;
@@ -457,7 +494,7 @@ int ma_shim_rm_data_buffer_init_copy(void* handle, void* manager_handle, void* e
     }
     data_buffer_teardown(h);
 
-    result = ma_resource_manager_data_buffer_init_copy(&m->rm, &existing->data, &h->data);
+    result = ma_resource_manager_data_buffer_init_copy(rm_ptr(m), &existing->data, &h->data);
     if (result == MA_SUCCESS) {
         h->manager = m;
         h->initialized = 1;
@@ -540,7 +577,7 @@ int ma_shim_rm_data_stream_init(
     data_stream_teardown(h);
 
     result = ma_resource_manager_data_stream_init(
-        &m->rm, path, (ma_uint32)flags, NULL, &h->data);
+        rm_ptr(m), path, (ma_uint32)flags, NULL, &h->data);
     if (result == MA_SUCCESS) {
         h->manager = m;
         h->initialized = 1;
@@ -564,7 +601,7 @@ int ma_shim_rm_data_stream_init_ex(
     data_stream_teardown(h);
 
     config = rm_data_source_config(path, flags, &notifications);
-    result = ma_resource_manager_data_stream_init_ex(&m->rm, &config, &h->data);
+    result = ma_resource_manager_data_stream_init_ex(rm_ptr(m), &config, &h->data);
     if (result == MA_SUCCESS) {
         h->manager = m;
         h->initialized = 1;
@@ -647,7 +684,7 @@ int ma_shim_rm_data_source_init(
     data_source_teardown(h);
 
     result = ma_resource_manager_data_source_init(
-        &m->rm, path, (ma_uint32)flags, NULL, &h->data);
+        rm_ptr(m), path, (ma_uint32)flags, NULL, &h->data);
     if (result == MA_SUCCESS) {
         h->manager = m;
         h->initialized = 1;
@@ -671,7 +708,7 @@ int ma_shim_rm_data_source_init_ex(
     data_source_teardown(h);
 
     config = rm_data_source_config(path, flags, &notifications);
-    result = ma_resource_manager_data_source_init_ex(&m->rm, &config, &h->data);
+    result = ma_resource_manager_data_source_init_ex(rm_ptr(m), &config, &h->data);
     if (result == MA_SUCCESS) {
         h->manager = m;
         h->initialized = 1;
@@ -691,7 +728,7 @@ int ma_shim_rm_data_source_init_copy(void* handle, void* manager_handle, void* e
     }
     data_source_teardown(h);
 
-    result = ma_resource_manager_data_source_init_copy(&m->rm, &existing->data, &h->data);
+    result = ma_resource_manager_data_source_init_copy(rm_ptr(m), &existing->data, &h->data);
     if (result == MA_SUCCESS) {
         h->manager = m;
         h->initialized = 1;

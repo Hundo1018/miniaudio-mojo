@@ -399,3 +399,12 @@ def device_job_thread_next(
         )
     )
     return MaUInt(code, UInt32(holder[0]))
+
+
+def device_borrow_engine(
+    lib: MaLib,
+    dev: OpaquePointer[MutUntrackedOrigin],
+    engine: OpaquePointer[MutUntrackedOrigin],
+) -> Int:
+    """Make `dev` a non-owning view of the engine's playback device (get_device)."""
+    return Int(lib.handle.call["ma_shim_device_borrow_engine", Int32](dev, engine))

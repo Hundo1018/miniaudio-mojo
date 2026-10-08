@@ -25,6 +25,19 @@ int ma_shim_noise_init(
     int           seed,
     double        amplitude
 );
+/* Heap size miniaudio needs for this config (0 for white noise), without building one. */
+int ma_shim_noise_get_heap_size(
+    int format, unsigned int channels, int noise_type, unsigned long long* out_heap_size);
+/* Same as ma_shim_noise_init but through miniaudio's preallocated-heap path with a
+ * shim-owned block (released on uninit/free). */
+int ma_shim_noise_init_preallocated(
+    void*         handle,
+    int           format,
+    unsigned int  channels,
+    int           noise_type,
+    int           seed,
+    double        amplitude
+);
 int ma_shim_noise_uninit(void* handle);
 
 int ma_shim_noise_read_pcm_frames(

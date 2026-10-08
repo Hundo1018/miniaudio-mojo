@@ -54,6 +54,26 @@ Layer 0  Vendored miniaudio      vendor/miniaudio/*  (unchanged)
 - Null/opaque handles: `OpaquePointer[MutUntrackedOrigin]`; the null sentinel is
   `unsafe_from_address=Int(0)` (a runtime `Int`, since the pinned nightly
   rejects a literal `0` as non-nullable).
+- Borrowed pointers (`ma_engine_get_node_graph/endpoint/log/device/resource_manager`,
+  `ma_sound_get_data_source`): a function that hands back a pointer into an object
+  someone else owns is bound as a *view* -- another handle of the owning family's
+  own Mojo type (`NodeGraph.of_engine`, `EndpointNode.of_engine`, `Log.of_engine`,
+  `Device.of_engine`, `ResourceManager.of_engine`, `Sound.data_source`), so every
+  existing method of that family works on it. In the shim the handle holds *what it
+  borrows from* (the engine handle, or a reference on the sound's bookkeeping
+  shell), not an object, and resolves the real pointer on every call: a view of a
+  torn-down owner answers `MA_INVALID_ARGS` instead of dangling. A view never
+  uninitialises what it points at (free/uninit just hand it back), and anything
+  that would *keep* the pointer past the view's life (a chain link, a node, a
+  sound) refuses it. On the Mojo side an engine view holds an `ArcPointer[Engine]`
+  so the engine outlives the view and everything built against it.
+- Whatever a config or a sound is built from is kept alive by the Mojo object that
+  carries it (`SoundConfig` holds its data source / group / engine node until the
+  sound is built, then the `Sound` holds them), because miniaudio only keeps raw
+  pointers.
+- Mojo destroys a value after its **last use**, not at the end of the scope. In
+  tests that read from an engine or node graph, touch every sound / group / node
+  *after* the read, or it is dropped (and detaches) before the read happens.
 
 ## Build & test
 ```bash
