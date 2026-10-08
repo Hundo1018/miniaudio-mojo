@@ -223,6 +223,54 @@
       "complete": true,
       "notes": "L1+L2+L3 COMPLETE: all 27 of 27 functions bound, 0 excluded. miniaudio's stateless helpers -- volume scaling, clipping, buffer-size arithmetic and the format / backend name tables. Nothing here owns anything, so there are no handles and the Layer 3 surface is free functions rather than RAII types. The clipping family takes a wider source than destination, which is its purpose, and the shim keeps those widths as miniaudio declares them (s32 into s16, s64 into s32 and packed s24, s16 into u8, f32 in place to [-1,1]) rather than flattening them to void*. ma_calculate_frame_count_after_resampling and ma_get_format_priority_index are exported without a public prototype, so the shim declares them. ma_calculate_buffer_size_in_frames_from_descriptor needs an ma_device_descriptor, which the shim builds from plain fields. Tests pin the round trips: 100 ms at 48 kHz is 4800 frames and back, every format reports its own sample width, and every enabled backend's name maps back to the backend it came from. 7 binding + 9 API tests."
     },
+    "channel_map": {
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 12 of 12 bound, 0 excluded. Per-channel speaker layouts via `ChannelMap` (value type over a byte list), shim in ma_shim_channel_map.c. Every buffer crosses the ABI with its length, so the shim refuses one that is too short; an empty list is NULL = the default map. Behaviour asserted: Microsoft/default layouts for 1/2/4/6/8/10/33 channels, ALSA, Vorbis and FLAC orderings differ, init_standard fills at most the buffer length, is_valid rejects mono among many channels and zero channels (repeats are not checked), is_equal/is_blank/contains/find, and the string forms. Pins that to_string returns the full length even when truncated and drops whole names rather than cutting them; the shim zero-fills the buffer first so a truncated result is a clean prefix. Shim rejects out-of-range standard-map enums and positions above 255. 24 binding + 11 API tests."
+    },
+    "vec3f": {
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 12 of 12 bound, 0 excluded. 3D vector math via `Vec3f` and a heap-handle `AtomicVec3f`, shim in ma_shim_vec3f.c. ma_vec3f crosses the ABI as three floats in and three out pointers (miniaudio passes it by value). The vec3f fns are exported without a public prototype, so the shim declares them. Behaviour asserted: sub/neg/dot/cross/len/dist against hand-computed values, cross is perpendicular to both inputs and anticommutes, normalize of the zero vector is zero. Pins that normalize uses rsqrtss, so the result is unit length only to ~1e-3 ((3,0,4) -> (0.59995, 0, 0.79993)). Atomic get/set before init and on NULL return MA_INVALID_ARGS. 12 binding + 6 API tests. No multi-thread tearing test: no Mojo thread helper is available in this toolchain."
+    },
+    "alloc": {
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 6 of 6 bound, 0 excluded. malloc/calloc/realloc/free and the aligned pair via `MemoryBlock` and `AlignedBlock`, shim in ma_shim_util.c (NULL allocation callbacks = default allocator). Behaviour asserted: calloc zero-fills 256 bytes, realloc grows/shrinks keeping the prefix, realloc(NULL) allocates, aligned addresses are multiples of 1..4096. Shim guards what miniaudio does not: ma_aligned_free(NULL) reads before the pointer (crash) so NULL is a no-op; ma_aligned_malloc only aligns for powers of two and wraps on size+padding overflow, so the shim returns NULL for alignment 0/3/48 and for sizes like UINT64_MAX; zero sizes return NULL; realloc(p, 0) returns NULL and leaves p alone. 12 binding + 8 API tests."
+    },
+    "crt_util": {
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: 11 of 15 functions bound; the other 4 are already in coverage-exclusions.json (ma_wfopen in wchar_w_variants; ma_strcmp_WCHAR, ma_strcpy_s_WCHAR, ma_strlen_WCHAR in win32_only_not_exported). strcpy_s, strncpy_s, strcat_s, strncat_s, strappend, itoa_s, strcmp, wcscpy_s, wcscmp, wcslen and fopen as free functions over a `CrtResult` (code + text), shim in ma_shim_util.c; the string helpers are exported without a public prototype so the shim declares them. errno-style codes asserted exactly (0 / EINVAL 22 / ERANGE 34). Pins: ma_strncpy_s only clips for count==SIZE_MAX (any other count >= capacity is ERANGE); ma_strncat_s with a NULL source leaves dst alone while ma_strcat_s clears it; itoa_s prints a sign only in base 10 and needs room for sign + NUL; ma_wcscmp compares only the low 16 bits of the first differing wchar_t (0x10061 vs 0x20061 -> 0); ma_fopen maps ENOENT -> MA_DOES_NOT_EXIST, EISDIR -> MA_IS_DIRECTORY, bad mode -> MA_INVALID_ARGS, and the shim fcloses (no descriptor is left open after repeated calls). 34 binding + 9 API tests."
+    },
+    "dl": {
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 3 of 3 bound, 0 excluded. dlopen/dlsym/dlclose via `DynamicLibrary` (RAII), shim in ma_shim_util.c; the dl fns are exported without a public prototype so the shim declares them. The optional ma_log is not forwarded (NULL). Behaviour asserted on libm.so.6: cos/sin/sqrt/floor/ceil resolve and really run through a shim `double f(double)` helper (cos(0)=1, sqrt(9)=3), a missing symbol and a missing library return NULL, NULL arguments are refused, two handles to one library are independent. 6 binding + 5 API tests."
+    },
+    "spinlock": {
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 3 of 3 bound, 0 excluded. lock/lock_noyield/unlock on a heap spinlock via `Spinlock` (RAII), shim in ma_shim_util.c with an is_locked helper that reads the lock word. Behaviour asserted single-threaded: lock sets the word, unlock clears it, unlocking a free lock is harmless, 1000 lock/unlock cycles leave it free, locks are independent. Not covered: a two-thread contention check (no Mojo thread helper in this toolchain; a C-side pthread helper was judged overbuilding). 7 binding + 4 API tests."
+    },
+    "duplex_rb": {
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 2 of 2 bound, 0 excluded. The duplex ring buffer via `DuplexRingBuffer` (RAII), shim in ma_shim_util.c with write/read/available helpers over the inner ma_pcm_rb. Behaviour asserted: capacity is five capture periods scaled by the rate ratio, two periods of silence are primed, frames written come back in order after the silence, a full buffer accepts no more, over-reads return what is queued. The shim rejects zero rate/channels/period and unknown formats, and rejects a buffer shorter than the two priming periods: miniaudio returns success there yet its priming seek runs past the end and leaves the cursors inconsistent (available_write reads ~1e9). 11 binding + 8 API tests."
+    },
+    "runtime_info": {
+      "dod_met": true,
+      "dod_level": "L3",
+      "complete": true,
+      "notes": "L1+L2+L3 COMPLETE: all 4 of 4 bound (ma_version_string was already bound in ma_shim.c; ma_version, ma_is_backend_enabled and ma_is_loopback_supported added), 0 excluded. `version`, `is_backend_enabled`, `is_loopback_supported` free functions, shim in ma_shim_util.c. Behaviour asserted: version is 0.11.25 and equals ma_version_string; on this linux-64 build null/custom/alsa/pulseaudio/jack are enabled and wasapi/dsound/winmm/coreaudio/aaudio/opensl/webaudio/oss/sndio/audio4 are not, agreeing with ma_get_enabled_backends; loopback is true only for WASAPI (even though it is not built here). The shim rejects codes outside ma_backend (0..14) where miniaudio answers FALSE. 9 binding + 6 API tests."
+    },
     "delay": {
       "dod_met": true,
       "dod_level": "L3",

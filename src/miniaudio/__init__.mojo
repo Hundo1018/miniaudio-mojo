@@ -145,6 +145,23 @@ from miniaudio.converter import (
     CHANNEL_MIX_MODE_SIMPLE,
     CHANNEL_MIX_MODE_CUSTOM_WEIGHTS,
 )
+from miniaudio.channel_map import (
+    ChannelMap,
+    channel_position_name,
+)
+from miniaudio.vec3f import (
+    Vec3f,
+    AtomicVec3f,
+)
+from miniaudio.util import (
+    MemoryBlock,
+    AlignedBlock,
+    CrtResult,
+    DynamicLibrary,
+    Spinlock,
+    DuplexRingBuffer,
+    Version,
+)
 from miniaudio.paged_audio_buffer import (
     PagedAudioBuffer,
     PageInfo,
