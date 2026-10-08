@@ -1,4 +1,4 @@
-"""Spatialization enums shared by sounds and sound groups (Layer 3).
+"""Spatialization enums and the end-handler trait shared by sounds and sound groups (Layer 3).
 
 These live in their own module so `sound` and `sound_group` can depend on each
 other's types without an import cycle (a `Sound` is built from a `SoundConfig`
@@ -76,3 +76,26 @@ comptime SOUND_FLAG_NO_SPATIALIZATION = UInt32(0x00004000)
 comptime SOUND_SOURCE_CHANNEL_COUNT = UInt32(0xFFFFFFFF)
 # `end` of a range / loop point meaning "to the end of the source".
 comptime FRAME_RANGE_END = UInt64(0xFFFFFFFFFFFFFFFF)
+
+
+# ---- end handler (ma_sound_set_end_callback) ----
+
+
+trait SoundEndHandler(Movable, Deinitable):
+    """Your own code, run when a sound reaches its end (`Sound.set_end_callback`).
+
+    The sound takes the handler (it lives on the heap) and calls `on_end` from the
+    **audio thread**: the thread miniaudio mixes on, or whichever thread is pulling
+    frames from the engine. So keep it short and non-blocking -- bump an atomic,
+    push to a lock-free queue, set a flag -- and do not touch the sound it belongs
+    to from inside it (restarting, uninitialising or re-attaching a handler there
+    deadlocks or corrupts it). Have another thread act on what you signalled.
+
+    `on_end` cannot raise: there is no one to catch it on the audio thread.
+    The handler is destroyed exactly once, never while `on_end` runs: when it is
+    replaced, cleared, or the sound is dropped.
+    """
+
+    def on_end(mut self):
+        """The sound reached its end. Runs on the audio thread."""
+        ...

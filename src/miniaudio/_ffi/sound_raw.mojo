@@ -5,8 +5,11 @@ Mirrors decoder_raw.mojo. A sound is initialised against an engine handle
 policy lives in the API layer (sound.mojo).
 """
 
+from std.memory import alloc
+
 from miniaudio._lib import MaLib, null_handle
 from miniaudio._ffi.decoder_raw import MaCount
+from miniaudio._sound_types import SoundEndHandler
 
 
 @fieldwise_init
@@ -810,3 +813,47 @@ def sound_init_ex(
     return Int(
         lib.handle.call["ma_shim_sound_init_ex", Int32](snd, engine, cfg)
     )
+
+
+# ---- end callback (ma_sound_set_end_callback) ----
+#
+# miniaudio calls back with (void* user, ma_sound*); the shim keeps one C trampoline
+# registered with miniaudio and forwards `user` to the function pointer handed over
+# here. `end_tramp[H]` / `end_drop[H]` are generic instances: C stores their
+# addresses and calls them later, from the audio thread, and each knows its own
+# handler type `H`. Neither may raise.
+
+
+def sound_end_tramp[H: SoundEndHandler](user: OpaquePointer[MutUntrackedOrigin]):
+    user.unsafe_bitcast[H]()[].on_end()
+
+
+def sound_end_drop[H: SoundEndHandler](user: OpaquePointer[MutUntrackedOrigin]):
+    var p = user.unsafe_bitcast[H]()
+    p.unsafe_deinit_pointee()
+    p.unsafe_free()
+
+
+def sound_set_end_callback[H: SoundEndHandler](
+    lib: MaLib, snd: OpaquePointer[MutUntrackedOrigin], var handler: H
+) -> Int:
+    """Moves `handler` to the heap and makes it the sound's end handler.
+
+    On success the shim owns it (and destroys it, exactly once, when it is replaced
+    or cleared or the sound goes away). On failure it is destroyed here.
+    """
+    var p = alloc[H](1)
+    p.unsafe_write(handler^)
+    var user = OpaquePointer[MutUntrackedOrigin](unsafe_from_address=Int(p))
+    var code = Int(
+        lib.handle.call["ma_shim_sound_set_end_callback", Int32](
+            snd, sound_end_tramp[H], sound_end_drop[H], user
+        )
+    )
+    if code != 0:
+        sound_end_drop[H](user)
+    return code
+
+
+def sound_clear_end_callback(lib: MaLib, snd: OpaquePointer[MutUntrackedOrigin]) -> Int:
+    return Int(lib.handle.call["ma_shim_sound_clear_end_callback", Int32](snd))
