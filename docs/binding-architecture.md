@@ -2,7 +2,8 @@
 
 This document defines the target architecture for the rebinding effort and the
 contract each layer must honour. The **decoder** is the implemented reference
-slice; every other module group is migrated by following the same pattern.
+slice; every other module group was migrated by following the same pattern, and the
+rollout is complete (see `docs/binding-coverage.md`).
 
 ## Layers
 
@@ -11,12 +12,12 @@ Layer 3  Idiomatic Mojo API      src/miniaudio/decoder.mojo, result.mojo, _lib.m
            RAII (__del__), raises Error, List/Span buffers, SampleFormat, no `bridge` arg
 Layer 2  Binding layer           src/miniaudio/_ffi/decoder_raw.mojo
            free functions, 1:1 over the shim, return raw ma_result codes / MaCount, no policy
-Layer 1  Thin native shim        src/native/ma_shim.{h,c}  ->  build/libma_shim.so
+Layer 1  Thin native shim        src/native/ma_shim*.{h,c}  ->  build/libma_shim.so
            opaque alloc/free + field accessors + config marshalling + forward to real ma_*
 Layer 0  Vendored miniaudio      vendor/miniaudio/*  (unchanged)
 ```
 
-### Layer 1 — thin shim contract (`ma_shim.c`)
+### Layer 1 — thin shim contract (`ma_shim*.c`)
 - Allocation only: `malloc`/`calloc` of an miniaudio handle plus a small
   `initialized` bookkeeping flag. **No** scenario logic, synthesis, format
   matrices, or smoke flows (those belong in Mojo tests).
@@ -83,14 +84,14 @@ pixi run test           # alias for the full new-suite (grows per slice)
 ```
 
 ## Migration rollout
-Apply the same three-layer + TDD template to, in order: encoder, device/
-playback, engine/sound, data_source/ring_buffer, converters/resampler/channel,
-nodes/effects/eq, resource_manager, sync/async/job_queue/logging, context/
-devices. Add each domain's shim functions to `ma_shim.c`, its raw module under
-`src/miniaudio/_ffi/`, its RAII type under `src/miniaudio/`, and its test files
-under `tests/` (wired into the `test` task). Retire the matching legacy
-`src/api` module and fat-shim section once a group is migrated; the final step
-removes `main.mojo`'s env-var dispatcher.
+Complete: every function in the inventory is either bound or a documented exclusion
+(990 / 990 bindable; see `docs/binding-coverage.md` for the per-family matrix and the order the
+families were migrated in). Each domain's shim functions live in a `src/native/ma_shim_*.c` file
+(`ma_shim.c` itself holds the decoder, encoder and device slices), its raw module
+under `src/miniaudio/_ffi/`, its RAII type under `src/miniaudio/`, and its test files under `tests/`
+(wired into the `test` task). A new family, if the inventory grows, follows the same template.
+Retire the matching legacy `src/api` module and fat-shim section once a group is migrated; the
+final step removes `main.mojo`'s env-var dispatcher.
 
 ## Note on the legacy code
 The legacy layers (`src/api`, `src/ffi`, `src/native/miniaudio_shim.*`,
