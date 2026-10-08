@@ -229,7 +229,7 @@ done; per-family detail is in the matrix above, and only the notes it does not c
 **Steps 1–17 are finished:** 990 / 990 functions bindable under the exclusion list are bound.
 Two follow-ups remain, both enabled by the Mojo 1.1.0 callback result below.
 
-18. **User callbacks (6 functions) — in progress, paused 2026-10-09.** The
+18. **User callbacks (6 functions) — paused 2026-10-09, mostly written.** The
     `custom_callback_or_vtable_ctor` exclusions rested on the 2026-05 nightly finding that a Mojo
     function value cannot cross `OwnedDLHandle.call`. A probe on Mojo 1.1.0 (2026-10-08) showed:
     - a plain `def`, a function value, and a generic instance `tramp[S]` all pass as C function
@@ -245,11 +245,33 @@ Two follow-ups remain, both enabled by the Mojo 1.1.0 callback result below.
     so the shim registers one C trampoline that calls the Mojo handler under a spinlock, and
     set / clear swap the handler under the same lock before the old one is freed.
 
-    Work so far is on two local, unpushed branches, stopped mid-way (never compiled or tested as
-    a whole): `wip/stream-callback-ctors` (`ma_decoder_init`, `ma_encoder_init`, `ma_wav_init`,
-    `ma_flac_init`, `ma_mp3_init`; 30 files) and `wip/sound-end-callback` (7 files). Done means:
-    each family stays `complete`, the six names leave `coverage-exclusions.json` (dropping the
-    category), tests use a stream type defined in the test file, and `pixi run gate` is green.
+    **Status at pause (2026-10-09).** All work is on one local, unpushed branch,
+    `wip/user-callbacks` (~40 files, based on a61e536). The probes are on main under
+    `tools/probes/ffi_callback/` (`pixi run probe-ffi-callback`). Measured on the branch before
+    the pause:
+    - shim builds with no warnings; all six functions carry `@binds` (996 / 1,027 once landed);
+    - passing: decoder 25+14, encoder 19+7, wav 27+13, flac 27+13, mp3 29+16 (binding + API
+      tests), `tests/test_stream_binding.mojo` 24/24, sound 34+45.
+
+    **Unfinished, in this order:**
+    1. `tests/test_stream_api.mojo` crashes (`mojo: error: execution crashed`, stack in
+       `libAsyncRTRuntimeGlobals.so`, no test line printed first). Find the crashing test (run
+       them one at a time) and fix the root cause. Suspects: stream/encoder lifetime vs the
+       pointer C still holds, or the device-thread read
+       (`test_a_stream_is_read_from_the_device_thread`).
+    2. Wire `tests/test_stream_{binding,api}.mojo` as a `test-stream` pixi task and append it to
+       the `test` aggregate.
+    3. `coverage-binding` fails once: raw `sound_clear_end_callback` is not referenced by any
+       test. The branch's last commit adds raw set/clear contract tests to
+       `tests/test_sound_binding.mojo` and shortens the audio-thread tests, but was never run.
+    4. `tests/test_sound_api.mojo` took 548 s (about 9 min more gate time). Make the audio-thread
+       tests (`test_the_end_callback_runs_on_the_audio_thread_of_a_running_engine`,
+       `test_swapping_the_handler_while_the_audio_thread_ends_the_sound_is_safe`) cheaper
+       without losing what they prove.
+    5. Then remove the six names from `coverage-exclusions.json` (dropping the category), update
+       the decoder / encoder / wav / flac / mp3 / sound notes in `coverage-targets.json`, check
+       per-file shim coverage ≥ 95%, and merge only with `pixi run gate` green.
+
     Target: 996 / 1,027 (97.0%), 31 exclusions left.
 
 19. **User callbacks where the shim owns the C side today (candidate).** Not a denominator

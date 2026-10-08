@@ -42,7 +42,7 @@
       ]
     },
     "custom_callback_or_vtable_ctor": {
-      "rationale": "Take user-supplied function pointers (custom I/O for decoder/encoder/wav/flac/mp3, the sound end callback). Excluded originally because the 2026-05 Mojo nightly could not pass a function value across the FFI. That is no longer true: on Mojo 1.1.0 a probe (2026-10-08) passed generic trampolines to C, stored them and called them later from C threads, and ma_decoder_init driven by a Mojo stream decoded bit-identically to ma_decoder_init_file. They are bindable and kept here only until the binding lands (roadmap step 18 in docs/binding-coverage.md; paused work on local branches wip/stream-callback-ctors and wip/sound-end-callback), so the families' complete flags stay true.",
+      "rationale": "Take user-supplied function pointers (custom I/O for decoder/encoder/wav/flac/mp3, the sound end callback). Excluded originally because the 2026-05 Mojo nightly could not pass a function value across the FFI. That is no longer true: on Mojo 1.1.0 a probe (2026-10-08) passed generic trampolines to C, stored them and called them later from C threads, and ma_decoder_init driven by a Mojo stream decoded bit-identically to ma_decoder_init_file. They are bindable and kept here only until the binding lands (roadmap step 18 in docs/binding-coverage.md; paused work on the local branch wip/user-callbacks), so the families' complete flags stay true.",
       "functions": [
         "ma_decoder_init",
         "ma_encoder_init",
