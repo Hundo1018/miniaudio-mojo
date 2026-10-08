@@ -85,7 +85,8 @@ pixi run test           # alias for the full new-suite (grows per slice)
 
 ## Migration rollout
 Complete: every function in the inventory is either bound or a documented exclusion
-(990 / 990 bindable; see `docs/binding-coverage.md` for the per-family matrix and the order the
+(990 / 990 bindable; 6 user-callback exclusions became bindable with Mojo 1.1.0 and are roadmap
+step 18; see `docs/binding-coverage.md` for the per-family matrix and the order the
 families were migrated in). Each domain's shim functions live in a `src/native/ma_shim_*.c` file
 (`ma_shim.c` itself holds the decoder, encoder and device slices), its raw module
 under `src/miniaudio/_ffi/`, its RAII type under `src/miniaudio/`, and its test files under `tests/`

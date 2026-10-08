@@ -57,7 +57,8 @@ then switched to:
 
 **Outcome.** Every one of the 57 inventory families is bound out: 56 are `complete` (every
 non-excluded function bound and tested to L3) and `core`, now only `ma_result_description`, is
-bound. Nothing bindable is left; what remains is the 37 exclusions. The last stretch: the
+bound. What remains is the 37 exclusions, 6 of which became bindable with Mojo 1.1.0 (roadmap
+step 18, paused). The last stretch: the
 `core` bucket (98 functions) was split by prefix into 13 named families (`frame_util`,
 `channel_map`, `vec3f`, `wav`, `flac`, `mp3`, `decode_util`, `alloc`, `crt_util`, `dl`,
 `spinlock`, `duplex_rb`, `runtime_info`) that were bound one by one beside `pcm_convert`; then 22
@@ -147,16 +148,16 @@ typo-guards every name against the inventory, so an exclusion cannot silently dr
 | Category | Count | Functions | Reason |
 |----------|-------|-----------|--------|
 | `wchar_w_variants` | 21 | `_w` variants of the decoder (2), encoder (2), wav, flac, mp3, sound, vfs (3) and resource_manager (8) path calls; `ma_copy_string_w`, `ma_wfopen` | Windows `wchar_t` path APIs. The project is linux-64 only; the UTF-8 `*_file` / `*_vfs` / `*_memory` siblings cover the need. |
-| `custom_callback_or_vtable_ctor` | 6 | `ma_decoder_init`, `ma_encoder_init`, `ma_wav_init`, `ma_flac_init`, `ma_mp3_init`, `ma_sound_set_end_callback` | Take user-supplied function pointers or vtables, which Mojo cannot pass across the FFI. Concrete siblings are bound, and callbacks with a meaningful shim-owned form (context enumeration, log) are bound rather than excluded. |
+| `custom_callback_or_vtable_ctor` | 6 | `ma_decoder_init`, `ma_encoder_init`, `ma_wav_init`, `ma_flac_init`, `ma_mp3_init`, `ma_sound_set_end_callback` | Take user-supplied function pointers. Excluded because the 2026-05 Mojo nightly could not pass a function value across the FFI; **bindable since Mojo 1.1.0** (probe 2026-10-08) and kept here only until roadmap step 18 lands, so the families' `complete` flags stay true. |
 | `internal_preinit` | 3 | `ma_encoder_init__internal`, `ma_encoder_preinit`, `ma_sound_init_from_file_internal` | Non-public steps of an init path; the public init functions are bound instead. `ma_sound_init_from_file_internal` relies on state the static `ma_sound_preinit` sets up, so calling it directly leaves the sound half-initialised. |
 | `win32_only_not_exported` | 3 | `ma_strcmp_WCHAR`, `ma_strcpy_s_WCHAR`, `ma_strlen_WCHAR` | Compiled only under `MA_WIN32`; `nm -D` on the linux-64 shim shows no such symbol, so there is nothing to bind. The portable `wchar_t` helpers (`ma_wcslen`, `ma_wcscmp`, `ma_wcscpy_s`) are bound. |
 | `deprecated_superseded` | 2 | `ma_engine_get_time`, `ma_engine_set_time` | Deprecated aliases slated for removal in miniaudio 0.12; the `_in_pcm_frames` replacements are bound. |
 | `deprecated_assert_false` | 1 | `ma_noise_set_type` | Deprecated, and `assert(false)` at runtime. |
-| `custom_backend_authoring` | 1 | `ma_device_post_init` | A step inside backend device-init that takes a backend-negotiated descriptor and is documented as unsafe outside a custom backend; custom backends need vtable callbacks that cannot cross the FFI. |
+| `custom_backend_authoring` | 1 | `ma_device_post_init` | A step inside backend device-init that takes a backend-negotiated descriptor and is documented as unsafe outside a custom backend. Authoring a custom backend (a vtable of ~20 callbacks) is out of scope. |
 
-## Migration Roadmap (finished)
+## Migration Roadmap
 
-Every family followed the three-layer + TDD + gate template, in the order below. All steps are
+Every family followed the three-layer + TDD + gate template, in the order below. Steps 1–17 are
 done; per-family detail is in the matrix above, and only the notes it does not carry are kept here.
 
 1. **decoder** — L3, 13/13 bindable
@@ -165,9 +166,9 @@ done; per-family detail is in the matrix above, and only the notes it does not c
    pulls f32 from a `Decoder`; null backend for deterministic tests. Also state, master volume,
    name, info, `id_equal`, context/log queries, offline `pump`, and the job-thread family via
    `DeviceJobThread`.
-   NOTE: a *generic user-supplied Mojo data callback* is not possible — function values do not
-   conform to `AnyType` in `OwnedDLHandle.call` — so the callback lives in C. Revisit if the FFI
-   gains function-pointer support.
+   NOTE: on the 2026-05 nightly a *generic user-supplied Mojo data callback* was not possible
+   (function values did not conform to `AnyType` in `OwnedDLHandle.call`), so the callback lives
+   in C. Mojo 1.1.0 lifted that limit (step 18); a user data callback is now a candidate (step 19).
 4. **engine / sound / sound_group** — first as L3 subsets on the null backend, later completed
    (see step 17)
 5. **data_source** — L3, 30/30: the abstract source interface, made reachable by a shim-owned
@@ -225,9 +226,42 @@ done; per-family detail is in the matrix above, and only the notes it does not c
     `SoundGroupConfig` structs and preallocated noise. `ma_node_init`'s stale exclusion was also
     dropped, since the node family already binds it.
 
-**The roadmap is finished.** 990 / 990 bindable functions are bound; the 37 that remain are
-exclusions with rationales (see above). The count can change only with a miniaudio update
-(`pixi run gen-api-inventory`) or if an exclusion becomes bindable.
+**Steps 1–17 are finished:** 990 / 990 functions bindable under the exclusion list are bound.
+Two follow-ups remain, both enabled by the Mojo 1.1.0 callback result below.
+
+18. **User callbacks (6 functions) — in progress, paused 2026-10-09.** The
+    `custom_callback_or_vtable_ctor` exclusions rested on the 2026-05 nightly finding that a Mojo
+    function value cannot cross `OwnedDLHandle.call`. A probe on Mojo 1.1.0 (2026-10-08) showed:
+    - a plain `def`, a function value, and a generic instance `tramp[S]` all pass as C function
+      pointers; C may store them and call them later, also from a C-spawned thread, and each
+      instance dispatches to its own `S`;
+    - end to end, `ma_decoder_init` driven by Mojo read/seek trampolines over an in-memory stream
+      decoded the test WAV bit-identically to `ma_decoder_init_file` at frame 0 and after a seek.
+
+    Plan: a stream trait (read / seek / tell; write / seek for the encoder) implemented by user
+    types; non-raising generic trampolines; C trampolines in the shim that adapt miniaudio's
+    `(ma_decoder*, ...)` signatures to a uniform `(user, ...)` shape; the Mojo owner keeps the
+    stream on the heap until after uninit. `ma_sound_set_end_callback` fires on the audio thread,
+    so the shim registers one C trampoline that calls the Mojo handler under a spinlock, and
+    set / clear swap the handler under the same lock before the old one is freed.
+
+    Work so far is on two local, unpushed branches, stopped mid-way (never compiled or tested as
+    a whole): `wip/stream-callback-ctors` (`ma_decoder_init`, `ma_encoder_init`, `ma_wav_init`,
+    `ma_flac_init`, `ma_mp3_init`; 30 files) and `wip/sound-end-callback` (7 files). Done means:
+    each family stays `complete`, the six names leave `coverage-exclusions.json` (dropping the
+    category), tests use a stream type defined in the test file, and `pixi run gate` is green.
+    Target: 996 / 1,027 (97.0%), 31 exclusions left.
+
+19. **User callbacks where the shim owns the C side today (candidate).** Not a denominator
+    change, an API one: the device data callback (step 3), the data-source next-callback
+    (step 5), and user-defined `ma_data_source` / `ma_node` vtables (steps 5 and 11) could take
+    Mojo code using the same trampoline pattern. Decide per family after step 18 shows the
+    pattern holds up in the gate.
+
+After step 18 the remaining 31 exclusions are by policy or platform: `wchar_t` path variants
+(21), internal init steps (3), Win32-only symbols (3), deprecated functions (3) and custom-backend
+authoring (1). The count otherwise changes only with a miniaudio update (`pixi run
+gen-api-inventory`) or if one of those becomes bindable.
 
 If the inventory grows, a new family follows the same steps:
 - Add shim functions with `@binds` to `src/native/ma_shim*.{h,c}`
