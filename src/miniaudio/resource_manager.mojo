@@ -215,6 +215,9 @@ struct ResourceManager(Movable):
     def __deinit__(deinit self):
         if self._ptr != null_handle():
             raw.resource_manager_free(self._lib[], self._ptr)
+        # Fields not named above are dropped before the body runs; release the
+        # keep-alive references only after the handle is freed.
+        _ = self._owner^
 
 
 struct ResourceDataBuffer(Movable):
@@ -348,6 +351,9 @@ struct ResourceDataBuffer(Movable):
     def __deinit__(deinit self):
         if self._ptr != null_handle():
             raw.rm_data_buffer_free(self._lib[], self._ptr)
+        # Fields not named above are dropped before the body runs; release the
+        # keep-alive references only after the handle is freed.
+        _ = self._manager^
 
 
 struct ResourceDataStream(Movable):
@@ -465,6 +471,9 @@ struct ResourceDataStream(Movable):
     def __deinit__(deinit self):
         if self._ptr != null_handle():
             raw.rm_data_stream_free(self._lib[], self._ptr)
+        # Fields not named above are dropped before the body runs; release the
+        # keep-alive references only after the handle is freed.
+        _ = self._manager^
 
 
 struct ResourceDataSource(Movable):
@@ -610,3 +619,6 @@ struct ResourceDataSource(Movable):
     def __deinit__(deinit self):
         if self._ptr != null_handle():
             raw.rm_data_source_free(self._lib[], self._ptr)
+        # Fields not named above are dropped before the body runs; release the
+        # keep-alive references only after the handle is freed.
+        _ = self._manager^

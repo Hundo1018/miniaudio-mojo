@@ -870,6 +870,9 @@ struct BiquadNode(Movable):
     def __deinit__(deinit self):
         if self._ptr != null_handle():
             raw.biquad_node_free(self._lib[], self._ptr)
+        # Fields not named above are dropped before the body runs; release the
+        # keep-alive references only after the handle is freed.
+        _ = self._engine^
 
 
 struct LpfNode(Movable):
@@ -937,6 +940,9 @@ struct LpfNode(Movable):
     def __deinit__(deinit self):
         if self._ptr != null_handle():
             raw.lpf_node_free(self._lib[], self._ptr)
+        # Fields not named above are dropped before the body runs; release the
+        # keep-alive references only after the handle is freed.
+        _ = self._engine^
 
 
 struct HpfNode(Movable):
@@ -1004,6 +1010,9 @@ struct HpfNode(Movable):
     def __deinit__(deinit self):
         if self._ptr != null_handle():
             raw.hpf_node_free(self._lib[], self._ptr)
+        # Fields not named above are dropped before the body runs; release the
+        # keep-alive references only after the handle is freed.
+        _ = self._engine^
 
 
 struct Bpf2(Movable):
@@ -1696,6 +1705,9 @@ struct BpfNode(Movable):
     def __deinit__(deinit self):
         if self._ptr != null_handle():
             raw.bpf_node_free(self._lib[], self._ptr)
+        # Fields not named above are dropped before the body runs; release the
+        # keep-alive references only after the handle is freed.
+        _ = self._engine^
 
 
 struct NotchNode(Movable):
@@ -1761,6 +1773,9 @@ struct NotchNode(Movable):
     def __deinit__(deinit self):
         if self._ptr != null_handle():
             raw.notch_node_free(self._lib[], self._ptr)
+        # Fields not named above are dropped before the body runs; release the
+        # keep-alive references only after the handle is freed.
+        _ = self._engine^
 
 
 struct PeakNode(Movable):
@@ -1828,6 +1843,9 @@ struct PeakNode(Movable):
     def __deinit__(deinit self):
         if self._ptr != null_handle():
             raw.peak_node_free(self._lib[], self._ptr)
+        # Fields not named above are dropped before the body runs; release the
+        # keep-alive references only after the handle is freed.
+        _ = self._engine^
 
 
 struct LoshelfNode(Movable):
@@ -1898,6 +1916,9 @@ struct LoshelfNode(Movable):
     def __deinit__(deinit self):
         if self._ptr != null_handle():
             raw.loshelf_node_free(self._lib[], self._ptr)
+        # Fields not named above are dropped before the body runs; release the
+        # keep-alive references only after the handle is freed.
+        _ = self._engine^
 
 
 struct HishelfNode(Movable):
@@ -1968,3 +1989,6 @@ struct HishelfNode(Movable):
     def __deinit__(deinit self):
         if self._ptr != null_handle():
             raw.hishelf_node_free(self._lib[], self._ptr)
+        # Fields not named above are dropped before the body runs; release the
+        # keep-alive references only after the handle is freed.
+        _ = self._engine^

@@ -185,3 +185,6 @@ struct Decoder(Movable):
     def __deinit__(deinit self):
         if self._ptr != null_handle():
             raw.decoder_free(self._lib[], self._ptr)
+        # Fields not named above are dropped before the body runs; release the
+        # keep-alive references only after the handle is freed.
+        _ = self._memory^

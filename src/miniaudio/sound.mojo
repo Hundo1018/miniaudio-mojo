@@ -512,6 +512,12 @@ struct Sound(Movable):
         # Uninit the sound while the engine (held via _engine) is still valid.
         if self._ptr != null_handle():
             raw.sound_free(self._lib[], self._ptr)
+        # Fields not named above are dropped before the body runs; release the
+        # keep-alive references only after the handle is freed.
+        _ = self._engine^
+        _ = self._source^
+        _ = self._group^
+        _ = self._node^
 
 
 struct SoundConfig(Movable):
@@ -688,3 +694,8 @@ struct SoundConfig(Movable):
     def __deinit__(deinit self):
         if self._ptr != null_handle():
             raw.sound_config_free(self._lib[], self._ptr)
+        # Fields not named above are dropped before the body runs; release the
+        # keep-alive references only after the handle is freed.
+        _ = self._source^
+        _ = self._group^
+        _ = self._node^

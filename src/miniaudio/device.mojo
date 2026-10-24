@@ -293,6 +293,10 @@ struct Device(Movable):
         # callback is no longer reading the decoder when `_source` is destroyed.
         if self._ptr != null_handle():
             raw.device_free(self._lib[], self._ptr)
+        # Fields not named above are dropped before the body runs; release the
+        # keep-alive references only after the handle is freed.
+        _ = self._source^
+        _ = self._owner^
 
 
 # ---- ma_job_type codes (the subset relevant to the job queue's control flow) ----

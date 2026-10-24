@@ -171,6 +171,9 @@ struct NodeGraph(Movable):
     def __deinit__(deinit self):
         if self._ptr != null_handle():
             raw.node_graph_free(self._lib[], self._ptr)
+        # Fields not named above are dropped before the body runs; release the
+        # keep-alive references only after the handle is freed.
+        _ = self._owner^
 
 
 struct OffsetNode(Movable):
@@ -430,6 +433,9 @@ struct OffsetNode(Movable):
     def __deinit__(deinit self):
         if self._ptr != null_handle():
             raw.node_free(self._lib[], self._ptr)
+        # Fields not named above are dropped before the body runs; release the
+        # keep-alive references only after the handle is freed.
+        _ = self._graph^
 
 
 struct DelayNode(Movable):
@@ -532,6 +538,9 @@ struct DelayNode(Movable):
     def __deinit__(deinit self):
         if self._ptr != null_handle():
             raw.delay_node_free(self._lib[], self._ptr)
+        # Fields not named above are dropped before the body runs; release the
+        # keep-alive references only after the handle is freed.
+        _ = self._graph^
 
 
 struct SplitterNode(Movable):
@@ -580,6 +589,9 @@ struct SplitterNode(Movable):
     def __deinit__(deinit self):
         if self._ptr != null_handle():
             raw.splitter_node_free(self._lib[], self._ptr)
+        # Fields not named above are dropped before the body runs; release the
+        # keep-alive references only after the handle is freed.
+        _ = self._graph^
 
 
 struct EndpointNode(Movable):
@@ -702,6 +714,9 @@ struct EndpointNode(Movable):
     def __deinit__(deinit self):
         if self._ptr != null_handle():
             raw.node_free(self._lib[], self._ptr)
+        # Fields not named above are dropped before the body runs; release the
+        # keep-alive references only after the handle is freed.
+        _ = self._engine^
 
 
 struct EngineNode(Movable):
@@ -914,3 +929,6 @@ struct EngineNode(Movable):
     def __deinit__(deinit self):
         if self._ptr != null_handle():
             raw.engine_node_free(self._lib[], self._ptr)
+        # Fields not named above are dropped before the body runs; release the
+        # keep-alive references only after the handle is freed.
+        _ = self._graph^
