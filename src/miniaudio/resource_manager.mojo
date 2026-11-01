@@ -34,7 +34,7 @@ from std.memory import ArcPointer
 from miniaudio._lib import MaLib, null_handle
 from miniaudio.decoder import SampleFormat, SAMPLE_FORMAT_F32
 from miniaudio.engine import Engine
-from miniaudio.result import MA_SUCCESS, MA_AT_END
+from miniaudio.result import MaResult, MaError, MA_SUCCESS, MA_AT_END
 import miniaudio._ffi.resource_manager_raw as raw
 
 
@@ -77,16 +77,16 @@ struct ResourceManager(Movable):
         self._owner = None
 
     @staticmethod
-    def of_engine(engine: ArcPointer[Engine]) raises -> Self:
+    def of_engine(engine: ArcPointer[Engine]) raises MaError -> Self:
         """A non-owning view of the engine's resource manager."""
         var lib = engine[]._lib.copy()
         var ptr = raw.resource_manager_alloc(lib[])
         if ptr == null_handle():
-            raise Error("resource_manager_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "resource_manager_alloc failed (out of memory)")
         var code = raw.resource_manager_borrow_engine(lib[], ptr, engine[]._ptr)
         if code != MA_SUCCESS:
             raw.resource_manager_free(lib[], ptr)
-            raise Error(lib[].describe("engine resource manager borrow failed", code))
+            raise lib[].error("engine resource manager borrow failed", code)
         var view = Self(lib^, ptr)
         view._owner = engine.copy()
         return view^
@@ -97,40 +97,38 @@ struct ResourceManager(Movable):
         *,
         job_thread_count: UInt32 = 0,
         non_blocking: Bool = True,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """The defaults keep every job on the calling thread."""
         var ptr = raw.resource_manager_alloc(lib[])
         if ptr == null_handle():
-            raise Error("resource_manager_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "resource_manager_alloc failed (out of memory)")
         var code = raw.resource_manager_init(
             lib[], ptr, job_thread_count, non_blocking
         )
         if code != MA_SUCCESS:
             raw.resource_manager_free(lib[], ptr)
-            raise Error(lib[].describe("resource manager init failed", code))
+            raise lib[].error("resource manager init failed", code)
         return Self(lib.copy(), ptr)
 
-    def has_log(self) raises -> Bool:
+    def has_log(self) raises MaError -> Bool:
         """Whether the manager has a log attached."""
         var rc = raw.resource_manager_has_log(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("resource manager log failed", rc.result)
-            )
+            raise self._lib[].error("resource manager log failed", rc.result)
         return rc.value
 
-    def register_file(mut self, path: String, *, flags: UInt32 = 0) raises:
+    def register_file(mut self, path: String, *, flags: UInt32 = 0) raises MaError:
         """Preload a file into the cache under its own path."""
         var code = raw.resource_manager_register_file(
             self._lib[], self._ptr, path, flags
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("register_file failed", code))
+            raise self._lib[].error("register_file failed", code)
 
-    def unregister_file(mut self, path: String) raises:
+    def unregister_file(mut self, path: String) raises MaError:
         var code = raw.resource_manager_unregister_file(self._lib[], self._ptr, path)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("unregister_file failed", code))
+            raise self._lib[].error("unregister_file failed", code)
 
     def register_decoded_data(
         mut self,
@@ -140,7 +138,7 @@ struct ResourceManager(Movable):
         channels: UInt32 = 1,
         sample_rate: UInt32 = 48000,
         format: SampleFormat = SAMPLE_FORMAT_F32,
-    ) raises:
+    ) raises MaError:
         """Register already-decoded frames under `name`.
 
         miniaudio does *not* copy them, so `frames` has to outlive every data
@@ -158,45 +156,45 @@ struct ResourceManager(Movable):
             sample_rate,
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("register_decoded_data failed", code))
+            raise self._lib[].error("register_decoded_data failed", code)
 
-    def register_encoded_data(mut self, name: String, data: List[UInt8]) raises:
+    def register_encoded_data(mut self, name: String, data: List[UInt8]) raises MaError:
         """Register an encoded file image under `name`. Not copied either."""
         var code = raw.resource_manager_register_encoded_data(
             self._lib[], self._ptr, name, data
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("register_encoded_data failed", code))
+            raise self._lib[].error("register_encoded_data failed", code)
 
-    def unregister_data(mut self, name: String) raises:
+    def unregister_data(mut self, name: String) raises MaError:
         var code = raw.resource_manager_unregister_data(self._lib[], self._ptr, name)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("unregister_data failed", code))
+            raise self._lib[].error("unregister_data failed", code)
 
-    def post_quit_job(mut self) raises:
+    def post_quit_job(mut self) raises MaError:
         """Put a quit job on the queue."""
         var code = raw.resource_manager_post_job_quit(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("post_job_quit failed", code))
+            raise self._lib[].error("post_job_quit failed", code)
 
-    def next_job(mut self) raises -> Int:
+    def next_job(mut self) raises MaError -> Int:
         """Pop a job into the shim's slot and return its type code."""
         var rc = raw.resource_manager_next_job(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("next_job failed", rc.result))
+            raise self._lib[].error("next_job failed", rc.result)
         return rc.value
 
-    def repost_job(mut self) raises:
+    def repost_job(mut self) raises MaError:
         """Put the job currently in the slot back on the queue."""
         var code = raw.resource_manager_post_job(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("post_job failed", code))
+            raise self._lib[].error("post_job failed", code)
 
-    def process_job(mut self) raises -> Int:
+    def process_job(mut self) raises MaError -> MaResult:
         """Run the job in the slot. Returns its raw ma_result."""
         return raw.resource_manager_process_job(self._lib[], self._ptr)
 
-    def process_next_job(mut self) raises -> Int:
+    def process_next_job(mut self) raises MaError -> MaResult:
         """Pop and run one job.
 
         Returns the raw ma_result: MA_CANCELLED for a quit job, and
@@ -204,13 +202,11 @@ struct ResourceManager(Movable):
         """
         return raw.resource_manager_process_next_job(self._lib[], self._ptr)
 
-    def uninit(mut self) raises:
+    def uninit(mut self) raises MaError:
         """Release the manager early; the handle stays valid but empty."""
         var code = raw.resource_manager_uninit(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("resource manager uninit failed", code)
-            )
+            raise self._lib[].error("resource manager uninit failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():
@@ -247,21 +243,21 @@ struct ResourceDataBuffer(Movable):
         *,
         flags: UInt32 = 0,
         through_config: Bool = False,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """`through_config` takes miniaudio's config + notifications init path."""
         var lib = manager[]._lib.copy()
         var ptr = raw.rm_data_buffer_alloc(lib[])
         if ptr == null_handle():
-            raise Error("rm_data_buffer_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "rm_data_buffer_alloc failed (out of memory)")
 
-        var code: Int
+        var code: MaResult
         if through_config:
             code = raw.rm_data_buffer_init_ex(lib[], ptr, manager[]._ptr, path, flags)
         else:
             code = raw.rm_data_buffer_init(lib[], ptr, manager[]._ptr, path, flags)
         if code != MA_SUCCESS:
             raw.rm_data_buffer_free(lib[], ptr)
-            raise Error(lib[].describe("rm_data_buffer init failed", code))
+            raise lib[].error("rm_data_buffer init failed", code)
 
         var channels = raw.rm_data_buffer_get_data_format(lib[], ptr).channels
         return Self(lib^, manager.copy(), ptr, channels if channels > 0 else 1)
@@ -269,20 +265,20 @@ struct ResourceDataBuffer(Movable):
     @staticmethod
     def create_copy(
         manager: ArcPointer[ResourceManager], existing: Self
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """A second reader over the same cached sound."""
         var lib = manager[]._lib.copy()
         var ptr = raw.rm_data_buffer_alloc(lib[])
         if ptr == null_handle():
-            raise Error("rm_data_buffer_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "rm_data_buffer_alloc failed (out of memory)")
 
         var code = raw.rm_data_buffer_init_copy(lib[], ptr, manager[]._ptr, existing._ptr)
         if code != MA_SUCCESS:
             raw.rm_data_buffer_free(lib[], ptr)
-            raise Error(lib[].describe("rm_data_buffer init_copy failed", code))
+            raise lib[].error("rm_data_buffer init_copy failed", code)
         return Self(lib^, manager.copy(), ptr, existing._channels)
 
-    def read(mut self, frame_count: UInt64) raises -> List[Float32]:
+    def read(mut self, frame_count: UInt64) raises MaError -> List[Float32]:
         """Read up to frame_count frames; a short read means the end."""
         var samples = Int(frame_count) * Int(self._channels)
         var buf = List[Float32](capacity=samples)
@@ -290,63 +286,63 @@ struct ResourceDataBuffer(Movable):
 
         var rc = raw.rm_data_buffer_read(self._lib[], self._ptr, buf, frame_count)
         if rc.result != MA_SUCCESS and rc.result != MA_AT_END:
-            raise Error(self._lib[].describe("rm_data_buffer read failed", rc.result))
+            raise self._lib[].error("rm_data_buffer read failed", rc.result)
         buf.resize(Int(rc.value) * Int(self._channels), Float32(0))
         return buf^
 
-    def seek(mut self, frame_index: UInt64) raises:
+    def seek(mut self, frame_index: UInt64) raises MaError:
         var code = raw.rm_data_buffer_seek(self._lib[], self._ptr, frame_index)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("rm_data_buffer seek failed", code))
+            raise self._lib[].error("rm_data_buffer seek failed", code)
 
-    def data_format(self) raises -> DataFormat:
+    def data_format(self) raises MaError -> DataFormat:
         var rc = raw.rm_data_buffer_get_data_format(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("rm_data_buffer data format failed", rc.result))
+            raise self._lib[].error("rm_data_buffer data format failed", rc.result)
         return DataFormat(SampleFormat(rc.format), rc.channels, rc.sample_rate)
 
-    def cursor(self) raises -> UInt64:
+    def cursor(self) raises MaError -> UInt64:
         var rc = raw.rm_data_buffer_get_cursor(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("rm_data_buffer cursor failed", rc.result))
+            raise self._lib[].error("rm_data_buffer cursor failed", rc.result)
         return rc.value
 
-    def length(self) raises -> UInt64:
+    def length(self) raises MaError -> UInt64:
         var rc = raw.rm_data_buffer_get_length(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("rm_data_buffer length failed", rc.result))
+            raise self._lib[].error("rm_data_buffer length failed", rc.result)
         return rc.value
 
-    def available(self) raises -> UInt64:
+    def available(self) raises MaError -> UInt64:
         """Frames ready to read right now — the whole remainder once loaded."""
         var rc = raw.rm_data_buffer_get_available(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("rm_data_buffer available failed", rc.result))
+            raise self._lib[].error("rm_data_buffer available failed", rc.result)
         return rc.value
 
-    def load_result(self) raises -> Int:
+    def load_result(self) raises MaError -> MaResult:
         """The raw ma_result the manager recorded for this object's load."""
         var rc = raw.rm_data_buffer_result(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("rm_data_buffer result failed", rc.result))
+            raise self._lib[].error("rm_data_buffer result failed", rc.result)
         return rc.value
 
-    def set_looping(mut self, is_looping: Bool) raises:
+    def set_looping(mut self, is_looping: Bool) raises MaError:
         var code = raw.rm_data_buffer_set_looping(self._lib[], self._ptr, is_looping)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("rm_data_buffer set_looping failed", code))
+            raise self._lib[].error("rm_data_buffer set_looping failed", code)
 
-    def is_looping(self) raises -> Bool:
+    def is_looping(self) raises MaError -> Bool:
         var rc = raw.rm_data_buffer_is_looping(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("rm_data_buffer is_looping failed", rc.result))
+            raise self._lib[].error("rm_data_buffer is_looping failed", rc.result)
         return rc.value
 
-    def uninit(mut self) raises:
+    def uninit(mut self) raises MaError:
         """Release early; the handle stays valid but empty."""
         var code = raw.rm_data_buffer_uninit(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("rm_data_buffer uninit failed", code))
+            raise self._lib[].error("rm_data_buffer uninit failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():
@@ -383,26 +379,26 @@ struct ResourceDataStream(Movable):
         *,
         flags: UInt32 = 0,
         through_config: Bool = False,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """`through_config` takes miniaudio's config + notifications init path."""
         var lib = manager[]._lib.copy()
         var ptr = raw.rm_data_stream_alloc(lib[])
         if ptr == null_handle():
-            raise Error("rm_data_stream_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "rm_data_stream_alloc failed (out of memory)")
 
-        var code: Int
+        var code: MaResult
         if through_config:
             code = raw.rm_data_stream_init_ex(lib[], ptr, manager[]._ptr, path, flags)
         else:
             code = raw.rm_data_stream_init(lib[], ptr, manager[]._ptr, path, flags)
         if code != MA_SUCCESS:
             raw.rm_data_stream_free(lib[], ptr)
-            raise Error(lib[].describe("rm_data_stream init failed", code))
+            raise lib[].error("rm_data_stream init failed", code)
 
         var channels = raw.rm_data_stream_get_data_format(lib[], ptr).channels
         return Self(lib^, manager.copy(), ptr, channels if channels > 0 else 1)
 
-    def read(mut self, frame_count: UInt64) raises -> List[Float32]:
+    def read(mut self, frame_count: UInt64) raises MaError -> List[Float32]:
         """Read up to frame_count frames; a short read means the end."""
         var samples = Int(frame_count) * Int(self._channels)
         var buf = List[Float32](capacity=samples)
@@ -410,63 +406,63 @@ struct ResourceDataStream(Movable):
 
         var rc = raw.rm_data_stream_read(self._lib[], self._ptr, buf, frame_count)
         if rc.result != MA_SUCCESS and rc.result != MA_AT_END:
-            raise Error(self._lib[].describe("rm_data_stream read failed", rc.result))
+            raise self._lib[].error("rm_data_stream read failed", rc.result)
         buf.resize(Int(rc.value) * Int(self._channels), Float32(0))
         return buf^
 
-    def seek(mut self, frame_index: UInt64) raises:
+    def seek(mut self, frame_index: UInt64) raises MaError:
         var code = raw.rm_data_stream_seek(self._lib[], self._ptr, frame_index)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("rm_data_stream seek failed", code))
+            raise self._lib[].error("rm_data_stream seek failed", code)
 
-    def data_format(self) raises -> DataFormat:
+    def data_format(self) raises MaError -> DataFormat:
         var rc = raw.rm_data_stream_get_data_format(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("rm_data_stream data format failed", rc.result))
+            raise self._lib[].error("rm_data_stream data format failed", rc.result)
         return DataFormat(SampleFormat(rc.format), rc.channels, rc.sample_rate)
 
-    def cursor(self) raises -> UInt64:
+    def cursor(self) raises MaError -> UInt64:
         var rc = raw.rm_data_stream_get_cursor(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("rm_data_stream cursor failed", rc.result))
+            raise self._lib[].error("rm_data_stream cursor failed", rc.result)
         return rc.value
 
-    def length(self) raises -> UInt64:
+    def length(self) raises MaError -> UInt64:
         var rc = raw.rm_data_stream_get_length(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("rm_data_stream length failed", rc.result))
+            raise self._lib[].error("rm_data_stream length failed", rc.result)
         return rc.value
 
-    def available(self) raises -> UInt64:
+    def available(self) raises MaError -> UInt64:
         """Frames ready to read right now — the whole remainder once loaded."""
         var rc = raw.rm_data_stream_get_available(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("rm_data_stream available failed", rc.result))
+            raise self._lib[].error("rm_data_stream available failed", rc.result)
         return rc.value
 
-    def load_result(self) raises -> Int:
+    def load_result(self) raises MaError -> MaResult:
         """The raw ma_result the manager recorded for this object's load."""
         var rc = raw.rm_data_stream_result(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("rm_data_stream result failed", rc.result))
+            raise self._lib[].error("rm_data_stream result failed", rc.result)
         return rc.value
 
-    def set_looping(mut self, is_looping: Bool) raises:
+    def set_looping(mut self, is_looping: Bool) raises MaError:
         var code = raw.rm_data_stream_set_looping(self._lib[], self._ptr, is_looping)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("rm_data_stream set_looping failed", code))
+            raise self._lib[].error("rm_data_stream set_looping failed", code)
 
-    def is_looping(self) raises -> Bool:
+    def is_looping(self) raises MaError -> Bool:
         var rc = raw.rm_data_stream_is_looping(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("rm_data_stream is_looping failed", rc.result))
+            raise self._lib[].error("rm_data_stream is_looping failed", rc.result)
         return rc.value
 
-    def uninit(mut self) raises:
+    def uninit(mut self) raises MaError:
         """Release early; the handle stays valid but empty."""
         var code = raw.rm_data_stream_uninit(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("rm_data_stream uninit failed", code))
+            raise self._lib[].error("rm_data_stream uninit failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():
@@ -503,21 +499,21 @@ struct ResourceDataSource(Movable):
         *,
         flags: UInt32 = 0,
         through_config: Bool = False,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """`through_config` takes miniaudio's config + notifications init path."""
         var lib = manager[]._lib.copy()
         var ptr = raw.rm_data_source_alloc(lib[])
         if ptr == null_handle():
-            raise Error("rm_data_source_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "rm_data_source_alloc failed (out of memory)")
 
-        var code: Int
+        var code: MaResult
         if through_config:
             code = raw.rm_data_source_init_ex(lib[], ptr, manager[]._ptr, path, flags)
         else:
             code = raw.rm_data_source_init(lib[], ptr, manager[]._ptr, path, flags)
         if code != MA_SUCCESS:
             raw.rm_data_source_free(lib[], ptr)
-            raise Error(lib[].describe("rm_data_source init failed", code))
+            raise lib[].error("rm_data_source init failed", code)
 
         var channels = raw.rm_data_source_get_data_format(lib[], ptr).channels
         return Self(lib^, manager.copy(), ptr, channels if channels > 0 else 1)
@@ -525,20 +521,20 @@ struct ResourceDataSource(Movable):
     @staticmethod
     def create_copy(
         manager: ArcPointer[ResourceManager], existing: Self
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """A second reader over the same cached sound."""
         var lib = manager[]._lib.copy()
         var ptr = raw.rm_data_source_alloc(lib[])
         if ptr == null_handle():
-            raise Error("rm_data_source_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "rm_data_source_alloc failed (out of memory)")
 
         var code = raw.rm_data_source_init_copy(lib[], ptr, manager[]._ptr, existing._ptr)
         if code != MA_SUCCESS:
             raw.rm_data_source_free(lib[], ptr)
-            raise Error(lib[].describe("rm_data_source init_copy failed", code))
+            raise lib[].error("rm_data_source init_copy failed", code)
         return Self(lib^, manager.copy(), ptr, existing._channels)
 
-    def read(mut self, frame_count: UInt64) raises -> List[Float32]:
+    def read(mut self, frame_count: UInt64) raises MaError -> List[Float32]:
         """Read up to frame_count frames; a short read means the end."""
         var samples = Int(frame_count) * Int(self._channels)
         var buf = List[Float32](capacity=samples)
@@ -546,59 +542,59 @@ struct ResourceDataSource(Movable):
 
         var rc = raw.rm_data_source_read(self._lib[], self._ptr, buf, frame_count)
         if rc.result != MA_SUCCESS and rc.result != MA_AT_END:
-            raise Error(self._lib[].describe("rm_data_source read failed", rc.result))
+            raise self._lib[].error("rm_data_source read failed", rc.result)
         buf.resize(Int(rc.value) * Int(self._channels), Float32(0))
         return buf^
 
-    def seek(mut self, frame_index: UInt64) raises:
+    def seek(mut self, frame_index: UInt64) raises MaError:
         var code = raw.rm_data_source_seek(self._lib[], self._ptr, frame_index)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("rm_data_source seek failed", code))
+            raise self._lib[].error("rm_data_source seek failed", code)
 
-    def data_format(self) raises -> DataFormat:
+    def data_format(self) raises MaError -> DataFormat:
         var rc = raw.rm_data_source_get_data_format(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("rm_data_source data format failed", rc.result))
+            raise self._lib[].error("rm_data_source data format failed", rc.result)
         return DataFormat(SampleFormat(rc.format), rc.channels, rc.sample_rate)
 
-    def cursor(self) raises -> UInt64:
+    def cursor(self) raises MaError -> UInt64:
         var rc = raw.rm_data_source_get_cursor(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("rm_data_source cursor failed", rc.result))
+            raise self._lib[].error("rm_data_source cursor failed", rc.result)
         return rc.value
 
-    def length(self) raises -> UInt64:
+    def length(self) raises MaError -> UInt64:
         var rc = raw.rm_data_source_get_length(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("rm_data_source length failed", rc.result))
+            raise self._lib[].error("rm_data_source length failed", rc.result)
         return rc.value
 
-    def available(self) raises -> UInt64:
+    def available(self) raises MaError -> UInt64:
         """Frames ready to read right now — the whole remainder once loaded."""
         var rc = raw.rm_data_source_get_available(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("rm_data_source available failed", rc.result))
+            raise self._lib[].error("rm_data_source available failed", rc.result)
         return rc.value
 
-    def load_result(self) raises -> Int:
+    def load_result(self) raises MaError -> MaResult:
         """The raw ma_result the manager recorded for this object's load."""
         var rc = raw.rm_data_source_result(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("rm_data_source result failed", rc.result))
+            raise self._lib[].error("rm_data_source result failed", rc.result)
         return rc.value
 
-    def set_looping(mut self, is_looping: Bool) raises:
+    def set_looping(mut self, is_looping: Bool) raises MaError:
         var code = raw.rm_data_source_set_looping(self._lib[], self._ptr, is_looping)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("rm_data_source set_looping failed", code))
+            raise self._lib[].error("rm_data_source set_looping failed", code)
 
-    def is_looping(self) raises -> Bool:
+    def is_looping(self) raises MaError -> Bool:
         var rc = raw.rm_data_source_is_looping(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("rm_data_source is_looping failed", rc.result))
+            raise self._lib[].error("rm_data_source is_looping failed", rc.result)
         return rc.value
 
-    def map_read(mut self, frame_count: UInt64) raises -> List[Float32]:
+    def map_read(mut self, frame_count: UInt64) raises MaError -> List[Float32]:
         """Read through miniaudio's map/unmap pair instead of the read path."""
         var samples = Int(frame_count) * Int(self._channels)
         var buf = List[Float32](capacity=samples)
@@ -606,15 +602,15 @@ struct ResourceDataSource(Movable):
 
         var rc = raw.rm_data_source_map_read(self._lib[], self._ptr, buf, frame_count)
         if rc.result != MA_SUCCESS and rc.result != MA_AT_END:
-            raise Error(self._lib[].describe("rm_data_source map_read failed", rc.result))
+            raise self._lib[].error("rm_data_source map_read failed", rc.result)
         buf.resize(Int(rc.value) * Int(self._channels), Float32(0))
         return buf^
 
-    def uninit(mut self) raises:
+    def uninit(mut self) raises MaError:
         """Release early; the handle stays valid but empty."""
         var code = raw.rm_data_source_uninit(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("rm_data_source uninit failed", code))
+            raise self._lib[].error("rm_data_source uninit failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():

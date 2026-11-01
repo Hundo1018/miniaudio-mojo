@@ -5,6 +5,7 @@ A group is initialised against an engine handle (resolved C-side). Policy-free.
 """
 
 from miniaudio._lib import MaLib
+from miniaudio.result import MaResult
 from miniaudio._ffi.sound_raw import Vec3, MaCone
 
 
@@ -23,42 +24,42 @@ def sound_group_init(
     grp: OpaquePointer[MutUntrackedOrigin],
     engine: OpaquePointer[MutUntrackedOrigin],
     flags: UInt32,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_sound_group_init", Int32](grp, engine, flags)
     )
 
 
-def sound_group_uninit(lib: MaLib, grp: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_sound_group_uninit", Int32](grp))
+def sound_group_uninit(lib: MaLib, grp: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_sound_group_uninit", Int32](grp))
 
 
-def sound_group_start(lib: MaLib, grp: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_sound_group_start", Int32](grp))
+def sound_group_start(lib: MaLib, grp: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_sound_group_start", Int32](grp))
 
 
-def sound_group_stop(lib: MaLib, grp: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_sound_group_stop", Int32](grp))
+def sound_group_stop(lib: MaLib, grp: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_sound_group_stop", Int32](grp))
 
 
-def sound_group_set_volume(lib: MaLib, grp: OpaquePointer[MutUntrackedOrigin], volume: Float32) -> Int:
-    return Int(lib.handle.call["ma_shim_sound_group_set_volume", Int32](grp, volume))
+def sound_group_set_volume(lib: MaLib, grp: OpaquePointer[MutUntrackedOrigin], volume: Float32) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_sound_group_set_volume", Int32](grp, volume))
 
 
 def sound_group_get_volume(lib: MaLib, grp: OpaquePointer[MutUntrackedOrigin]) -> Float32:
     return lib.handle.call["ma_shim_sound_group_get_volume", Float32](grp)
 
 
-def sound_group_set_pan(lib: MaLib, grp: OpaquePointer[MutUntrackedOrigin], pan: Float32) -> Int:
-    return Int(lib.handle.call["ma_shim_sound_group_set_pan", Int32](grp, pan))
+def sound_group_set_pan(lib: MaLib, grp: OpaquePointer[MutUntrackedOrigin], pan: Float32) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_sound_group_set_pan", Int32](grp, pan))
 
 
 def sound_group_get_pan(lib: MaLib, grp: OpaquePointer[MutUntrackedOrigin]) -> Float32:
     return lib.handle.call["ma_shim_sound_group_get_pan", Float32](grp)
 
 
-def sound_group_set_pitch(lib: MaLib, grp: OpaquePointer[MutUntrackedOrigin], pitch: Float32) -> Int:
-    return Int(lib.handle.call["ma_shim_sound_group_set_pitch", Int32](grp, pitch))
+def sound_group_set_pitch(lib: MaLib, grp: OpaquePointer[MutUntrackedOrigin], pitch: Float32) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_sound_group_set_pitch", Int32](grp, pitch))
 
 
 def sound_group_get_pitch(lib: MaLib, grp: OpaquePointer[MutUntrackedOrigin]) -> Float32:
@@ -67,8 +68,8 @@ def sound_group_get_pitch(lib: MaLib, grp: OpaquePointer[MutUntrackedOrigin]) ->
 
 def sound_group_set_spatialization_enabled(
     lib: MaLib, grp: OpaquePointer[MutUntrackedOrigin], enabled: Bool
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_sound_group_set_spatialization_enabled", Int32](
             grp, Int32(1) if enabled else Int32(0)
         )
@@ -402,16 +403,16 @@ def sound_group_config_free(lib: MaLib, cfg: OpaquePointer[MutUntrackedOrigin]):
 
 def sound_group_config_init(
     lib: MaLib, cfg: OpaquePointer[MutUntrackedOrigin]
-) -> Int:
-    return Int(lib.handle.call["ma_shim_sound_group_config_init", Int32](cfg))
+) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_sound_group_config_init", Int32](cfg))
 
 
 def sound_group_config_init_for_engine(
     lib: MaLib,
     cfg: OpaquePointer[MutUntrackedOrigin],
     engine: OpaquePointer[MutUntrackedOrigin],
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_sound_group_config_init_for_engine", Int32](
             cfg, engine
         )
@@ -420,8 +421,8 @@ def sound_group_config_init_for_engine(
 
 def sound_group_config_set_flags(
     lib: MaLib, cfg: OpaquePointer[MutUntrackedOrigin], flags: UInt32
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_sound_group_config_set_flags", Int32](cfg, flags)
     )
 
@@ -431,9 +432,9 @@ def sound_group_config_set_parent(
     cfg: OpaquePointer[MutUntrackedOrigin],
     parent: OpaquePointer[MutUntrackedOrigin],
     input_bus: UInt32,
-) -> Int:
+) -> MaResult:
     """Attach the new group to a parent group's input bus (null parent clears)."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_sound_group_config_set_parent", Int32](
             cfg, parent, input_bus
         )
@@ -445,8 +446,8 @@ def sound_group_config_set_channels(
     cfg: OpaquePointer[MutUntrackedOrigin],
     channels_in: UInt32,
     channels_out: UInt32,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_sound_group_config_set_channels", Int32](
             cfg, channels_in, channels_out
         )
@@ -455,8 +456,8 @@ def sound_group_config_set_channels(
 
 def sound_group_config_set_volume_smooth_time(
     lib: MaLib, cfg: OpaquePointer[MutUntrackedOrigin], frames: UInt32
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_sound_group_config_set_volume_smooth_time", Int32](
             cfg, frames
         )
@@ -468,7 +469,7 @@ def sound_group_init_ex(
     grp: OpaquePointer[MutUntrackedOrigin],
     engine: OpaquePointer[MutUntrackedOrigin],
     cfg: OpaquePointer[MutUntrackedOrigin],
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_sound_group_init_ex", Int32](grp, engine, cfg)
     )

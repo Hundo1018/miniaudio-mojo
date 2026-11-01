@@ -16,7 +16,7 @@ possible. The callback therefore lives in C and pulls from the decoder. Use
 from std.memory import ArcPointer
 
 from miniaudio._lib import MaLib, null_handle
-from miniaudio.result import MA_SUCCESS
+from miniaudio.result import MaResult, MaError, MA_SUCCESS
 from miniaudio.decoder import Decoder
 from miniaudio.engine import Engine
 import miniaudio._ffi.device_raw as raw
@@ -87,16 +87,16 @@ struct Device(Movable):
         self._owner = None
 
     @staticmethod
-    def of_engine(engine: ArcPointer[Engine]) raises -> Self:
+    def of_engine(engine: ArcPointer[Engine]) raises MaError -> Self:
         """A non-owning view of the engine's playback device (ma_engine_get_device)."""
         var lib = engine[]._lib.copy()
         var ptr = raw.device_alloc(lib[])
         if ptr == null_handle():
-            raise Error("device_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "device_alloc failed (out of memory)")
         var code = raw.device_borrow_engine(lib[], ptr, engine[]._ptr)
         if code != MA_SUCCESS:
             raw.device_free(lib[], ptr)
-            raise Error(lib[].describe("engine device borrow failed", code))
+            raise lib[].error("engine device borrow failed", code)
         var view = Self(lib^, ptr, None)
         view._owner = engine.copy()
         return view^
@@ -108,7 +108,7 @@ struct Device(Movable):
         *,
         sample_rate: UInt32 = 0,
         use_null_backend: Bool = False,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """Opens a playback device that streams `source`. Call `start()` to play.
 
         `sample_rate` of 0 uses the decoder's native rate. `use_null_backend`
@@ -116,13 +116,13 @@ struct Device(Movable):
         """
         var ptr = raw.device_alloc(lib[])
         if ptr == null_handle():
-            raise Error("device_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "device_alloc failed (out of memory)")
         var code = raw.device_init_playback_from_decoder(
             lib[], ptr, source._ptr, sample_rate, use_null_backend
         )
         if code != MA_SUCCESS:
             raw.device_free(lib[], ptr)
-            raise Error(lib[].describe("device init for playback failed", code))
+            raise lib[].error("device init for playback failed", code)
         return Self(lib.copy(), ptr, source^)
 
     @staticmethod
@@ -132,7 +132,7 @@ struct Device(Movable):
         var backends: List[Int32],
         *,
         sample_rate: UInt32 = 0,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """Opens a playback device, selecting the backend from a priority list.
 
         `backends` holds ma_backend codes in priority order; an empty list uses
@@ -141,24 +141,24 @@ struct Device(Movable):
         """
         var ptr = raw.device_alloc(lib[])
         if ptr == null_handle():
-            raise Error("device_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "device_alloc failed (out of memory)")
         var code = raw.device_init_ex_playback_from_decoder(
             lib[], ptr, source._ptr, backends, sample_rate
         )
         if code != MA_SUCCESS:
             raw.device_free(lib[], ptr)
-            raise Error(lib[].describe("device init_ex for playback failed", code))
+            raise lib[].error("device init_ex for playback failed", code)
         return Self(lib.copy(), ptr, source^)
 
-    def start(mut self) raises:
+    def start(mut self) raises MaError:
         var code = raw.device_start(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("device start failed", code))
+            raise self._lib[].error("device start failed", code)
 
-    def stop(mut self) raises:
+    def stop(mut self) raises MaError:
         var code = raw.device_stop(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("device stop failed", code))
+            raise self._lib[].error("device stop failed", code)
 
     def channels(self) -> UInt32:
         return raw.device_get_channels(self._lib[], self._ptr)
@@ -176,83 +176,83 @@ struct Device(Movable):
     def is_started(self) -> Bool:
         return raw.device_is_started(self._lib[], self._ptr)
 
-    def set_master_volume(mut self, volume: Float32) raises:
+    def set_master_volume(mut self, volume: Float32) raises MaError:
         """Sets the linear master volume (0 = silence, 1 = unity gain)."""
         var code = raw.device_set_master_volume(self._lib[], self._ptr, volume)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("device set_master_volume failed", code))
+            raise self._lib[].error("device set_master_volume failed", code)
 
-    def master_volume(self) raises -> Float32:
+    def master_volume(self) raises MaError -> Float32:
         var r = raw.device_get_master_volume(self._lib[], self._ptr)
         if r.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("device get_master_volume failed", r.result))
+            raise self._lib[].error("device get_master_volume failed", r.result)
         return r.value
 
-    def set_master_volume_db(mut self, gain_db: Float32) raises:
+    def set_master_volume_db(mut self, gain_db: Float32) raises MaError:
         """Sets the master volume in decibels (0 dB = unity gain)."""
         var code = raw.device_set_master_volume_db(self._lib[], self._ptr, gain_db)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("device set_master_volume_db failed", code))
+            raise self._lib[].error("device set_master_volume_db failed", code)
 
-    def master_volume_db(self) raises -> Float32:
+    def master_volume_db(self) raises MaError -> Float32:
         var r = raw.device_get_master_volume_db(self._lib[], self._ptr)
         if r.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("device get_master_volume_db failed", r.result))
+            raise self._lib[].error("device get_master_volume_db failed", r.result)
         return r.value
 
-    def name(self, device_type: Int = DEVICE_TYPE_PLAYBACK) raises -> String:
+    def name(self, device_type: Int = DEVICE_TYPE_PLAYBACK) raises MaError -> String:
         """The device's name for the given device type."""
         var r = raw.device_get_name(self._lib[], self._ptr, device_type)
         if r.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("device get_name failed", r.result))
+            raise self._lib[].error("device get_name failed", r.result)
         return r.value
 
-    def context_backend(self) raises -> UInt32:
+    def context_backend(self) raises MaError -> UInt32:
         """The ma_backend code the device's context is running on."""
         var r = raw.device_get_context_backend(self._lib[], self._ptr)
         if r.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("device get_context_backend failed", r.result))
+            raise self._lib[].error("device get_context_backend failed", r.result)
         return r.value
 
-    def has_log(self) raises -> Bool:
+    def has_log(self) raises MaError -> Bool:
         """Whether the device exposes a log object (borrowed from its context)."""
         var r = raw.device_has_log(self._lib[], self._ptr)
         if r.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("device get_log failed", r.result))
+            raise self._lib[].error("device get_log failed", r.result)
         return r.value
 
     def id_equals(
         self, other: Device, device_type: Int = DEVICE_TYPE_PLAYBACK
-    ) raises -> Bool:
+    ) raises MaError -> Bool:
         """Whether this device and `other` were opened on the same device id."""
         var r = raw.device_id_equal(
             self._lib[], self._ptr, other._ptr, device_type
         )
         if r.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("device id_equal failed", r.result))
+            raise self._lib[].error("device id_equal failed", r.result)
         return r.value
 
-    def info(mut self, device_type: Int = DEVICE_TYPE_PLAYBACK) raises -> DeviceInfo:
+    def info(mut self, device_type: Int = DEVICE_TYPE_PLAYBACK) raises MaError -> DeviceInfo:
         """Loads and returns a self-contained snapshot of the device's info."""
         var code = raw.device_info_load(self._lib[], self._ptr, device_type)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("device get_info failed", code))
+            raise self._lib[].error("device get_info failed", code)
 
         var name_r = raw.device_info_name(self._lib[], self._ptr)
         if name_r.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("device info name failed", name_r.result))
+            raise self._lib[].error("device info name failed", name_r.result)
         var default_r = raw.device_info_is_default(self._lib[], self._ptr)
         if default_r.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("device info is_default failed", default_r.result))
+            raise self._lib[].error("device info is_default failed", default_r.result)
         var count_r = raw.device_info_native_data_format_count(self._lib[], self._ptr)
         if count_r.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("device info format count failed", count_r.result))
+            raise self._lib[].error("device info format count failed", count_r.result)
 
         var formats = List[NativeDataFormat]()
         for i in range(Int(count_r.value)):
             var f = raw.device_info_native_data_format(self._lib[], self._ptr, UInt32(i))
             if f.result != MA_SUCCESS:
-                raise Error(self._lib[].describe("device info format failed", f.result))
+                raise self._lib[].error("device info format failed", f.result)
             formats.append(
                 NativeDataFormat(f.format, f.channels, f.sample_rate, f.flags)
             )
@@ -264,7 +264,7 @@ struct Device(Movable):
         channels: UInt32,
         sample_rate: UInt32,
         flags: UInt32 = 0,
-    ) raises:
+    ) raises MaError:
         """Appends a native data format to the most recently loaded info snapshot.
 
         Requires a prior `info()` call to populate the snapshot; mirrors what a
@@ -274,9 +274,9 @@ struct Device(Movable):
             self._lib[], self._ptr, format, channels, sample_rate, flags
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("device add_native_data_format failed", code))
+            raise self._lib[].error("device add_native_data_format failed", code)
 
-    def pump(mut self, mut out: List[Float32], frame_count: UInt32) raises:
+    def pump(mut self, mut out: List[Float32], frame_count: UInt32) raises MaError:
         """Drives the data callback synchronously, filling `out` with frame_count
         frames — offline rendering without starting a real-time thread.
 
@@ -286,7 +286,7 @@ struct Device(Movable):
             self._lib[], self._ptr, out, frame_count
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("device handle_backend_data_callback failed", code))
+            raise self._lib[].error("device handle_backend_data_callback failed", code)
 
     def __deinit__(deinit self):
         # Uninit the device first (stops + joins the audio thread) so the
@@ -315,7 +315,7 @@ struct JobResult(Copyable, Movable):
     result == MA_CANCELLED; an empty non-blocking queue as MA_NO_DATA_AVAILABLE.
     """
 
-    var result: Int
+    var result: MaResult
     var code: UInt16
 
 
@@ -346,25 +346,25 @@ struct DeviceJobThread(Movable):
         no_thread: Bool = True,
         capacity: UInt32 = 0,
         non_blocking: Bool = False,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """Creates a job thread. `capacity` of 0 uses miniaudio's default size."""
         var ptr = raw.device_job_thread_alloc(lib[])
         if ptr == null_handle():
-            raise Error("device_job_thread_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "device_job_thread_alloc failed (out of memory)")
         var flags = JOB_QUEUE_FLAG_NON_BLOCKING if non_blocking else UInt32(0)
         var code = raw.device_job_thread_init(
             lib[], ptr, no_thread, capacity, flags
         )
         if code != MA_SUCCESS:
             raw.device_job_thread_free(lib[], ptr)
-            raise Error(lib[].describe("device_job_thread init failed", code))
+            raise lib[].error("device_job_thread init failed", code)
         return Self(lib.copy(), ptr)
 
-    def post(mut self, job_code: UInt16) raises:
+    def post(mut self, job_code: UInt16) raises MaError:
         """Enqueues a job of the given ma_job_type code."""
         var code = raw.device_job_thread_post(self._lib[], self._ptr, job_code)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("device_job_thread post failed", code))
+            raise self._lib[].error("device_job_thread post failed", code)
 
     def next(mut self) -> JobResult:
         """Dequeues the next job. Does not raise: MA_NO_DATA_AVAILABLE (empty,

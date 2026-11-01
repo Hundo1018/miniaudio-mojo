@@ -32,7 +32,7 @@ Quirks of miniaudio 0.11.25 that the shim or these wrappers account for:
 from std.memory import ArcPointer
 
 from miniaudio._lib import MaLib, null_handle
-from miniaudio.result import MA_SUCCESS
+from miniaudio.result import MaResult, MaError, MA_SUCCESS
 import miniaudio._ffi.util_raw as raw
 
 comptime ERRNO_EINVAL: Int = raw.ERRNO_EINVAL
@@ -70,19 +70,19 @@ struct MemoryBlock(Movable):
         self._size = size
 
     @staticmethod
-    def allocate(lib: ArcPointer[MaLib], size: UInt64) raises -> Self:
+    def allocate(lib: ArcPointer[MaLib], size: UInt64) raises MaError -> Self:
         """Uninitialised bytes (ma_malloc). A zero size is refused."""
         var ptr = raw.mem_malloc(lib[], size)
         if ptr == null_handle():
-            raise Error("ma_malloc failed (zero size or out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "ma_malloc failed (zero size or out of memory)")
         return Self(lib.copy(), ptr, size)
 
     @staticmethod
-    def zeroed(lib: ArcPointer[MaLib], size: UInt64) raises -> Self:
+    def zeroed(lib: ArcPointer[MaLib], size: UInt64) raises MaError -> Self:
         """Zero-filled bytes (ma_calloc)."""
         var ptr = raw.mem_calloc(lib[], size)
         if ptr == null_handle():
-            raise Error("ma_calloc failed (zero size or out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "ma_calloc failed (zero size or out of memory)")
         return Self(lib.copy(), ptr, size)
 
     def size(self) -> UInt64:
@@ -91,24 +91,24 @@ struct MemoryBlock(Movable):
     def address(self) -> Int:
         return Int(self._ptr)
 
-    def load(self, index: Int) raises -> UInt8:
+    def load(self, index: Int) raises MaError -> UInt8:
         if index < 0 or UInt64(index) >= self._size:
-            raise Error("MemoryBlock.load: index out of range")
+            raise MaError(MaResult.OUT_OF_RANGE, "MemoryBlock.load: index out of range")
         return self._ptr.unsafe_bitcast[UInt8]()[unsafe_offset=index]
 
-    def store(mut self, index: Int, value: UInt8) raises:
+    def store(mut self, index: Int, value: UInt8) raises MaError:
         if index < 0 or UInt64(index) >= self._size:
-            raise Error("MemoryBlock.store: index out of range")
+            raise MaError(MaResult.OUT_OF_RANGE, "MemoryBlock.store: index out of range")
         self._ptr.unsafe_bitcast[UInt8]()[unsafe_offset=index] = value
 
-    def resize(mut self, new_size: UInt64) raises:
+    def resize(mut self, new_size: UInt64) raises MaError:
         """Grows or shrinks the block (ma_realloc); the bytes that fit are kept.
 
         On failure the block is unchanged.
         """
         var ptr = raw.mem_realloc(self._lib[], self._ptr, new_size)
         if ptr == null_handle():
-            raise Error("ma_realloc failed (zero size or out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "ma_realloc failed (zero size or out of memory)")
         self._ptr = ptr
         self._size = new_size
 
@@ -138,13 +138,11 @@ struct AlignedBlock(Movable):
         self._alignment = alignment
 
     @staticmethod
-    def allocate(lib: ArcPointer[MaLib], size: UInt64, alignment: UInt64) raises -> Self:
+    def allocate(lib: ArcPointer[MaLib], size: UInt64, alignment: UInt64) raises MaError -> Self:
         """`alignment` must be a power of two."""
         var ptr = raw.mem_aligned_malloc(lib[], size, alignment)
         if ptr == null_handle():
-            raise Error(
-                "ma_aligned_malloc failed (zero size, alignment not a power of two, or out of memory)"
-            )
+            raise MaError(MaResult.OUT_OF_MEMORY, "ma_aligned_malloc failed (zero size, alignment not a power of two, or out of memory)")
         return Self(lib.copy(), ptr, size, alignment)
 
     def size(self) -> UInt64:
@@ -159,14 +157,14 @@ struct AlignedBlock(Movable):
     def is_aligned(self) -> Bool:
         return UInt64(Int(self._ptr)) % self._alignment == 0
 
-    def load(self, index: Int) raises -> UInt8:
+    def load(self, index: Int) raises MaError -> UInt8:
         if index < 0 or UInt64(index) >= self._size:
-            raise Error("AlignedBlock.load: index out of range")
+            raise MaError(MaResult.OUT_OF_RANGE, "AlignedBlock.load: index out of range")
         return self._ptr.unsafe_bitcast[UInt8]()[unsafe_offset=index]
 
-    def store(mut self, index: Int, value: UInt8) raises:
+    def store(mut self, index: Int, value: UInt8) raises MaError:
         if index < 0 or UInt64(index) >= self._size:
-            raise Error("AlignedBlock.store: index out of range")
+            raise MaError(MaResult.OUT_OF_RANGE, "AlignedBlock.store: index out of range")
         self._ptr.unsafe_bitcast[UInt8]()[unsafe_offset=index] = value
 
     def __deinit__(deinit self):
@@ -299,7 +297,7 @@ def wcscpy_s(lib: ArcPointer[MaLib], src: String, capacity: Int) -> CrtResult:
     return CrtResult(code, _text_of_wide(dst))
 
 
-def fopen_result(lib: ArcPointer[MaLib], path: String, mode: String = "rb") -> Int:
+def fopen_result(lib: ArcPointer[MaLib], path: String, mode: String = "rb") -> MaResult:
     """The ma_result of opening `path` (the file is closed again): MA_SUCCESS,
     MA_DOES_NOT_EXIST for a missing file, MA_IS_DIRECTORY ... as miniaudio maps errno."""
     return raw.crt_fopen(lib[], raw.c_bytes(path), raw.c_bytes(mode))
@@ -327,28 +325,28 @@ struct DynamicLibrary(Movable):
         self._handle = handle
 
     @staticmethod
-    def load(lib: ArcPointer[MaLib], filename: String) raises -> Self:
+    def load(lib: ArcPointer[MaLib], filename: String) raises MaError -> Self:
         """Raises when the library cannot be loaded (miniaudio does not log that as an error)."""
         var handle = raw.dl_open(lib[], raw.c_bytes(filename))
         if handle == null_handle():
-            raise Error("ma_dlopen failed to load '" + filename + "'")
+            raise MaError(MaResult.DOES_NOT_EXIST, "ma_dlopen failed to load '" + filename + "'")
         return Self(lib.copy(), handle)
 
-    def symbol(self, name: String) raises -> OpaquePointer[MutUntrackedOrigin]:
+    def symbol(self, name: String) raises MaError -> OpaquePointer[MutUntrackedOrigin]:
         """The address of the symbol; raises when the library does not export it."""
         var sym = raw.dl_sym(self._lib[], self._handle, raw.c_bytes(name))
         if sym == null_handle():
-            raise Error("ma_dlsym: no symbol '" + name + "'")
+            raise MaError(MaResult.DOES_NOT_EXIST, "ma_dlsym: no symbol '" + name + "'")
         return sym
 
     def has_symbol(self, name: String) -> Bool:
         return raw.dl_sym(self._lib[], self._handle, raw.c_bytes(name)) != null_handle()
 
-    def call_f64(self, name: String, arg: Float64) raises -> Float64:
+    def call_f64(self, name: String, arg: Float64) raises MaError -> Float64:
         """Resolves a `double f(double)` symbol such as cos and calls it."""
         var rc = raw.dl_call_f64(self._lib[], self.symbol(name), arg)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("dl call failed", rc.result))
+            raise self._lib[].error("dl call failed", rc.result)
         return rc.value
 
     def __deinit__(deinit self):
@@ -374,33 +372,33 @@ struct Spinlock(Movable):
         self._ptr = ptr
 
     @staticmethod
-    def create(lib: ArcPointer[MaLib]) raises -> Self:
+    def create(lib: ArcPointer[MaLib]) raises MaError -> Self:
         var ptr = raw.spinlock_alloc(lib[])
         if ptr == null_handle():
-            raise Error("spinlock_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "spinlock_alloc failed (out of memory)")
         return Self(lib.copy(), ptr)
 
-    def lock(mut self) raises:
+    def lock(mut self) raises MaError:
         """Spins, yielding the CPU while it waits."""
         var code = raw.spinlock_lock(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("spinlock lock failed", code))
+            raise self._lib[].error("spinlock lock failed", code)
 
-    def lock_noyield(mut self) raises:
+    def lock_noyield(mut self) raises MaError:
         """Spins without yielding."""
         var code = raw.spinlock_lock_noyield(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("spinlock lock_noyield failed", code))
+            raise self._lib[].error("spinlock lock_noyield failed", code)
 
-    def unlock(mut self) raises:
+    def unlock(mut self) raises MaError:
         var code = raw.spinlock_unlock(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("spinlock unlock failed", code))
+            raise self._lib[].error("spinlock unlock failed", code)
 
-    def is_locked(self) raises -> Bool:
+    def is_locked(self) raises MaError -> Bool:
         var rc = raw.spinlock_is_locked(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("spinlock is_locked failed", rc.result))
+            raise self._lib[].error("spinlock is_locked failed", rc.result)
         return rc.value
 
     def __deinit__(deinit self):
@@ -441,11 +439,11 @@ struct DuplexRingBuffer(Movable):
         sample_rate: UInt32,
         capture_internal_sample_rate: UInt32,
         capture_period_size_in_frames: UInt32,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """`sample_rate` is the playback rate; the capture side runs at the internal rate."""
         var ptr = raw.duplex_rb_alloc(lib[])
         if ptr == null_handle():
-            raise Error("duplex_rb_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "duplex_rb_alloc failed (out of memory)")
         var code = raw.duplex_rb_init(
             lib[],
             ptr,
@@ -457,38 +455,38 @@ struct DuplexRingBuffer(Movable):
         )
         if code != MA_SUCCESS:
             raw.duplex_rb_free(lib[], ptr)
-            raise Error(lib[].describe("duplex_rb init failed", code))
+            raise lib[].error("duplex_rb init failed", code)
         return Self(lib.copy(), ptr, channels)
 
-    def write(mut self, frames: List[Float32]) raises -> UInt32:
+    def write(mut self, frames: List[Float32]) raises MaError -> UInt32:
         """Queues as many whole frames of `frames` as fit; returns how many."""
         var frame_count = UInt32(len(frames) // Int(self._channels))
         var rc = raw.duplex_rb_write(self._lib[], self._ptr, frames, frame_count)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("duplex_rb write failed", rc.result))
+            raise self._lib[].error("duplex_rb write failed", rc.result)
         return rc.value
 
-    def read(mut self, frame_count: UInt32) raises -> List[Float32]:
+    def read(mut self, frame_count: UInt32) raises MaError -> List[Float32]:
         """Takes up to `frame_count` frames; the list holds only what was read."""
         var samples = Int(frame_count) * Int(self._channels)
         var buf = List[Float32]()
         buf.resize(samples, Float32(0))
         var rc = raw.duplex_rb_read(self._lib[], self._ptr, buf, frame_count)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("duplex_rb read failed", rc.result))
+            raise self._lib[].error("duplex_rb read failed", rc.result)
         buf.resize(Int(rc.value) * Int(self._channels), Float32(0))
         return buf^
 
-    def available_read(self) raises -> UInt32:
+    def available_read(self) raises MaError -> UInt32:
         var rc = raw.duplex_rb_available_read(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("duplex_rb available_read failed", rc.result))
+            raise self._lib[].error("duplex_rb available_read failed", rc.result)
         return rc.value
 
-    def available_write(self) raises -> UInt32:
+    def available_write(self) raises MaError -> UInt32:
         var rc = raw.duplex_rb_available_write(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("duplex_rb available_write failed", rc.result))
+            raise self._lib[].error("duplex_rb available_write failed", rc.result)
         return rc.value
 
     def __deinit__(deinit self):
@@ -515,24 +513,24 @@ struct Version(Copyable, Movable):
         return String(self.major) + "." + String(self.minor) + "." + String(self.revision)
 
 
-def version(lib: ArcPointer[MaLib]) raises -> Version:
+def version(lib: ArcPointer[MaLib]) raises MaError -> Version:
     var rc = raw.runtime_version(lib[])
     if rc.result != MA_SUCCESS:
-        raise Error(lib[].describe("runtime version failed", rc.result))
+        raise lib[].error("runtime version failed", rc.result)
     return Version(rc.major, rc.minor, rc.revision)
 
 
-def is_backend_enabled(lib: ArcPointer[MaLib], backend: Int) raises -> Bool:
+def is_backend_enabled(lib: ArcPointer[MaLib], backend: Int) raises MaError -> Bool:
     """Whether this build includes that backend (a ma_backend code, 0..14)."""
     var rc = raw.runtime_is_backend_enabled(lib[], backend)
     if rc.result != MA_SUCCESS:
-        raise Error(lib[].describe("is_backend_enabled failed", rc.result))
+        raise lib[].error("is_backend_enabled failed", rc.result)
     return rc.value
 
 
-def is_loopback_supported(lib: ArcPointer[MaLib], backend: Int) raises -> Bool:
+def is_loopback_supported(lib: ArcPointer[MaLib], backend: Int) raises MaError -> Bool:
     """Whether that backend can capture what is being played. Only WASAPI can."""
     var rc = raw.runtime_is_loopback_supported(lib[], backend)
     if rc.result != MA_SUCCESS:
-        raise Error(lib[].describe("is_loopback_supported failed", rc.result))
+        raise lib[].error("is_loopback_supported failed", rc.result)
     return rc.value

@@ -11,7 +11,7 @@ from std.builtin.variadics import TypeList
 from std.memory import ArcPointer
 
 from miniaudio._lib import MaLib, null_handle
-from miniaudio.result import MA_SUCCESS
+from miniaudio.result import MaResult, MaError, MA_SUCCESS
 from miniaudio.decoder import SampleFormat, SAMPLE_FORMAT_F32
 import miniaudio._ffi.encoder_raw as raw
 
@@ -87,16 +87,16 @@ struct Encoder(Movable):
         sample_rate: UInt32,
         format: SampleFormat = SAMPLE_FORMAT_F32,
         encoding_format: EncodingFormat = ENCODING_FORMAT_WAV,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         var ptr = raw.encoder_alloc(lib[])
         if ptr == null_handle():
-            raise Error("encoder_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "encoder_alloc failed (out of memory)")
         var code = raw.encoder_init_file(
             lib[], ptr, path, encoding_format.code, format.code, channels, sample_rate
         )
         if code != MA_SUCCESS:
             raw.encoder_free(lib[], ptr)
-            raise Error(lib[].describe("encoder init to file failed", code))
+            raise lib[].error("encoder init to file failed", code)
         return Self(lib.copy(), ptr, channels)
 
     @staticmethod
@@ -108,7 +108,7 @@ struct Encoder(Movable):
         sample_rate: UInt32,
         format: SampleFormat = SAMPLE_FORMAT_F32,
         encoding_format: EncodingFormat = ENCODING_FORMAT_WAV,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """Open an output file through miniaudio's default (stdio) VFS.
 
         Behaves like `to_file` but routes I/O through the VFS abstraction with a
@@ -117,19 +117,19 @@ struct Encoder(Movable):
         """
         var ptr = raw.encoder_alloc(lib[])
         if ptr == null_handle():
-            raise Error("encoder_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "encoder_alloc failed (out of memory)")
         var code = raw.encoder_init_file_vfs(
             lib[], ptr, path, encoding_format.code, format.code, channels, sample_rate
         )
         if code != MA_SUCCESS:
             raw.encoder_free(lib[], ptr)
-            raise Error(lib[].describe("encoder init to file (vfs) failed", code))
+            raise lib[].error("encoder init to file (vfs) failed", code)
         return Self(lib.copy(), ptr, channels)
 
     def channels(self) -> UInt32:
         return self._channels
 
-    def write(mut self, frames: List[Float32]) raises -> UInt64:
+    def write(mut self, frames: List[Float32]) raises MaError -> UInt64:
         """Writes interleaved frames; returns the number of frames written.
 
         `frames` is interleaved (len == frame_count * channels). The frame
@@ -137,11 +137,11 @@ struct Encoder(Movable):
         """
         var ch = Int(self._channels)
         if ch == 0:
-            raise Error("encoder has unknown channel count")
+            raise MaError(MaResult.INVALID_DATA, "encoder has unknown channel count")
         var frame_count = UInt64(len(frames) // ch)
         var c = raw.encoder_write_pcm_frames(self._lib[], self._ptr, frames, frame_count)
         if c.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("encoder write failed", c.result))
+            raise self._lib[].error("encoder write failed", c.result)
         return c.value
 
     def __deinit__(deinit self):

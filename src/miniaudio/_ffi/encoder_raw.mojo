@@ -7,6 +7,7 @@ This is the layer the TDD contract tests target directly.
 """
 
 from miniaudio._lib import MaLib
+from miniaudio.result import MaResult
 from miniaudio._ffi.decoder_raw import MaCount
 
 
@@ -28,9 +29,9 @@ def encoder_init_file(
     format: Int,
     channels: UInt32,
     sample_rate: UInt32,
-) -> Int:
+) -> MaResult:
     var path_c = path + "\x00"
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_encoder_init_file", Int32](
             enc,
             path_c.as_bytes().unsafe_ptr(),
@@ -50,10 +51,10 @@ def encoder_init_file_vfs(
     format: Int,
     channels: UInt32,
     sample_rate: UInt32,
-) -> Int:
+) -> MaResult:
     """Init to a file path through the VFS API (default stdio VFS)."""
     var path_c = path + "\x00"
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_encoder_init_file_vfs", Int32](
             enc,
             path_c.as_bytes().unsafe_ptr(),
@@ -65,8 +66,8 @@ def encoder_init_file_vfs(
     )
 
 
-def encoder_uninit(lib: MaLib, enc: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_encoder_uninit", Int32](enc))
+def encoder_uninit(lib: MaLib, enc: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_encoder_uninit", Int32](enc))
 
 
 def encoder_write_pcm_frames(
@@ -80,7 +81,7 @@ def encoder_write_pcm_frames(
     Returns MaCount(result_code, frames_written).
     """
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_encoder_write_pcm_frames", Int32](
             enc,
             input.unsafe_ptr(),

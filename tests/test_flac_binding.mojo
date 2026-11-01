@@ -8,6 +8,7 @@ functions are exercised, positive and negative.
 """
 
 from std.testing import assert_equal, assert_true, TestSuite
+from miniaudio.result import MaResult
 
 from miniaudio._lib import MaLib, null_handle
 from miniaudio.result import MA_SUCCESS, MA_INVALID_ARGS, MA_AT_END
@@ -260,32 +261,32 @@ def test_null_pointer_arguments_rejected() raises:
     var h = _open(lib)
     var n = null_handle()
     assert_equal(
-        Int(lib.handle.call["ma_shim_flac_init_file", Int32](h, n, Int32(FMT_F32), UInt32(0))),
+        MaResult(lib.handle.call["ma_shim_flac_init_file", Int32](h, n, Int32(FMT_F32), UInt32(0))),
         MA_INVALID_ARGS,
     )
     var frames = [UInt64(0)]
     assert_equal(
-        Int(lib.handle.call["ma_shim_flac_read_pcm_frames", Int32](
+        MaResult(lib.handle.call["ma_shim_flac_read_pcm_frames", Int32](
             h, n, UInt64(64), UInt64(4), frames.unsafe_ptr())),
         MA_INVALID_ARGS,
     )
     assert_equal(
-        Int(lib.handle.call["ma_shim_flac_get_cursor_in_pcm_frames", Int32](h, n)),
+        MaResult(lib.handle.call["ma_shim_flac_get_cursor_in_pcm_frames", Int32](h, n)),
         MA_INVALID_ARGS,
     )
     assert_equal(
-        Int(lib.handle.call["ma_shim_flac_get_length_in_pcm_frames", Int32](h, n)),
+        MaResult(lib.handle.call["ma_shim_flac_get_length_in_pcm_frames", Int32](h, n)),
         MA_INVALID_ARGS,
     )
     # Every output pointer of get_data_format is optional.
     assert_equal(
-        Int(lib.handle.call["ma_shim_flac_get_data_format", Int32](h, n, n, n, n, UInt32(0))),
+        MaResult(lib.handle.call["ma_shim_flac_get_data_format", Int32](h, n, n, n, n, UInt32(0))),
         MA_SUCCESS,
     )
     # read without an frames_read out-pointer still works.
     var buf = _zeros(8)
     assert_equal(
-        Int(lib.handle.call["ma_shim_flac_read_pcm_frames", Int32](
+        MaResult(lib.handle.call["ma_shim_flac_read_pcm_frames", Int32](
             h, buf.unsafe_ptr(), UInt64(32), UInt64(4), n)),
         MA_SUCCESS,
     )

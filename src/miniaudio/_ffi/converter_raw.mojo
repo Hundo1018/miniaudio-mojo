@@ -19,6 +19,7 @@ ma_format code and is format-agnostic.
 """
 
 from miniaudio._lib import MaLib
+from miniaudio.result import MaResult
 from miniaudio._ffi.decoder_raw import MaCount
 
 
@@ -26,7 +27,7 @@ from miniaudio._ffi.decoder_raw import MaCount
 struct MaProcess(Copyable, Movable):
     """Raw (result_code, frames consumed, frames produced) triple for process."""
 
-    var result: Int
+    var result: MaResult
     var frames_in: UInt64
     var frames_out: UInt64
 
@@ -35,7 +36,7 @@ struct MaProcess(Copyable, Movable):
 struct MaChannelMap(Movable):
     """Raw (result_code, channel map) pair for the channel-map getters."""
 
-    var result: Int
+    var result: MaResult
     var value: List[UInt8]
 
 
@@ -62,7 +63,7 @@ def resampler_get_heap_size(
 ) -> MaCount:
     """Working-heap size for this configuration, without initialising anything."""
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_resampler_get_heap_size", Int32](
             Int32(format),
             channels,
@@ -83,8 +84,8 @@ def resampler_init(
     sample_rate_in: UInt32,
     sample_rate_out: UInt32,
     algorithm: Int,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_resampler_init", Int32](
             rs,
             Int32(format),
@@ -104,9 +105,9 @@ def resampler_init_preallocated(
     sample_rate_in: UInt32,
     sample_rate_out: UInt32,
     algorithm: Int,
-) -> Int:
+) -> MaResult:
     """Init through miniaudio's preallocated-heap path with a shim-owned block."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_resampler_init_preallocated", Int32](
             rs,
             Int32(format),
@@ -118,8 +119,8 @@ def resampler_init_preallocated(
     )
 
 
-def resampler_uninit(lib: MaLib, rs: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_resampler_uninit", Int32](rs))
+def resampler_uninit(lib: MaLib, rs: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_resampler_uninit", Int32](rs))
 
 
 def resampler_process(
@@ -133,7 +134,7 @@ def resampler_process(
     """Converts up to frame_count_in frames into at most frame_count_out frames."""
     var in_holder = [frame_count_in]
     var out_holder = [frame_count_out]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_resampler_process", Int32](
             rs,
             src.unsafe_ptr(),
@@ -150,16 +151,16 @@ def resampler_set_rate(
     rs: OpaquePointer[MutUntrackedOrigin],
     rate_in: UInt32,
     rate_out: UInt32,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_resampler_set_rate", Int32](rs, rate_in, rate_out)
     )
 
 
 def resampler_set_rate_ratio(
     lib: MaLib, rs: OpaquePointer[MutUntrackedOrigin], ratio: Float32
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_resampler_set_rate_ratio", Int32](rs, ratio)
     )
 
@@ -168,7 +169,7 @@ def resampler_get_input_latency(
     lib: MaLib, rs: OpaquePointer[MutUntrackedOrigin]
 ) -> MaCount:
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_resampler_get_input_latency", Int32](
             rs, holder.unsafe_ptr()
         )
@@ -180,7 +181,7 @@ def resampler_get_output_latency(
     lib: MaLib, rs: OpaquePointer[MutUntrackedOrigin]
 ) -> MaCount:
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_resampler_get_output_latency", Int32](
             rs, holder.unsafe_ptr()
         )
@@ -192,7 +193,7 @@ def resampler_get_required_input_frame_count(
     lib: MaLib, rs: OpaquePointer[MutUntrackedOrigin], output_frame_count: UInt64
 ) -> MaCount:
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_resampler_get_required_input_frame_count", Int32](
             rs, output_frame_count, holder.unsafe_ptr()
         )
@@ -204,7 +205,7 @@ def resampler_get_expected_output_frame_count(
     lib: MaLib, rs: OpaquePointer[MutUntrackedOrigin], input_frame_count: UInt64
 ) -> MaCount:
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_resampler_get_expected_output_frame_count", Int32](
             rs, input_frame_count, holder.unsafe_ptr()
         )
@@ -212,8 +213,8 @@ def resampler_get_expected_output_frame_count(
     return MaCount(code, holder[0])
 
 
-def resampler_reset(lib: MaLib, rs: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_resampler_reset", Int32](rs))
+def resampler_reset(lib: MaLib, rs: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_resampler_reset", Int32](rs))
 
 
 # ================= ma_channel_converter =================
@@ -237,7 +238,7 @@ def channel_converter_get_heap_size(
     mix_mode: Int,
 ) -> MaCount:
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_channel_converter_get_heap_size", Int32](
             Int32(format), channels_in, channels_out, Int32(mix_mode),
             holder.unsafe_ptr(),
@@ -253,8 +254,8 @@ def channel_converter_init(
     channels_in: UInt32,
     channels_out: UInt32,
     mix_mode: Int,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_channel_converter_init", Int32](
             cc, Int32(format), channels_in, channels_out, Int32(mix_mode)
         )
@@ -268,8 +269,8 @@ def channel_converter_init_preallocated(
     channels_in: UInt32,
     channels_out: UInt32,
     mix_mode: Int,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_channel_converter_init_preallocated", Int32](
             cc, Int32(format), channels_in, channels_out, Int32(mix_mode)
         )
@@ -278,8 +279,8 @@ def channel_converter_init_preallocated(
 
 def channel_converter_uninit(
     lib: MaLib, cc: OpaquePointer[MutUntrackedOrigin]
-) -> Int:
-    return Int(lib.handle.call["ma_shim_channel_converter_uninit", Int32](cc))
+) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_channel_converter_uninit", Int32](cc))
 
 
 def channel_converter_process(
@@ -288,9 +289,9 @@ def channel_converter_process(
     mut dst: List[Float32],
     src: List[Float32],
     frame_count: UInt64,
-) -> Int:
+) -> MaResult:
     """Converts exactly frame_count frames; the frame rate is unchanged."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_channel_converter_process", Int32](
             cc, dst.unsafe_ptr(), src.unsafe_ptr(), frame_count
         )
@@ -302,7 +303,7 @@ def channel_converter_get_input_channel_map(
 ) -> MaChannelMap:
     var buf = List[UInt8](capacity=Int(capacity))
     buf.resize(Int(capacity), UInt8(0))
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_channel_converter_get_input_channel_map", Int32](
             cc, buf.unsafe_ptr(), capacity
         )
@@ -315,7 +316,7 @@ def channel_converter_get_output_channel_map(
 ) -> MaChannelMap:
     var buf = List[UInt8](capacity=Int(capacity))
     buf.resize(Int(capacity), UInt8(0))
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_channel_converter_get_output_channel_map", Int32](
             cc, buf.unsafe_ptr(), capacity
         )
@@ -346,7 +347,7 @@ def data_converter_get_heap_size(
     sample_rate_out: UInt32,
 ) -> MaCount:
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_data_converter_get_heap_size", Int32](
             Int32(format_in),
             Int32(format_out),
@@ -369,8 +370,8 @@ def data_converter_init(
     channels_out: UInt32,
     sample_rate_in: UInt32,
     sample_rate_out: UInt32,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_data_converter_init", Int32](
             dc,
             Int32(format_in),
@@ -389,9 +390,9 @@ def data_converter_init_default(
     format: Int,
     channels: UInt32,
     sample_rate: UInt32,
-) -> Int:
+) -> MaResult:
     """Init from miniaudio's default config with only the pass-through shape set."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_data_converter_init_default", Int32](
             dc, Int32(format), channels, sample_rate
         )
@@ -407,8 +408,8 @@ def data_converter_init_preallocated(
     channels_out: UInt32,
     sample_rate_in: UInt32,
     sample_rate_out: UInt32,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_data_converter_init_preallocated", Int32](
             dc,
             Int32(format_in),
@@ -421,8 +422,8 @@ def data_converter_init_preallocated(
     )
 
 
-def data_converter_uninit(lib: MaLib, dc: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_data_converter_uninit", Int32](dc))
+def data_converter_uninit(lib: MaLib, dc: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_data_converter_uninit", Int32](dc))
 
 
 def data_converter_process(
@@ -435,7 +436,7 @@ def data_converter_process(
 ) -> MaProcess:
     var in_holder = [frame_count_in]
     var out_holder = [frame_count_out]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_data_converter_process", Int32](
             dc,
             src.unsafe_ptr(),
@@ -452,8 +453,8 @@ def data_converter_set_rate(
     dc: OpaquePointer[MutUntrackedOrigin],
     rate_in: UInt32,
     rate_out: UInt32,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_data_converter_set_rate", Int32](
             dc, rate_in, rate_out
         )
@@ -462,8 +463,8 @@ def data_converter_set_rate(
 
 def data_converter_set_rate_ratio(
     lib: MaLib, dc: OpaquePointer[MutUntrackedOrigin], ratio: Float32
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_data_converter_set_rate_ratio", Int32](dc, ratio)
     )
 
@@ -472,7 +473,7 @@ def data_converter_get_input_latency(
     lib: MaLib, dc: OpaquePointer[MutUntrackedOrigin]
 ) -> MaCount:
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_data_converter_get_input_latency", Int32](
             dc, holder.unsafe_ptr()
         )
@@ -484,7 +485,7 @@ def data_converter_get_output_latency(
     lib: MaLib, dc: OpaquePointer[MutUntrackedOrigin]
 ) -> MaCount:
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_data_converter_get_output_latency", Int32](
             dc, holder.unsafe_ptr()
         )
@@ -496,7 +497,7 @@ def data_converter_get_required_input_frame_count(
     lib: MaLib, dc: OpaquePointer[MutUntrackedOrigin], output_frame_count: UInt64
 ) -> MaCount:
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call[
             "ma_shim_data_converter_get_required_input_frame_count", Int32
         ](dc, output_frame_count, holder.unsafe_ptr())
@@ -508,7 +509,7 @@ def data_converter_get_expected_output_frame_count(
     lib: MaLib, dc: OpaquePointer[MutUntrackedOrigin], input_frame_count: UInt64
 ) -> MaCount:
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call[
             "ma_shim_data_converter_get_expected_output_frame_count", Int32
         ](dc, input_frame_count, holder.unsafe_ptr())
@@ -521,7 +522,7 @@ def data_converter_get_input_channel_map(
 ) -> MaChannelMap:
     var buf = List[UInt8](capacity=Int(capacity))
     buf.resize(Int(capacity), UInt8(0))
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_data_converter_get_input_channel_map", Int32](
             dc, buf.unsafe_ptr(), capacity
         )
@@ -534,7 +535,7 @@ def data_converter_get_output_channel_map(
 ) -> MaChannelMap:
     var buf = List[UInt8](capacity=Int(capacity))
     buf.resize(Int(capacity), UInt8(0))
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_data_converter_get_output_channel_map", Int32](
             dc, buf.unsafe_ptr(), capacity
         )
@@ -542,8 +543,8 @@ def data_converter_get_output_channel_map(
     return MaChannelMap(code, buf^)
 
 
-def data_converter_reset(lib: MaLib, dc: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_data_converter_reset", Int32](dc))
+def data_converter_reset(lib: MaLib, dc: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_data_converter_reset", Int32](dc))
 
 
 # ================= ma_linear_resampler =================
@@ -570,7 +571,7 @@ def linear_resampler_get_heap_size(
     sample_rate_out: UInt32,
 ) -> MaCount:
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_linear_resampler_get_heap_size", Int32](
             Int32(format), channels, sample_rate_in, sample_rate_out,
             holder.unsafe_ptr(),
@@ -586,8 +587,8 @@ def linear_resampler_init(
     channels: UInt32,
     sample_rate_in: UInt32,
     sample_rate_out: UInt32,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_linear_resampler_init", Int32](
             rs, Int32(format), channels, sample_rate_in, sample_rate_out
         )
@@ -601,17 +602,17 @@ def linear_resampler_init_preallocated(
     channels: UInt32,
     sample_rate_in: UInt32,
     sample_rate_out: UInt32,
-) -> Int:
+) -> MaResult:
     """Init through miniaudio's preallocated-heap path with a shim-owned block."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_linear_resampler_init_preallocated", Int32](
             rs, Int32(format), channels, sample_rate_in, sample_rate_out
         )
     )
 
 
-def linear_resampler_uninit(lib: MaLib, rs: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_linear_resampler_uninit", Int32](rs))
+def linear_resampler_uninit(lib: MaLib, rs: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_linear_resampler_uninit", Int32](rs))
 
 
 def linear_resampler_process(
@@ -624,7 +625,7 @@ def linear_resampler_process(
 ) -> MaProcess:
     var in_holder = [frame_count_in]
     var out_holder = [frame_count_out]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_linear_resampler_process", Int32](
             rs,
             src.unsafe_ptr(),
@@ -638,24 +639,24 @@ def linear_resampler_process(
 
 def linear_resampler_set_rate(
     lib: MaLib, rs: OpaquePointer[MutUntrackedOrigin], rate_in: UInt32, rate_out: UInt32
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_linear_resampler_set_rate", Int32](
             rs, rate_in, rate_out
         )
     )
 
 
-def linear_resampler_set_rate_ratio(lib: MaLib, rs: OpaquePointer[MutUntrackedOrigin], ratio: Float32) -> Int:
+def linear_resampler_set_rate_ratio(lib: MaLib, rs: OpaquePointer[MutUntrackedOrigin], ratio: Float32) -> MaResult:
     """miniaudio's ratio is input-over-output, so 2.0 halves the rate."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_linear_resampler_set_rate_ratio", Int32](rs, ratio)
     )
 
 
 def linear_resampler_get_input_latency(lib: MaLib, rs: OpaquePointer[MutUntrackedOrigin]) -> MaCount:
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_linear_resampler_get_input_latency", Int32](
             rs, holder.unsafe_ptr()
         )
@@ -665,7 +666,7 @@ def linear_resampler_get_input_latency(lib: MaLib, rs: OpaquePointer[MutUntracke
 
 def linear_resampler_get_output_latency(lib: MaLib, rs: OpaquePointer[MutUntrackedOrigin]) -> MaCount:
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_linear_resampler_get_output_latency", Int32](
             rs, holder.unsafe_ptr()
         )
@@ -677,7 +678,7 @@ def linear_resampler_get_required_input_frame_count(
     lib: MaLib, rs: OpaquePointer[MutUntrackedOrigin], output_frame_count: UInt64
 ) -> MaCount:
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call[
             "ma_shim_linear_resampler_get_required_input_frame_count", Int32
         ](rs, output_frame_count, holder.unsafe_ptr())
@@ -689,7 +690,7 @@ def linear_resampler_get_expected_output_frame_count(
     lib: MaLib, rs: OpaquePointer[MutUntrackedOrigin], input_frame_count: UInt64
 ) -> MaCount:
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call[
             "ma_shim_linear_resampler_get_expected_output_frame_count", Int32
         ](rs, input_frame_count, holder.unsafe_ptr())
@@ -697,5 +698,5 @@ def linear_resampler_get_expected_output_frame_count(
     return MaCount(code, holder[0])
 
 
-def linear_resampler_reset(lib: MaLib, rs: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_linear_resampler_reset", Int32](rs))
+def linear_resampler_reset(lib: MaLib, rs: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_linear_resampler_reset", Int32](rs))

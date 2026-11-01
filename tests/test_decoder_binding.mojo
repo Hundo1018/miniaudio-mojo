@@ -5,6 +5,7 @@ generated WAV file (build/test_assets/sine_440_stereo.wav).
 """
 
 from std.testing import assert_equal, assert_true, TestSuite
+from miniaudio.result import MaResult
 
 from miniaudio._lib import MaLib, null_handle
 from miniaudio.result import MA_SUCCESS, MA_AT_END, MA_INVALID_ARGS
@@ -28,7 +29,7 @@ def test_version_nonempty() raises:
 
 def test_result_description_nonempty() raises:
     var lib = _lib()
-    assert_true(lib.result_description(0).byte_length() > 0)
+    assert_true(lib.result_description(MaResult.SUCCESS).byte_length() > 0)
 
 
 def test_init_memory_read_seek_query() raises:

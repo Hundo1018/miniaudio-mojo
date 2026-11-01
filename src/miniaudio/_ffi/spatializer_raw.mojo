@@ -13,6 +13,7 @@ Frames are f32: miniaudio's spatializer supports no other format.
 """
 
 from miniaudio._lib import MaLib
+from miniaudio.result import MaResult
 from miniaudio._ffi.decoder_raw import MaCount
 from miniaudio._ffi.converter_raw import MaChannelMap
 from miniaudio._ffi.sound_raw import Vec3, MaCone
@@ -22,7 +23,7 @@ from miniaudio._ffi.sound_raw import Vec3, MaCone
 struct MaFloat(Copyable, Movable):
     """Raw (result_code, value) pair for a float getter."""
 
-    var result: Int
+    var result: MaResult
     var value: Float32
 
 
@@ -30,7 +31,7 @@ struct MaFloat(Copyable, Movable):
 struct MaU32(Copyable, Movable):
     """Raw (result_code, value) pair for an unsigned getter (channels, enum codes)."""
 
-    var result: Int
+    var result: MaResult
     var value: UInt32
 
 
@@ -38,7 +39,7 @@ struct MaU32(Copyable, Movable):
 struct MaBool(Copyable, Movable):
     """Raw (result_code, value) pair for a boolean getter."""
 
-    var result: Int
+    var result: MaResult
     var value: Bool
 
 
@@ -46,7 +47,7 @@ struct MaBool(Copyable, Movable):
 struct MaVec3(Copyable, Movable):
     """Raw (result_code, vector) pair for a getter returning an ma_vec3f."""
 
-    var result: Int
+    var result: MaResult
     var value: Vec3
 
 
@@ -54,7 +55,7 @@ struct MaVec3(Copyable, Movable):
 struct MaConeResult(Copyable, Movable):
     """Raw (result_code, cone) pair for get_cone."""
 
-    var result: Int
+    var result: MaResult
     var value: MaCone
 
 
@@ -62,7 +63,7 @@ struct MaConeResult(Copyable, Movable):
 struct MaRelative(Copyable, Movable):
     """Raw (result_code, position, direction) for get_relative_position_and_direction."""
 
-    var result: Int
+    var result: MaResult
     var position: Vec3
     var direction: Vec3
 
@@ -85,7 +86,7 @@ def spatializer_listener_get_heap_size(
     channels_out: UInt32,
 ) -> MaCount:
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_spatializer_listener_get_heap_size", Int32](
             channels_out, holder.unsafe_ptr()
         )
@@ -97,30 +98,30 @@ def spatializer_listener_init(
     lib: MaLib,
     h: OpaquePointer[MutUntrackedOrigin],
     channels_out: UInt32,
-) -> Int:
-    return Int(lib.handle.call["ma_shim_spatializer_listener_init", Int32](h, channels_out))
+) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_spatializer_listener_init", Int32](h, channels_out))
 
 
 def spatializer_listener_init_preallocated(
     lib: MaLib,
     h: OpaquePointer[MutUntrackedOrigin],
     channels_out: UInt32,
-) -> Int:
+) -> MaResult:
     """Init through miniaudio's preallocated-heap path with a shim-owned block."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_spatializer_listener_init_preallocated", Int32](h, channels_out)
     )
 
 
-def spatializer_listener_uninit(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_spatializer_listener_uninit", Int32](h))
+def spatializer_listener_uninit(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_spatializer_listener_uninit", Int32](h))
 
 def spatializer_listener_get_channel_map(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaChannelMap:
     """The listener's output channel map (one ma_channel code per output channel)."""
     var buf = List[UInt8](capacity=_CHANNEL_MAP_CAPACITY)
     buf.resize(_CHANNEL_MAP_CAPACITY, UInt8(0))
     var count = [UInt32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_spatializer_listener_get_channel_map", Int32](
             h, buf.unsafe_ptr(), UInt32(_CHANNEL_MAP_CAPACITY), count.unsafe_ptr()
         )
@@ -134,8 +135,8 @@ def spatializer_listener_set_cone(
     inner_angle: Float32,
     outer_angle: Float32,
     outer_gain: Float32,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_spatializer_listener_set_cone", Int32](
             h, inner_angle, outer_angle, outer_gain
         )
@@ -146,7 +147,7 @@ def spatializer_listener_get_cone(lib: MaLib, h: OpaquePointer[MutUntrackedOrigi
     var inner = [Float32(0)]
     var outer = [Float32(0)]
     var gain = [Float32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_spatializer_listener_get_cone", Int32](
             h, inner.unsafe_ptr(), outer.unsafe_ptr(), gain.unsafe_ptr()
         )
@@ -155,15 +156,15 @@ def spatializer_listener_get_cone(lib: MaLib, h: OpaquePointer[MutUntrackedOrigi
 
 def spatializer_listener_set_position(
     lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], x: Float32, y: Float32, z: Float32
-) -> Int:
-    return Int(lib.handle.call["ma_shim_spatializer_listener_set_position", Int32](h, x, y, z))
+) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_spatializer_listener_set_position", Int32](h, x, y, z))
 
 
 def spatializer_listener_get_position(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaVec3:
     var xs = [Float32(0)]
     var ys = [Float32(0)]
     var zs = [Float32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_spatializer_listener_get_position", Int32](
             h, xs.unsafe_ptr(), ys.unsafe_ptr(), zs.unsafe_ptr()
         )
@@ -172,15 +173,15 @@ def spatializer_listener_get_position(lib: MaLib, h: OpaquePointer[MutUntrackedO
 
 def spatializer_listener_set_direction(
     lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], x: Float32, y: Float32, z: Float32
-) -> Int:
-    return Int(lib.handle.call["ma_shim_spatializer_listener_set_direction", Int32](h, x, y, z))
+) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_spatializer_listener_set_direction", Int32](h, x, y, z))
 
 
 def spatializer_listener_get_direction(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaVec3:
     var xs = [Float32(0)]
     var ys = [Float32(0)]
     var zs = [Float32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_spatializer_listener_get_direction", Int32](
             h, xs.unsafe_ptr(), ys.unsafe_ptr(), zs.unsafe_ptr()
         )
@@ -189,58 +190,58 @@ def spatializer_listener_get_direction(lib: MaLib, h: OpaquePointer[MutUntracked
 
 def spatializer_listener_set_velocity(
     lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], x: Float32, y: Float32, z: Float32
-) -> Int:
-    return Int(lib.handle.call["ma_shim_spatializer_listener_set_velocity", Int32](h, x, y, z))
+) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_spatializer_listener_set_velocity", Int32](h, x, y, z))
 
 
 def spatializer_listener_get_velocity(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaVec3:
     var xs = [Float32(0)]
     var ys = [Float32(0)]
     var zs = [Float32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_spatializer_listener_get_velocity", Int32](
             h, xs.unsafe_ptr(), ys.unsafe_ptr(), zs.unsafe_ptr()
         )
     )
     return MaVec3(code, Vec3(xs[0], ys[0], zs[0]))
 
-def spatializer_listener_set_speed_of_sound(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], value: Float32) -> Int:
-    return Int(lib.handle.call["ma_shim_spatializer_listener_set_speed_of_sound", Int32](h, value))
+def spatializer_listener_set_speed_of_sound(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], value: Float32) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_spatializer_listener_set_speed_of_sound", Int32](h, value))
 
 
 def spatializer_listener_get_speed_of_sound(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaFloat:
     var holder = [Float32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_spatializer_listener_get_speed_of_sound", Int32](h, holder.unsafe_ptr())
     )
     return MaFloat(code, holder[0])
 
 def spatializer_listener_set_world_up(
     lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], x: Float32, y: Float32, z: Float32
-) -> Int:
-    return Int(lib.handle.call["ma_shim_spatializer_listener_set_world_up", Int32](h, x, y, z))
+) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_spatializer_listener_set_world_up", Int32](h, x, y, z))
 
 
 def spatializer_listener_get_world_up(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaVec3:
     var xs = [Float32(0)]
     var ys = [Float32(0)]
     var zs = [Float32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_spatializer_listener_get_world_up", Int32](
             h, xs.unsafe_ptr(), ys.unsafe_ptr(), zs.unsafe_ptr()
         )
     )
     return MaVec3(code, Vec3(xs[0], ys[0], zs[0]))
 
-def spatializer_listener_set_enabled(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], enabled: Bool) -> Int:
-    return Int(
+def spatializer_listener_set_enabled(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], enabled: Bool) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_spatializer_listener_set_enabled", Int32](h, Int32(1 if enabled else 0))
     )
 
 
 def spatializer_listener_is_enabled(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaBool:
     var holder = [Int32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_spatializer_listener_is_enabled", Int32](h, holder.unsafe_ptr())
     )
     return MaBool(code, holder[0] != 0)
@@ -262,7 +263,7 @@ def spatializer_get_heap_size(
     channels_out: UInt32,
 ) -> MaCount:
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_spatializer_get_heap_size", Int32](
             channels_in, channels_out, holder.unsafe_ptr()
         )
@@ -275,8 +276,8 @@ def spatializer_init(
     h: OpaquePointer[MutUntrackedOrigin],
     channels_in: UInt32,
     channels_out: UInt32,
-) -> Int:
-    return Int(lib.handle.call["ma_shim_spatializer_init", Int32](h, channels_in, channels_out))
+) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_spatializer_init", Int32](h, channels_in, channels_out))
 
 
 def spatializer_init_preallocated(
@@ -284,15 +285,15 @@ def spatializer_init_preallocated(
     h: OpaquePointer[MutUntrackedOrigin],
     channels_in: UInt32,
     channels_out: UInt32,
-) -> Int:
+) -> MaResult:
     """Init through miniaudio's preallocated-heap path with a shim-owned block."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_spatializer_init_preallocated", Int32](h, channels_in, channels_out)
     )
 
 
-def spatializer_uninit(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_spatializer_uninit", Int32](h))
+def spatializer_uninit(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_spatializer_uninit", Int32](h))
 
 def spatializer_process(
     lib: MaLib,
@@ -301,110 +302,110 @@ def spatializer_process(
     mut output: List[Float32],
     input: List[Float32],
     frame_count: UInt64,
-) -> Int:
+) -> MaResult:
     """Spatialize frame_count f32 frames from input into output, heard by listener."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_spatializer_process", Int32](
             h, listener, output.unsafe_ptr(), input.unsafe_ptr(), frame_count
         )
     )
 
-def spatializer_set_master_volume(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], value: Float32) -> Int:
-    return Int(lib.handle.call["ma_shim_spatializer_set_master_volume", Int32](h, value))
+def spatializer_set_master_volume(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], value: Float32) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_spatializer_set_master_volume", Int32](h, value))
 
 
 def spatializer_get_master_volume(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaFloat:
     var holder = [Float32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_spatializer_get_master_volume", Int32](h, holder.unsafe_ptr())
     )
     return MaFloat(code, holder[0])
 
 def spatializer_get_input_channels(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaU32:
     var holder = [UInt32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_spatializer_get_input_channels", Int32](h, holder.unsafe_ptr())
     )
     return MaU32(code, holder[0])
 
 def spatializer_get_output_channels(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaU32:
     var holder = [UInt32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_spatializer_get_output_channels", Int32](h, holder.unsafe_ptr())
     )
     return MaU32(code, holder[0])
 
-def spatializer_set_attenuation_model(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], code: UInt32) -> Int:
-    return Int(lib.handle.call["ma_shim_spatializer_set_attenuation_model", Int32](h, code))
+def spatializer_set_attenuation_model(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], code: UInt32) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_spatializer_set_attenuation_model", Int32](h, code))
 
 def spatializer_get_attenuation_model(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaU32:
     var holder = [UInt32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_spatializer_get_attenuation_model", Int32](h, holder.unsafe_ptr())
     )
     return MaU32(code, holder[0])
 
-def spatializer_set_positioning(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], code: UInt32) -> Int:
-    return Int(lib.handle.call["ma_shim_spatializer_set_positioning", Int32](h, code))
+def spatializer_set_positioning(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], code: UInt32) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_spatializer_set_positioning", Int32](h, code))
 
 def spatializer_get_positioning(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaU32:
     var holder = [UInt32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_spatializer_get_positioning", Int32](h, holder.unsafe_ptr())
     )
     return MaU32(code, holder[0])
 
-def spatializer_set_rolloff(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], value: Float32) -> Int:
-    return Int(lib.handle.call["ma_shim_spatializer_set_rolloff", Int32](h, value))
+def spatializer_set_rolloff(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], value: Float32) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_spatializer_set_rolloff", Int32](h, value))
 
 
 def spatializer_get_rolloff(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaFloat:
     var holder = [Float32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_spatializer_get_rolloff", Int32](h, holder.unsafe_ptr())
     )
     return MaFloat(code, holder[0])
 
-def spatializer_set_min_gain(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], value: Float32) -> Int:
-    return Int(lib.handle.call["ma_shim_spatializer_set_min_gain", Int32](h, value))
+def spatializer_set_min_gain(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], value: Float32) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_spatializer_set_min_gain", Int32](h, value))
 
 
 def spatializer_get_min_gain(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaFloat:
     var holder = [Float32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_spatializer_get_min_gain", Int32](h, holder.unsafe_ptr())
     )
     return MaFloat(code, holder[0])
 
-def spatializer_set_max_gain(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], value: Float32) -> Int:
-    return Int(lib.handle.call["ma_shim_spatializer_set_max_gain", Int32](h, value))
+def spatializer_set_max_gain(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], value: Float32) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_spatializer_set_max_gain", Int32](h, value))
 
 
 def spatializer_get_max_gain(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaFloat:
     var holder = [Float32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_spatializer_get_max_gain", Int32](h, holder.unsafe_ptr())
     )
     return MaFloat(code, holder[0])
 
-def spatializer_set_min_distance(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], value: Float32) -> Int:
-    return Int(lib.handle.call["ma_shim_spatializer_set_min_distance", Int32](h, value))
+def spatializer_set_min_distance(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], value: Float32) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_spatializer_set_min_distance", Int32](h, value))
 
 
 def spatializer_get_min_distance(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaFloat:
     var holder = [Float32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_spatializer_get_min_distance", Int32](h, holder.unsafe_ptr())
     )
     return MaFloat(code, holder[0])
 
-def spatializer_set_max_distance(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], value: Float32) -> Int:
-    return Int(lib.handle.call["ma_shim_spatializer_set_max_distance", Int32](h, value))
+def spatializer_set_max_distance(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], value: Float32) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_spatializer_set_max_distance", Int32](h, value))
 
 
 def spatializer_get_max_distance(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaFloat:
     var holder = [Float32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_spatializer_get_max_distance", Int32](h, holder.unsafe_ptr())
     )
     return MaFloat(code, holder[0])
@@ -415,8 +416,8 @@ def spatializer_set_cone(
     inner_angle: Float32,
     outer_angle: Float32,
     outer_gain: Float32,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_spatializer_set_cone", Int32](
             h, inner_angle, outer_angle, outer_gain
         )
@@ -427,46 +428,46 @@ def spatializer_get_cone(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> Ma
     var inner = [Float32(0)]
     var outer = [Float32(0)]
     var gain = [Float32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_spatializer_get_cone", Int32](
             h, inner.unsafe_ptr(), outer.unsafe_ptr(), gain.unsafe_ptr()
         )
     )
     return MaConeResult(code, MaCone(inner[0], outer[0], gain[0]))
 
-def spatializer_set_doppler_factor(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], value: Float32) -> Int:
-    return Int(lib.handle.call["ma_shim_spatializer_set_doppler_factor", Int32](h, value))
+def spatializer_set_doppler_factor(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], value: Float32) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_spatializer_set_doppler_factor", Int32](h, value))
 
 
 def spatializer_get_doppler_factor(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaFloat:
     var holder = [Float32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_spatializer_get_doppler_factor", Int32](h, holder.unsafe_ptr())
     )
     return MaFloat(code, holder[0])
 
-def spatializer_set_directional_attenuation_factor(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], value: Float32) -> Int:
-    return Int(lib.handle.call["ma_shim_spatializer_set_directional_attenuation_factor", Int32](h, value))
+def spatializer_set_directional_attenuation_factor(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], value: Float32) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_spatializer_set_directional_attenuation_factor", Int32](h, value))
 
 
 def spatializer_get_directional_attenuation_factor(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaFloat:
     var holder = [Float32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_spatializer_get_directional_attenuation_factor", Int32](h, holder.unsafe_ptr())
     )
     return MaFloat(code, holder[0])
 
 def spatializer_set_position(
     lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], x: Float32, y: Float32, z: Float32
-) -> Int:
-    return Int(lib.handle.call["ma_shim_spatializer_set_position", Int32](h, x, y, z))
+) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_spatializer_set_position", Int32](h, x, y, z))
 
 
 def spatializer_get_position(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaVec3:
     var xs = [Float32(0)]
     var ys = [Float32(0)]
     var zs = [Float32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_spatializer_get_position", Int32](
             h, xs.unsafe_ptr(), ys.unsafe_ptr(), zs.unsafe_ptr()
         )
@@ -475,15 +476,15 @@ def spatializer_get_position(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -
 
 def spatializer_set_direction(
     lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], x: Float32, y: Float32, z: Float32
-) -> Int:
-    return Int(lib.handle.call["ma_shim_spatializer_set_direction", Int32](h, x, y, z))
+) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_spatializer_set_direction", Int32](h, x, y, z))
 
 
 def spatializer_get_direction(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaVec3:
     var xs = [Float32(0)]
     var ys = [Float32(0)]
     var zs = [Float32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_spatializer_get_direction", Int32](
             h, xs.unsafe_ptr(), ys.unsafe_ptr(), zs.unsafe_ptr()
         )
@@ -492,15 +493,15 @@ def spatializer_get_direction(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) 
 
 def spatializer_set_velocity(
     lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], x: Float32, y: Float32, z: Float32
-) -> Int:
-    return Int(lib.handle.call["ma_shim_spatializer_set_velocity", Int32](h, x, y, z))
+) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_spatializer_set_velocity", Int32](h, x, y, z))
 
 
 def spatializer_get_velocity(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaVec3:
     var xs = [Float32(0)]
     var ys = [Float32(0)]
     var zs = [Float32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_spatializer_get_velocity", Int32](
             h, xs.unsafe_ptr(), ys.unsafe_ptr(), zs.unsafe_ptr()
         )
@@ -515,7 +516,7 @@ def spatializer_get_relative_position_and_direction(
     pos.resize(3, Float32(0))
     var dir = List[Float32](capacity=3)
     dir.resize(3, Float32(0))
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_spatializer_get_relative_position_and_direction", Int32](
             h, listener, pos.unsafe_ptr(), dir.unsafe_ptr()
         )

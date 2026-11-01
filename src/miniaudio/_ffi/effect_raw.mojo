@@ -14,6 +14,7 @@ Frames are interleaved f32 buffers here; the caller sizes `dst` to match `src`.
 """
 
 from miniaudio._lib import MaLib
+from miniaudio.result import MaResult
 from miniaudio._ffi.decoder_raw import MaCount
 from miniaudio._ffi.spatializer_raw import MaFloat, MaU32
 
@@ -26,7 +27,7 @@ comptime PAN_MODE_PAN: Int = 1
 struct MaFaderFormat(Copyable, Movable):
     """Raw (result_code, format, channels, sample_rate) from fader_get_data_format."""
 
-    var result: Int
+    var result: MaResult
     var format: Int
     var channels: UInt32
     var sample_rate: UInt32
@@ -50,16 +51,16 @@ def delay_init(
     sample_rate: UInt32,
     delay_in_frames: UInt32,
     decay: Float32,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_delay_init", Int32](
             h, channels, sample_rate, delay_in_frames, decay
         )
     )
 
 
-def delay_uninit(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_delay_uninit", Int32](h))
+def delay_uninit(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_delay_uninit", Int32](h))
 
 
 def delay_process(
@@ -68,42 +69,42 @@ def delay_process(
     mut dst: List[Float32],
     src: List[Float32],
     frame_count: UInt32,
-) -> Int:
+) -> MaResult:
     """Runs frame_count f32 frames through the delay line, out-of-place."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_delay_process", Int32](
             h, dst.unsafe_ptr(), src.unsafe_ptr(), frame_count
         )
     )
 
 
-def delay_set_wet(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], value: Float32) -> Int:
-    return Int(lib.handle.call["ma_shim_delay_set_wet", Int32](h, value))
+def delay_set_wet(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], value: Float32) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_delay_set_wet", Int32](h, value))
 
 
 def delay_get_wet(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaFloat:
     var holder = [Float32(0)]
-    var code = Int(lib.handle.call["ma_shim_delay_get_wet", Int32](h, holder.unsafe_ptr()))
+    var code = MaResult(lib.handle.call["ma_shim_delay_get_wet", Int32](h, holder.unsafe_ptr()))
     return MaFloat(code, holder[0])
 
 
-def delay_set_dry(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], value: Float32) -> Int:
-    return Int(lib.handle.call["ma_shim_delay_set_dry", Int32](h, value))
+def delay_set_dry(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], value: Float32) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_delay_set_dry", Int32](h, value))
 
 
 def delay_get_dry(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaFloat:
     var holder = [Float32(0)]
-    var code = Int(lib.handle.call["ma_shim_delay_get_dry", Int32](h, holder.unsafe_ptr()))
+    var code = MaResult(lib.handle.call["ma_shim_delay_get_dry", Int32](h, holder.unsafe_ptr()))
     return MaFloat(code, holder[0])
 
 
-def delay_set_decay(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], value: Float32) -> Int:
-    return Int(lib.handle.call["ma_shim_delay_set_decay", Int32](h, value))
+def delay_set_decay(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], value: Float32) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_delay_set_decay", Int32](h, value))
 
 
 def delay_get_decay(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaFloat:
     var holder = [Float32(0)]
-    var code = Int(lib.handle.call["ma_shim_delay_get_decay", Int32](h, holder.unsafe_ptr()))
+    var code = MaResult(lib.handle.call["ma_shim_delay_get_decay", Int32](h, holder.unsafe_ptr()))
     return MaFloat(code, holder[0])
 
 
@@ -122,7 +123,7 @@ def gainer_get_heap_size(
     lib: MaLib, channels: UInt32, smooth_time_in_frames: UInt32
 ) -> MaCount:
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_gainer_get_heap_size", Int32](
             channels, smooth_time_in_frames, holder.unsafe_ptr()
         )
@@ -135,8 +136,8 @@ def gainer_init(
     h: OpaquePointer[MutUntrackedOrigin],
     channels: UInt32,
     smooth_time_in_frames: UInt32,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_gainer_init", Int32](h, channels, smooth_time_in_frames)
     )
 
@@ -146,17 +147,17 @@ def gainer_init_preallocated(
     h: OpaquePointer[MutUntrackedOrigin],
     channels: UInt32,
     smooth_time_in_frames: UInt32,
-) -> Int:
+) -> MaResult:
     """Init with a shim-owned heap sized by ma_gainer_get_heap_size."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_gainer_init_preallocated", Int32](
             h, channels, smooth_time_in_frames
         )
     )
 
 
-def gainer_uninit(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_gainer_uninit", Int32](h))
+def gainer_uninit(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_gainer_uninit", Int32](h))
 
 
 def gainer_process(
@@ -165,23 +166,23 @@ def gainer_process(
     mut dst: List[Float32],
     src: List[Float32],
     frame_count: UInt64,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_gainer_process", Int32](
             h, dst.unsafe_ptr(), src.unsafe_ptr(), frame_count
         )
     )
 
 
-def gainer_set_gain(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], gain: Float32) -> Int:
-    return Int(lib.handle.call["ma_shim_gainer_set_gain", Int32](h, gain))
+def gainer_set_gain(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], gain: Float32) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_gainer_set_gain", Int32](h, gain))
 
 
 def gainer_set_gains(
     lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], gains: List[Float32]
-) -> Int:
+) -> MaResult:
     """One gain per channel; len(gains) must equal the configured channel count."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_gainer_set_gains", Int32](
             h, gains.unsafe_ptr(), UInt32(len(gains))
         )
@@ -190,13 +191,13 @@ def gainer_set_gains(
 
 def gainer_set_master_volume(
     lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], volume: Float32
-) -> Int:
-    return Int(lib.handle.call["ma_shim_gainer_set_master_volume", Int32](h, volume))
+) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_gainer_set_master_volume", Int32](h, volume))
 
 
 def gainer_get_master_volume(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaFloat:
     var holder = [Float32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_gainer_get_master_volume", Int32](h, holder.unsafe_ptr())
     )
     return MaFloat(code, holder[0])
@@ -220,16 +221,16 @@ def panner_init(
     channels: UInt32,
     mode: Int,
     pan: Float32,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_panner_init", Int32](
             h, Int32(format), channels, Int32(mode), pan
         )
     )
 
 
-def panner_uninit(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_panner_uninit", Int32](h))
+def panner_uninit(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_panner_uninit", Int32](h))
 
 
 def panner_process(
@@ -238,31 +239,31 @@ def panner_process(
     mut dst: List[Float32],
     src: List[Float32],
     frame_count: UInt64,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_panner_process", Int32](
             h, dst.unsafe_ptr(), src.unsafe_ptr(), frame_count
         )
     )
 
 
-def panner_set_mode(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], mode: Int) -> Int:
-    return Int(lib.handle.call["ma_shim_panner_set_mode", Int32](h, Int32(mode)))
+def panner_set_mode(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], mode: Int) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_panner_set_mode", Int32](h, Int32(mode)))
 
 
 def panner_get_mode(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaU32:
     var holder = [Int32(0)]
-    var code = Int(lib.handle.call["ma_shim_panner_get_mode", Int32](h, holder.unsafe_ptr()))
+    var code = MaResult(lib.handle.call["ma_shim_panner_get_mode", Int32](h, holder.unsafe_ptr()))
     return MaU32(code, UInt32(holder[0]))
 
 
-def panner_set_pan(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], pan: Float32) -> Int:
-    return Int(lib.handle.call["ma_shim_panner_set_pan", Int32](h, pan))
+def panner_set_pan(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], pan: Float32) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_panner_set_pan", Int32](h, pan))
 
 
 def panner_get_pan(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaFloat:
     var holder = [Float32(0)]
-    var code = Int(lib.handle.call["ma_shim_panner_get_pan", Int32](h, holder.unsafe_ptr()))
+    var code = MaResult(lib.handle.call["ma_shim_panner_get_pan", Int32](h, holder.unsafe_ptr()))
     return MaFloat(code, holder[0])
 
 
@@ -283,14 +284,14 @@ def fader_init(
     format: Int,
     channels: UInt32,
     sample_rate: UInt32,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_fader_init", Int32](h, Int32(format), channels, sample_rate)
     )
 
 
-def fader_uninit(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_fader_uninit", Int32](h))
+def fader_uninit(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_fader_uninit", Int32](h))
 
 
 def fader_process(
@@ -299,8 +300,8 @@ def fader_process(
     mut dst: List[Float32],
     src: List[Float32],
     frame_count: UInt64,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_fader_process", Int32](
             h, dst.unsafe_ptr(), src.unsafe_ptr(), frame_count
         )
@@ -311,7 +312,7 @@ def fader_get_data_format(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> M
     var fmt = [Int32(0)]
     var ch = [UInt32(0)]
     var sr = [UInt32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_fader_get_data_format", Int32](
             h, fmt.unsafe_ptr(), ch.unsafe_ptr(), sr.unsafe_ptr()
         )
@@ -325,8 +326,8 @@ def fader_set_fade(
     volume_beg: Float32,
     volume_end: Float32,
     length_in_frames: UInt64,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_fader_set_fade", Int32](
             h, volume_beg, volume_end, length_in_frames
         )
@@ -340,8 +341,8 @@ def fader_set_fade_ex(
     volume_end: Float32,
     length_in_frames: UInt64,
     start_offset_in_frames: Int64,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_fader_set_fade_ex", Int32](
             h, volume_beg, volume_end, length_in_frames, start_offset_in_frames
         )
@@ -350,7 +351,7 @@ def fader_set_fade_ex(
 
 def fader_get_current_volume(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaFloat:
     var holder = [Float32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_fader_get_current_volume", Int32](h, holder.unsafe_ptr())
     )
     return MaFloat(code, holder[0])

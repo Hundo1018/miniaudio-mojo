@@ -5,6 +5,7 @@ or MaCount pairs. No lifecycle / error policy; that lives in noise.mojo.
 """
 
 from miniaudio._lib import MaLib
+from miniaudio.result import MaResult
 from miniaudio._ffi.decoder_raw import MaCount
 
 
@@ -31,8 +32,8 @@ def noise_init(
     noise_type: Int,
     seed: Int32,
     amplitude: Float64,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_noise_init", Int32](
             ns,
             Int32(format),
@@ -49,7 +50,7 @@ def noise_get_heap_size(
 ) -> MaCount:
     """Heap miniaudio needs for this config (0 for white noise), without building one."""
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_noise_get_heap_size", Int32](
             Int32(format), channels, Int32(noise_type), holder.unsafe_ptr()
         )
@@ -65,9 +66,9 @@ def noise_init_preallocated(
     noise_type: Int,
     seed: Int32,
     amplitude: Float64,
-) -> Int:
+) -> MaResult:
     """Init through miniaudio's preallocated-heap path with a shim-owned block."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_noise_init_preallocated", Int32](
             ns,
             Int32(format),
@@ -79,8 +80,8 @@ def noise_init_preallocated(
     )
 
 
-def noise_uninit(lib: MaLib, ns: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_noise_uninit", Int32](ns))
+def noise_uninit(lib: MaLib, ns: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_noise_uninit", Int32](ns))
 
 
 def noise_read_pcm_frames(
@@ -90,7 +91,7 @@ def noise_read_pcm_frames(
     frame_count: UInt64,
 ) -> MaCount:
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_noise_read_pcm_frames", Int32](
             ns,
             out.unsafe_ptr(),
@@ -103,13 +104,13 @@ def noise_read_pcm_frames(
 
 def noise_set_amplitude(
     lib: MaLib, ns: OpaquePointer[MutUntrackedOrigin], amplitude: Float64
-) -> Int:
-    return Int(lib.handle.call["ma_shim_noise_set_amplitude", Int32](ns, amplitude))
+) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_noise_set_amplitude", Int32](ns, amplitude))
 
 
 def noise_set_seed(
     lib: MaLib, ns: OpaquePointer[MutUntrackedOrigin], seed: Int32
-) -> Int:
-    return Int(lib.handle.call["ma_shim_noise_set_seed", Int32](ns, seed))
+) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_noise_set_seed", Int32](ns, seed))
 
 

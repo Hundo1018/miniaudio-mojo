@@ -19,13 +19,14 @@ arguments is the caller's job; frame_util.mojo does it.
 """
 
 from miniaudio._lib import MaLib
+from miniaudio.result import MaResult
 
 
 @fieldwise_init
 struct MaAddress(Copyable, Movable):
     """Raw (result_code, address) pair for the pointer-returning offset helpers."""
 
-    var result: Int
+    var result: MaResult
     var address: Int
 
 
@@ -37,9 +38,9 @@ def interleave_pcm_frames(
     planes: List[UInt8],
     channel_stride_in_bytes: UInt64,
     mut interleaved: List[UInt8],
-) -> Int:
+) -> MaResult:
     """Weave one plane per channel into `interleaved`."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_interleave_pcm_frames", Int32](
             Int32(format),
             channels,
@@ -59,9 +60,9 @@ def deinterleave_pcm_frames(
     interleaved: List[UInt8],
     mut planes: List[UInt8],
     channel_stride_in_bytes: UInt64,
-) -> Int:
+) -> MaResult:
     """Split `interleaved` into one plane per channel, `channel_stride_in_bytes` apart."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_deinterleave_pcm_frames", Int32](
             Int32(format),
             channels,
@@ -79,9 +80,9 @@ def silence_pcm_frames(
     frame_count: UInt64,
     format: Int,
     channels: UInt32,
-) -> Int:
+) -> MaResult:
     """Zero the frames; u8 is unsigned, so its silence is 128 instead."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_silence_pcm_frames", Int32](
             frames.unsafe_ptr(), frame_count, Int32(format), channels
         )
@@ -97,7 +98,7 @@ def offset_pcm_frames_ptr(
 ) -> MaAddress:
     """The address `offset_in_frames` frames into the buffer."""
     var holder = [Int(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_offset_pcm_frames_ptr", Int32](
             frames.unsafe_ptr(), offset_in_frames, Int32(format), channels,
             holder.unsafe_ptr(),
@@ -115,7 +116,7 @@ def offset_pcm_frames_const_ptr(
 ) -> MaAddress:
     """`offset_pcm_frames_ptr` for a read-only buffer."""
     var holder = [Int(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_offset_pcm_frames_const_ptr", Int32](
             frames.unsafe_ptr(), offset_in_frames, Int32(format), channels,
             holder.unsafe_ptr(),
@@ -131,9 +132,9 @@ def debug_fill_pcm_frames_with_sine_wave(
     format: Int,
     channels: UInt32,
     sample_rate: UInt32,
-) -> Int:
+) -> MaResult:
     """Fill with a full-scale 400 Hz sine, in `format`."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_debug_fill_pcm_frames_with_sine_wave", Int32](
             frames.unsafe_ptr(), frame_count, Int32(format), channels, sample_rate
         )

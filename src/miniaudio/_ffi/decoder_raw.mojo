@@ -7,13 +7,14 @@ that the TDD contract tests target directly.
 """
 
 from miniaudio._lib import MaLib
+from miniaudio.result import MaResult
 
 
 @fieldwise_init
 struct MaCount(Copyable, Movable):
     """Raw (result_code, value) pair for shim calls with a uint64 out-param."""
 
-    var result: Int
+    var result: MaResult
     var value: UInt64
 
 
@@ -34,9 +35,9 @@ def decoder_init_file(
     format: Int,
     channels: UInt32,
     sample_rate: UInt32,
-) -> Int:
+) -> MaResult:
     var path_c = path + "\x00"
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_decoder_init_file", Int32](
             dec,
             path_c.as_bytes().unsafe_ptr(),
@@ -54,8 +55,8 @@ def decoder_init_memory(
     format: Int,
     channels: UInt32,
     sample_rate: UInt32,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_decoder_init_memory", Int32](
             dec,
             data.unsafe_ptr(),
@@ -71,10 +72,10 @@ def decoder_init_file_default(
     lib: MaLib,
     dec: OpaquePointer[MutUntrackedOrigin],
     path: String,
-) -> Int:
+) -> MaResult:
     """Init from a file with the default (native-format-preserving) config."""
     var path_c = path + "\x00"
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_decoder_init_file_default", Int32](
             dec,
             path_c.as_bytes().unsafe_ptr(),
@@ -89,10 +90,10 @@ def decoder_init_file_vfs(
     format: Int,
     channels: UInt32,
     sample_rate: UInt32,
-) -> Int:
+) -> MaResult:
     """Init from a file path through the VFS API (default stdio VFS)."""
     var path_c = path + "\x00"
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_decoder_init_file_vfs", Int32](
             dec,
             path_c.as_bytes().unsafe_ptr(),
@@ -103,8 +104,8 @@ def decoder_init_file_vfs(
     )
 
 
-def decoder_uninit(lib: MaLib, dec: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_decoder_uninit", Int32](dec))
+def decoder_uninit(lib: MaLib, dec: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_decoder_uninit", Int32](dec))
 
 
 def decoder_read_pcm_frames(
@@ -119,7 +120,7 @@ def decoder_read_pcm_frames(
     result is MA_SUCCESS or MA_AT_END.
     """
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_decoder_read_pcm_frames", Int32](
             dec,
             out.unsafe_ptr(),
@@ -132,8 +133,8 @@ def decoder_read_pcm_frames(
 
 def decoder_seek_to_pcm_frame(
     lib: MaLib, dec: OpaquePointer[MutUntrackedOrigin], frame_index: UInt64
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_decoder_seek_to_pcm_frame", Int32](
             dec, frame_index
         )
@@ -144,7 +145,7 @@ def decoder_get_length_in_pcm_frames(
     lib: MaLib, dec: OpaquePointer[MutUntrackedOrigin]
 ) -> MaCount:
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_decoder_get_length_in_pcm_frames", Int32](
             dec, holder.unsafe_ptr()
         )
@@ -156,7 +157,7 @@ def decoder_get_cursor_in_pcm_frames(
     lib: MaLib, dec: OpaquePointer[MutUntrackedOrigin]
 ) -> MaCount:
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_decoder_get_cursor_in_pcm_frames", Int32](
             dec, holder.unsafe_ptr()
         )
@@ -169,7 +170,7 @@ def decoder_get_available_frames(
 ) -> MaCount:
     """Frames still available to read from the current cursor position."""
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_decoder_get_available_frames", Int32](
             dec, holder.unsafe_ptr()
         )

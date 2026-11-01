@@ -26,7 +26,7 @@ from std.memory import ArcPointer
 from miniaudio._lib import MaLib, null_handle
 from miniaudio.decoder import SampleFormat, SAMPLE_FORMAT_F32
 from miniaudio.engine import Engine
-from miniaudio.result import MA_SUCCESS
+from miniaudio.result import MaResult, MaError, MA_SUCCESS
 import miniaudio._ffi.filter_raw as raw
 
 
@@ -59,11 +59,11 @@ struct Biquad(Movable):
         a2: Float64,
         channels: UInt32 = 1,
         format: SampleFormat = SAMPLE_FORMAT_F32,
-    ) raises -> UInt64:
+    ) raises MaError -> UInt64:
         """Working-heap size for this tuning, without building the filter."""
         var rc = raw.biquad_get_heap_size(lib[], format.code, channels, b0, b1, b2, a0, a1, a2)
         if rc.result != MA_SUCCESS:
-            raise Error(lib[].describe("biquad heap size failed", rc.result))
+            raise lib[].error("biquad heap size failed", rc.result)
         return rc.value
 
     @staticmethod
@@ -79,20 +79,20 @@ struct Biquad(Movable):
         channels: UInt32 = 1,
         format: SampleFormat = SAMPLE_FORMAT_F32,
         preallocated: Bool = False,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """`preallocated` routes init through miniaudio's preallocated-heap path."""
         var ptr = raw.biquad_alloc(lib[])
         if ptr == null_handle():
-            raise Error("biquad_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "biquad_alloc failed (out of memory)")
 
-        var code: Int
+        var code: MaResult
         if preallocated:
             code = raw.biquad_init_preallocated(lib[], ptr, format.code, channels, b0, b1, b2, a0, a1, a2)
         else:
             code = raw.biquad_init(lib[], ptr, format.code, channels, b0, b1, b2, a0, a1, a2)
         if code != MA_SUCCESS:
             raw.biquad_free(lib[], ptr)
-            raise Error(lib[].describe("biquad init failed", code))
+            raise lib[].error("biquad init failed", code)
         return Self(lib.copy(), ptr, channels)
 
     def retune(
@@ -105,16 +105,16 @@ struct Biquad(Movable):
         a1: Float64,
         a2: Float64,
         format: SampleFormat = SAMPLE_FORMAT_F32,
-    ) raises:
+    ) raises MaError:
         """Re-tune in place, keeping the filter's running state."""
         var code = raw.biquad_reinit(
             self._lib[], self._ptr, format.code, self._channels,
             b0, b1, b2, a0, a1, a2,
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("biquad retune failed", code))
+            raise self._lib[].error("biquad retune failed", code)
 
-    def process(mut self, input: List[Float32]) raises -> List[Float32]:
+    def process(mut self, input: List[Float32]) raises MaError -> List[Float32]:
         """Filter every frame in `input`; the frame count is unchanged."""
         var frame_count = UInt64(len(input)) // UInt64(self._channels)
         var buf = List[Float32](capacity=len(input))
@@ -124,27 +124,27 @@ struct Biquad(Movable):
             self._lib[], self._ptr, buf, input, frame_count
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("biquad process failed", code))
+            raise self._lib[].error("biquad process failed", code)
         return buf^
 
-    def latency(self) raises -> UInt32:
+    def latency(self) raises MaError -> UInt32:
         """Filter latency in frames."""
         var rc = raw.biquad_get_latency(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("biquad latency failed", rc.result))
+            raise self._lib[].error("biquad latency failed", rc.result)
         return rc.value
 
-    def clear_cache(mut self) raises:
+    def clear_cache(mut self) raises MaError:
         """Drop the running state, keeping the tuning."""
         var code = raw.biquad_clear_cache(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("biquad clear_cache failed", code))
+            raise self._lib[].error("biquad clear_cache failed", code)
 
-    def uninit(mut self) raises:
+    def uninit(mut self) raises MaError:
         """Release the filter early; the handle stays valid but empty."""
         var code = raw.biquad_uninit(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("biquad uninit failed", code))
+            raise self._lib[].error("biquad uninit failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():
@@ -176,11 +176,11 @@ struct Lpf1(Movable):
         sample_rate: UInt32 = UInt32(48000),
         channels: UInt32 = 1,
         format: SampleFormat = SAMPLE_FORMAT_F32,
-    ) raises -> UInt64:
+    ) raises MaError -> UInt64:
         """Working-heap size for this tuning, without building the filter."""
         var rc = raw.lpf1_get_heap_size(lib[], format.code, channels, sample_rate, cutoff)
         if rc.result != MA_SUCCESS:
-            raise Error(lib[].describe("lpf1 heap size failed", rc.result))
+            raise lib[].error("lpf1 heap size failed", rc.result)
         return rc.value
 
     @staticmethod
@@ -192,20 +192,20 @@ struct Lpf1(Movable):
         channels: UInt32 = 1,
         format: SampleFormat = SAMPLE_FORMAT_F32,
         preallocated: Bool = False,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """`preallocated` routes init through miniaudio's preallocated-heap path."""
         var ptr = raw.lpf1_alloc(lib[])
         if ptr == null_handle():
-            raise Error("lpf1_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "lpf1_alloc failed (out of memory)")
 
-        var code: Int
+        var code: MaResult
         if preallocated:
             code = raw.lpf1_init_preallocated(lib[], ptr, format.code, channels, sample_rate, cutoff)
         else:
             code = raw.lpf1_init(lib[], ptr, format.code, channels, sample_rate, cutoff)
         if code != MA_SUCCESS:
             raw.lpf1_free(lib[], ptr)
-            raise Error(lib[].describe("lpf1 init failed", code))
+            raise lib[].error("lpf1 init failed", code)
         return Self(lib.copy(), ptr, channels)
 
     def retune(
@@ -214,16 +214,16 @@ struct Lpf1(Movable):
         cutoff: Float64,
         sample_rate: UInt32 = UInt32(48000),
         format: SampleFormat = SAMPLE_FORMAT_F32,
-    ) raises:
+    ) raises MaError:
         """Re-tune in place, keeping the filter's running state."""
         var code = raw.lpf1_reinit(
             self._lib[], self._ptr, format.code, self._channels,
             sample_rate, cutoff,
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("lpf1 retune failed", code))
+            raise self._lib[].error("lpf1 retune failed", code)
 
-    def process(mut self, input: List[Float32]) raises -> List[Float32]:
+    def process(mut self, input: List[Float32]) raises MaError -> List[Float32]:
         """Filter every frame in `input`; the frame count is unchanged."""
         var frame_count = UInt64(len(input)) // UInt64(self._channels)
         var buf = List[Float32](capacity=len(input))
@@ -233,27 +233,27 @@ struct Lpf1(Movable):
             self._lib[], self._ptr, buf, input, frame_count
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("lpf1 process failed", code))
+            raise self._lib[].error("lpf1 process failed", code)
         return buf^
 
-    def latency(self) raises -> UInt32:
+    def latency(self) raises MaError -> UInt32:
         """Filter latency in frames."""
         var rc = raw.lpf1_get_latency(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("lpf1 latency failed", rc.result))
+            raise self._lib[].error("lpf1 latency failed", rc.result)
         return rc.value
 
-    def clear_cache(mut self) raises:
+    def clear_cache(mut self) raises MaError:
         """Drop the running state, keeping the tuning."""
         var code = raw.lpf1_clear_cache(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("lpf1 clear_cache failed", code))
+            raise self._lib[].error("lpf1 clear_cache failed", code)
 
-    def uninit(mut self) raises:
+    def uninit(mut self) raises MaError:
         """Release the filter early; the handle stays valid but empty."""
         var code = raw.lpf1_uninit(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("lpf1 uninit failed", code))
+            raise self._lib[].error("lpf1 uninit failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():
@@ -285,11 +285,11 @@ struct Hpf1(Movable):
         sample_rate: UInt32 = UInt32(48000),
         channels: UInt32 = 1,
         format: SampleFormat = SAMPLE_FORMAT_F32,
-    ) raises -> UInt64:
+    ) raises MaError -> UInt64:
         """Working-heap size for this tuning, without building the filter."""
         var rc = raw.hpf1_get_heap_size(lib[], format.code, channels, sample_rate, cutoff)
         if rc.result != MA_SUCCESS:
-            raise Error(lib[].describe("hpf1 heap size failed", rc.result))
+            raise lib[].error("hpf1 heap size failed", rc.result)
         return rc.value
 
     @staticmethod
@@ -301,20 +301,20 @@ struct Hpf1(Movable):
         channels: UInt32 = 1,
         format: SampleFormat = SAMPLE_FORMAT_F32,
         preallocated: Bool = False,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """`preallocated` routes init through miniaudio's preallocated-heap path."""
         var ptr = raw.hpf1_alloc(lib[])
         if ptr == null_handle():
-            raise Error("hpf1_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "hpf1_alloc failed (out of memory)")
 
-        var code: Int
+        var code: MaResult
         if preallocated:
             code = raw.hpf1_init_preallocated(lib[], ptr, format.code, channels, sample_rate, cutoff)
         else:
             code = raw.hpf1_init(lib[], ptr, format.code, channels, sample_rate, cutoff)
         if code != MA_SUCCESS:
             raw.hpf1_free(lib[], ptr)
-            raise Error(lib[].describe("hpf1 init failed", code))
+            raise lib[].error("hpf1 init failed", code)
         return Self(lib.copy(), ptr, channels)
 
     def retune(
@@ -323,16 +323,16 @@ struct Hpf1(Movable):
         cutoff: Float64,
         sample_rate: UInt32 = UInt32(48000),
         format: SampleFormat = SAMPLE_FORMAT_F32,
-    ) raises:
+    ) raises MaError:
         """Re-tune in place, keeping the filter's running state."""
         var code = raw.hpf1_reinit(
             self._lib[], self._ptr, format.code, self._channels,
             sample_rate, cutoff,
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("hpf1 retune failed", code))
+            raise self._lib[].error("hpf1 retune failed", code)
 
-    def process(mut self, input: List[Float32]) raises -> List[Float32]:
+    def process(mut self, input: List[Float32]) raises MaError -> List[Float32]:
         """Filter every frame in `input`; the frame count is unchanged."""
         var frame_count = UInt64(len(input)) // UInt64(self._channels)
         var buf = List[Float32](capacity=len(input))
@@ -342,21 +342,21 @@ struct Hpf1(Movable):
             self._lib[], self._ptr, buf, input, frame_count
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("hpf1 process failed", code))
+            raise self._lib[].error("hpf1 process failed", code)
         return buf^
 
-    def latency(self) raises -> UInt32:
+    def latency(self) raises MaError -> UInt32:
         """Filter latency in frames."""
         var rc = raw.hpf1_get_latency(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("hpf1 latency failed", rc.result))
+            raise self._lib[].error("hpf1 latency failed", rc.result)
         return rc.value
 
-    def uninit(mut self) raises:
+    def uninit(mut self) raises MaError:
         """Release the filter early; the handle stays valid but empty."""
         var code = raw.hpf1_uninit(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("hpf1 uninit failed", code))
+            raise self._lib[].error("hpf1 uninit failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():
@@ -389,11 +389,11 @@ struct Lpf2(Movable):
         q: Float64 = 0.707107,
         channels: UInt32 = 1,
         format: SampleFormat = SAMPLE_FORMAT_F32,
-    ) raises -> UInt64:
+    ) raises MaError -> UInt64:
         """Working-heap size for this tuning, without building the filter."""
         var rc = raw.lpf2_get_heap_size(lib[], format.code, channels, sample_rate, cutoff, q)
         if rc.result != MA_SUCCESS:
-            raise Error(lib[].describe("lpf2 heap size failed", rc.result))
+            raise lib[].error("lpf2 heap size failed", rc.result)
         return rc.value
 
     @staticmethod
@@ -406,20 +406,20 @@ struct Lpf2(Movable):
         channels: UInt32 = 1,
         format: SampleFormat = SAMPLE_FORMAT_F32,
         preallocated: Bool = False,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """`preallocated` routes init through miniaudio's preallocated-heap path."""
         var ptr = raw.lpf2_alloc(lib[])
         if ptr == null_handle():
-            raise Error("lpf2_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "lpf2_alloc failed (out of memory)")
 
-        var code: Int
+        var code: MaResult
         if preallocated:
             code = raw.lpf2_init_preallocated(lib[], ptr, format.code, channels, sample_rate, cutoff, q)
         else:
             code = raw.lpf2_init(lib[], ptr, format.code, channels, sample_rate, cutoff, q)
         if code != MA_SUCCESS:
             raw.lpf2_free(lib[], ptr)
-            raise Error(lib[].describe("lpf2 init failed", code))
+            raise lib[].error("lpf2 init failed", code)
         return Self(lib.copy(), ptr, channels)
 
     def retune(
@@ -429,16 +429,16 @@ struct Lpf2(Movable):
         sample_rate: UInt32 = UInt32(48000),
         q: Float64 = 0.707107,
         format: SampleFormat = SAMPLE_FORMAT_F32,
-    ) raises:
+    ) raises MaError:
         """Re-tune in place, keeping the filter's running state."""
         var code = raw.lpf2_reinit(
             self._lib[], self._ptr, format.code, self._channels,
             sample_rate, cutoff, q,
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("lpf2 retune failed", code))
+            raise self._lib[].error("lpf2 retune failed", code)
 
-    def process(mut self, input: List[Float32]) raises -> List[Float32]:
+    def process(mut self, input: List[Float32]) raises MaError -> List[Float32]:
         """Filter every frame in `input`; the frame count is unchanged."""
         var frame_count = UInt64(len(input)) // UInt64(self._channels)
         var buf = List[Float32](capacity=len(input))
@@ -448,27 +448,27 @@ struct Lpf2(Movable):
             self._lib[], self._ptr, buf, input, frame_count
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("lpf2 process failed", code))
+            raise self._lib[].error("lpf2 process failed", code)
         return buf^
 
-    def latency(self) raises -> UInt32:
+    def latency(self) raises MaError -> UInt32:
         """Filter latency in frames."""
         var rc = raw.lpf2_get_latency(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("lpf2 latency failed", rc.result))
+            raise self._lib[].error("lpf2 latency failed", rc.result)
         return rc.value
 
-    def clear_cache(mut self) raises:
+    def clear_cache(mut self) raises MaError:
         """Drop the running state, keeping the tuning."""
         var code = raw.lpf2_clear_cache(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("lpf2 clear_cache failed", code))
+            raise self._lib[].error("lpf2 clear_cache failed", code)
 
-    def uninit(mut self) raises:
+    def uninit(mut self) raises MaError:
         """Release the filter early; the handle stays valid but empty."""
         var code = raw.lpf2_uninit(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("lpf2 uninit failed", code))
+            raise self._lib[].error("lpf2 uninit failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():
@@ -501,11 +501,11 @@ struct Hpf2(Movable):
         q: Float64 = 0.707107,
         channels: UInt32 = 1,
         format: SampleFormat = SAMPLE_FORMAT_F32,
-    ) raises -> UInt64:
+    ) raises MaError -> UInt64:
         """Working-heap size for this tuning, without building the filter."""
         var rc = raw.hpf2_get_heap_size(lib[], format.code, channels, sample_rate, cutoff, q)
         if rc.result != MA_SUCCESS:
-            raise Error(lib[].describe("hpf2 heap size failed", rc.result))
+            raise lib[].error("hpf2 heap size failed", rc.result)
         return rc.value
 
     @staticmethod
@@ -518,20 +518,20 @@ struct Hpf2(Movable):
         channels: UInt32 = 1,
         format: SampleFormat = SAMPLE_FORMAT_F32,
         preallocated: Bool = False,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """`preallocated` routes init through miniaudio's preallocated-heap path."""
         var ptr = raw.hpf2_alloc(lib[])
         if ptr == null_handle():
-            raise Error("hpf2_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "hpf2_alloc failed (out of memory)")
 
-        var code: Int
+        var code: MaResult
         if preallocated:
             code = raw.hpf2_init_preallocated(lib[], ptr, format.code, channels, sample_rate, cutoff, q)
         else:
             code = raw.hpf2_init(lib[], ptr, format.code, channels, sample_rate, cutoff, q)
         if code != MA_SUCCESS:
             raw.hpf2_free(lib[], ptr)
-            raise Error(lib[].describe("hpf2 init failed", code))
+            raise lib[].error("hpf2 init failed", code)
         return Self(lib.copy(), ptr, channels)
 
     def retune(
@@ -541,16 +541,16 @@ struct Hpf2(Movable):
         sample_rate: UInt32 = UInt32(48000),
         q: Float64 = 0.707107,
         format: SampleFormat = SAMPLE_FORMAT_F32,
-    ) raises:
+    ) raises MaError:
         """Re-tune in place, keeping the filter's running state."""
         var code = raw.hpf2_reinit(
             self._lib[], self._ptr, format.code, self._channels,
             sample_rate, cutoff, q,
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("hpf2 retune failed", code))
+            raise self._lib[].error("hpf2 retune failed", code)
 
-    def process(mut self, input: List[Float32]) raises -> List[Float32]:
+    def process(mut self, input: List[Float32]) raises MaError -> List[Float32]:
         """Filter every frame in `input`; the frame count is unchanged."""
         var frame_count = UInt64(len(input)) // UInt64(self._channels)
         var buf = List[Float32](capacity=len(input))
@@ -560,21 +560,21 @@ struct Hpf2(Movable):
             self._lib[], self._ptr, buf, input, frame_count
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("hpf2 process failed", code))
+            raise self._lib[].error("hpf2 process failed", code)
         return buf^
 
-    def latency(self) raises -> UInt32:
+    def latency(self) raises MaError -> UInt32:
         """Filter latency in frames."""
         var rc = raw.hpf2_get_latency(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("hpf2 latency failed", rc.result))
+            raise self._lib[].error("hpf2 latency failed", rc.result)
         return rc.value
 
-    def uninit(mut self) raises:
+    def uninit(mut self) raises MaError:
         """Release the filter early; the handle stays valid but empty."""
         var code = raw.hpf2_uninit(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("hpf2 uninit failed", code))
+            raise self._lib[].error("hpf2 uninit failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():
@@ -607,11 +607,11 @@ struct Lpf(Movable):
         order: UInt32 = UInt32(2),
         channels: UInt32 = 1,
         format: SampleFormat = SAMPLE_FORMAT_F32,
-    ) raises -> UInt64:
+    ) raises MaError -> UInt64:
         """Working-heap size for this tuning, without building the filter."""
         var rc = raw.lpf_get_heap_size(lib[], format.code, channels, sample_rate, cutoff, order)
         if rc.result != MA_SUCCESS:
-            raise Error(lib[].describe("lpf heap size failed", rc.result))
+            raise lib[].error("lpf heap size failed", rc.result)
         return rc.value
 
     @staticmethod
@@ -624,20 +624,20 @@ struct Lpf(Movable):
         channels: UInt32 = 1,
         format: SampleFormat = SAMPLE_FORMAT_F32,
         preallocated: Bool = False,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """`preallocated` routes init through miniaudio's preallocated-heap path."""
         var ptr = raw.lpf_alloc(lib[])
         if ptr == null_handle():
-            raise Error("lpf_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "lpf_alloc failed (out of memory)")
 
-        var code: Int
+        var code: MaResult
         if preallocated:
             code = raw.lpf_init_preallocated(lib[], ptr, format.code, channels, sample_rate, cutoff, order)
         else:
             code = raw.lpf_init(lib[], ptr, format.code, channels, sample_rate, cutoff, order)
         if code != MA_SUCCESS:
             raw.lpf_free(lib[], ptr)
-            raise Error(lib[].describe("lpf init failed", code))
+            raise lib[].error("lpf init failed", code)
         return Self(lib.copy(), ptr, channels)
 
     def retune(
@@ -647,16 +647,16 @@ struct Lpf(Movable):
         sample_rate: UInt32 = UInt32(48000),
         order: UInt32 = UInt32(2),
         format: SampleFormat = SAMPLE_FORMAT_F32,
-    ) raises:
+    ) raises MaError:
         """Re-tune in place, keeping the filter's running state."""
         var code = raw.lpf_reinit(
             self._lib[], self._ptr, format.code, self._channels,
             sample_rate, cutoff, order,
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("lpf retune failed", code))
+            raise self._lib[].error("lpf retune failed", code)
 
-    def process(mut self, input: List[Float32]) raises -> List[Float32]:
+    def process(mut self, input: List[Float32]) raises MaError -> List[Float32]:
         """Filter every frame in `input`; the frame count is unchanged."""
         var frame_count = UInt64(len(input)) // UInt64(self._channels)
         var buf = List[Float32](capacity=len(input))
@@ -666,27 +666,27 @@ struct Lpf(Movable):
             self._lib[], self._ptr, buf, input, frame_count
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("lpf process failed", code))
+            raise self._lib[].error("lpf process failed", code)
         return buf^
 
-    def latency(self) raises -> UInt32:
+    def latency(self) raises MaError -> UInt32:
         """Filter latency in frames."""
         var rc = raw.lpf_get_latency(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("lpf latency failed", rc.result))
+            raise self._lib[].error("lpf latency failed", rc.result)
         return rc.value
 
-    def clear_cache(mut self) raises:
+    def clear_cache(mut self) raises MaError:
         """Drop the running state, keeping the tuning."""
         var code = raw.lpf_clear_cache(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("lpf clear_cache failed", code))
+            raise self._lib[].error("lpf clear_cache failed", code)
 
-    def uninit(mut self) raises:
+    def uninit(mut self) raises MaError:
         """Release the filter early; the handle stays valid but empty."""
         var code = raw.lpf_uninit(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("lpf uninit failed", code))
+            raise self._lib[].error("lpf uninit failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():
@@ -719,11 +719,11 @@ struct Hpf(Movable):
         order: UInt32 = UInt32(2),
         channels: UInt32 = 1,
         format: SampleFormat = SAMPLE_FORMAT_F32,
-    ) raises -> UInt64:
+    ) raises MaError -> UInt64:
         """Working-heap size for this tuning, without building the filter."""
         var rc = raw.hpf_get_heap_size(lib[], format.code, channels, sample_rate, cutoff, order)
         if rc.result != MA_SUCCESS:
-            raise Error(lib[].describe("hpf heap size failed", rc.result))
+            raise lib[].error("hpf heap size failed", rc.result)
         return rc.value
 
     @staticmethod
@@ -736,20 +736,20 @@ struct Hpf(Movable):
         channels: UInt32 = 1,
         format: SampleFormat = SAMPLE_FORMAT_F32,
         preallocated: Bool = False,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """`preallocated` routes init through miniaudio's preallocated-heap path."""
         var ptr = raw.hpf_alloc(lib[])
         if ptr == null_handle():
-            raise Error("hpf_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "hpf_alloc failed (out of memory)")
 
-        var code: Int
+        var code: MaResult
         if preallocated:
             code = raw.hpf_init_preallocated(lib[], ptr, format.code, channels, sample_rate, cutoff, order)
         else:
             code = raw.hpf_init(lib[], ptr, format.code, channels, sample_rate, cutoff, order)
         if code != MA_SUCCESS:
             raw.hpf_free(lib[], ptr)
-            raise Error(lib[].describe("hpf init failed", code))
+            raise lib[].error("hpf init failed", code)
         return Self(lib.copy(), ptr, channels)
 
     def retune(
@@ -759,16 +759,16 @@ struct Hpf(Movable):
         sample_rate: UInt32 = UInt32(48000),
         order: UInt32 = UInt32(2),
         format: SampleFormat = SAMPLE_FORMAT_F32,
-    ) raises:
+    ) raises MaError:
         """Re-tune in place, keeping the filter's running state."""
         var code = raw.hpf_reinit(
             self._lib[], self._ptr, format.code, self._channels,
             sample_rate, cutoff, order,
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("hpf retune failed", code))
+            raise self._lib[].error("hpf retune failed", code)
 
-    def process(mut self, input: List[Float32]) raises -> List[Float32]:
+    def process(mut self, input: List[Float32]) raises MaError -> List[Float32]:
         """Filter every frame in `input`; the frame count is unchanged."""
         var frame_count = UInt64(len(input)) // UInt64(self._channels)
         var buf = List[Float32](capacity=len(input))
@@ -778,21 +778,21 @@ struct Hpf(Movable):
             self._lib[], self._ptr, buf, input, frame_count
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("hpf process failed", code))
+            raise self._lib[].error("hpf process failed", code)
         return buf^
 
-    def latency(self) raises -> UInt32:
+    def latency(self) raises MaError -> UInt32:
         """Filter latency in frames."""
         var rc = raw.hpf_get_latency(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("hpf latency failed", rc.result))
+            raise self._lib[].error("hpf latency failed", rc.result)
         return rc.value
 
-    def uninit(mut self) raises:
+    def uninit(mut self) raises MaError:
         """Release the filter early; the handle stays valid but empty."""
         var code = raw.hpf_uninit(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("hpf uninit failed", code))
+            raise self._lib[].error("hpf uninit failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():
@@ -830,17 +830,17 @@ struct BiquadNode(Movable):
         a1: Float32,
         a2: Float32,
         channels: UInt32 = 2,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """Attach a new node to the graph belonging to `engine`."""
         var lib = engine[]._lib.copy()
         var ptr = raw.biquad_node_alloc(lib[])
         if ptr == null_handle():
-            raise Error("biquad_node_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "biquad_node_alloc failed (out of memory)")
 
         var code = raw.biquad_node_init(lib[], ptr, engine[]._ptr, channels, b0, b1, b2, a0, a1, a2)
         if code != MA_SUCCESS:
             raw.biquad_node_free(lib[], ptr)
-            raise Error(lib[].describe("biquad_node init failed", code))
+            raise lib[].error("biquad_node init failed", code)
         return Self(lib^, engine.copy(), ptr, channels)
 
     def retune(
@@ -853,19 +853,19 @@ struct BiquadNode(Movable):
         a1: Float64,
         a2: Float64,
         format: SampleFormat = SAMPLE_FORMAT_F32,
-    ) raises:
+    ) raises MaError:
         """Re-tune the node's filter in place, keeping it attached."""
         var code = raw.biquad_node_reinit(
             self._lib[], self._ptr, format.code, self._channels, b0, b1, b2, a0, a1, a2,
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("biquad_node retune failed", code))
+            raise self._lib[].error("biquad_node retune failed", code)
 
-    def uninit(mut self) raises:
+    def uninit(mut self) raises MaError:
         """Detach and release the node early; the handle stays valid but empty."""
         var code = raw.biquad_node_uninit(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("biquad_node uninit failed", code))
+            raise self._lib[].error("biquad_node uninit failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():
@@ -903,17 +903,17 @@ struct LpfNode(Movable):
         sample_rate: UInt32 = UInt32(48000),
         order: UInt32 = UInt32(2),
         channels: UInt32 = 2,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """Attach a new node to the graph belonging to `engine`."""
         var lib = engine[]._lib.copy()
         var ptr = raw.lpf_node_alloc(lib[])
         if ptr == null_handle():
-            raise Error("lpf_node_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "lpf_node_alloc failed (out of memory)")
 
         var code = raw.lpf_node_init(lib[], ptr, engine[]._ptr, channels, sample_rate, cutoff, order)
         if code != MA_SUCCESS:
             raw.lpf_node_free(lib[], ptr)
-            raise Error(lib[].describe("lpf_node init failed", code))
+            raise lib[].error("lpf_node init failed", code)
         return Self(lib^, engine.copy(), ptr, channels)
 
     def retune(
@@ -923,19 +923,19 @@ struct LpfNode(Movable):
         sample_rate: UInt32 = UInt32(48000),
         order: UInt32 = UInt32(2),
         format: SampleFormat = SAMPLE_FORMAT_F32,
-    ) raises:
+    ) raises MaError:
         """Re-tune the node's filter in place, keeping it attached."""
         var code = raw.lpf_node_reinit(
             self._lib[], self._ptr, format.code, self._channels, sample_rate, cutoff, order,
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("lpf_node retune failed", code))
+            raise self._lib[].error("lpf_node retune failed", code)
 
-    def uninit(mut self) raises:
+    def uninit(mut self) raises MaError:
         """Detach and release the node early; the handle stays valid but empty."""
         var code = raw.lpf_node_uninit(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("lpf_node uninit failed", code))
+            raise self._lib[].error("lpf_node uninit failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():
@@ -973,17 +973,17 @@ struct HpfNode(Movable):
         sample_rate: UInt32 = UInt32(48000),
         order: UInt32 = UInt32(2),
         channels: UInt32 = 2,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """Attach a new node to the graph belonging to `engine`."""
         var lib = engine[]._lib.copy()
         var ptr = raw.hpf_node_alloc(lib[])
         if ptr == null_handle():
-            raise Error("hpf_node_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "hpf_node_alloc failed (out of memory)")
 
         var code = raw.hpf_node_init(lib[], ptr, engine[]._ptr, channels, sample_rate, cutoff, order)
         if code != MA_SUCCESS:
             raw.hpf_node_free(lib[], ptr)
-            raise Error(lib[].describe("hpf_node init failed", code))
+            raise lib[].error("hpf_node init failed", code)
         return Self(lib^, engine.copy(), ptr, channels)
 
     def retune(
@@ -993,19 +993,19 @@ struct HpfNode(Movable):
         sample_rate: UInt32 = UInt32(48000),
         order: UInt32 = UInt32(2),
         format: SampleFormat = SAMPLE_FORMAT_F32,
-    ) raises:
+    ) raises MaError:
         """Re-tune the node's filter in place, keeping it attached."""
         var code = raw.hpf_node_reinit(
             self._lib[], self._ptr, format.code, self._channels, sample_rate, cutoff, order,
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("hpf_node retune failed", code))
+            raise self._lib[].error("hpf_node retune failed", code)
 
-    def uninit(mut self) raises:
+    def uninit(mut self) raises MaError:
         """Detach and release the node early; the handle stays valid but empty."""
         var code = raw.hpf_node_uninit(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("hpf_node uninit failed", code))
+            raise self._lib[].error("hpf_node uninit failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():
@@ -1041,11 +1041,11 @@ struct Bpf2(Movable):
         q: Float64 = 0.707107,
         channels: UInt32 = 1,
         format: SampleFormat = SAMPLE_FORMAT_F32,
-    ) raises -> UInt64:
+    ) raises MaError -> UInt64:
         """Working-heap size for this tuning, without building the filter."""
         var rc = raw.bpf2_get_heap_size(lib[], format.code, channels, sample_rate, cutoff, q)
         if rc.result != MA_SUCCESS:
-            raise Error(lib[].describe("bpf2 heap size failed", rc.result))
+            raise lib[].error("bpf2 heap size failed", rc.result)
         return rc.value
 
     @staticmethod
@@ -1058,20 +1058,20 @@ struct Bpf2(Movable):
         channels: UInt32 = 1,
         format: SampleFormat = SAMPLE_FORMAT_F32,
         preallocated: Bool = False,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """`preallocated` routes init through miniaudio's preallocated-heap path."""
         var ptr = raw.bpf2_alloc(lib[])
         if ptr == null_handle():
-            raise Error("bpf2_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "bpf2_alloc failed (out of memory)")
 
-        var code: Int
+        var code: MaResult
         if preallocated:
             code = raw.bpf2_init_preallocated(lib[], ptr, format.code, channels, sample_rate, cutoff, q)
         else:
             code = raw.bpf2_init(lib[], ptr, format.code, channels, sample_rate, cutoff, q)
         if code != MA_SUCCESS:
             raw.bpf2_free(lib[], ptr)
-            raise Error(lib[].describe("bpf2 init failed", code))
+            raise lib[].error("bpf2 init failed", code)
         return Self(lib.copy(), ptr, channels)
 
     def retune(
@@ -1081,13 +1081,13 @@ struct Bpf2(Movable):
         sample_rate: UInt32 = UInt32(48000),
         q: Float64 = 0.707107,
         format: SampleFormat = SAMPLE_FORMAT_F32,
-    ) raises:
+    ) raises MaError:
         """Re-tune in place, keeping the filter's running state."""
         var code = raw.bpf2_reinit(self._lib[], self._ptr, format.code, self._channels, sample_rate, cutoff, q)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("bpf2 retune failed", code))
+            raise self._lib[].error("bpf2 retune failed", code)
 
-    def process(mut self, input: List[Float32]) raises -> List[Float32]:
+    def process(mut self, input: List[Float32]) raises MaError -> List[Float32]:
         """Filter every frame in `input`; the frame count is unchanged."""
         var frame_count = UInt64(len(input)) // UInt64(self._channels)
         var buf = List[Float32](capacity=len(input))
@@ -1097,21 +1097,21 @@ struct Bpf2(Movable):
             self._lib[], self._ptr, buf, input, frame_count
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("bpf2 process failed", code))
+            raise self._lib[].error("bpf2 process failed", code)
         return buf^
 
-    def latency(self) raises -> UInt32:
+    def latency(self) raises MaError -> UInt32:
         """Filter latency in frames."""
         var rc = raw.bpf2_get_latency(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("bpf2 latency failed", rc.result))
+            raise self._lib[].error("bpf2 latency failed", rc.result)
         return rc.value
 
-    def uninit(mut self) raises:
+    def uninit(mut self) raises MaError:
         """Release the filter early; the handle stays valid but empty."""
         var code = raw.bpf2_uninit(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("bpf2 uninit failed", code))
+            raise self._lib[].error("bpf2 uninit failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():
@@ -1144,11 +1144,11 @@ struct Bpf(Movable):
         order: UInt32 = UInt32(2),
         channels: UInt32 = 1,
         format: SampleFormat = SAMPLE_FORMAT_F32,
-    ) raises -> UInt64:
+    ) raises MaError -> UInt64:
         """Working-heap size for this tuning, without building the filter."""
         var rc = raw.bpf_get_heap_size(lib[], format.code, channels, sample_rate, cutoff, order)
         if rc.result != MA_SUCCESS:
-            raise Error(lib[].describe("bpf heap size failed", rc.result))
+            raise lib[].error("bpf heap size failed", rc.result)
         return rc.value
 
     @staticmethod
@@ -1161,20 +1161,20 @@ struct Bpf(Movable):
         channels: UInt32 = 1,
         format: SampleFormat = SAMPLE_FORMAT_F32,
         preallocated: Bool = False,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """`preallocated` routes init through miniaudio's preallocated-heap path."""
         var ptr = raw.bpf_alloc(lib[])
         if ptr == null_handle():
-            raise Error("bpf_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "bpf_alloc failed (out of memory)")
 
-        var code: Int
+        var code: MaResult
         if preallocated:
             code = raw.bpf_init_preallocated(lib[], ptr, format.code, channels, sample_rate, cutoff, order)
         else:
             code = raw.bpf_init(lib[], ptr, format.code, channels, sample_rate, cutoff, order)
         if code != MA_SUCCESS:
             raw.bpf_free(lib[], ptr)
-            raise Error(lib[].describe("bpf init failed", code))
+            raise lib[].error("bpf init failed", code)
         return Self(lib.copy(), ptr, channels)
 
     def retune(
@@ -1184,13 +1184,13 @@ struct Bpf(Movable):
         sample_rate: UInt32 = UInt32(48000),
         order: UInt32 = UInt32(2),
         format: SampleFormat = SAMPLE_FORMAT_F32,
-    ) raises:
+    ) raises MaError:
         """Re-tune in place, keeping the filter's running state."""
         var code = raw.bpf_reinit(self._lib[], self._ptr, format.code, self._channels, sample_rate, cutoff, order)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("bpf retune failed", code))
+            raise self._lib[].error("bpf retune failed", code)
 
-    def process(mut self, input: List[Float32]) raises -> List[Float32]:
+    def process(mut self, input: List[Float32]) raises MaError -> List[Float32]:
         """Filter every frame in `input`; the frame count is unchanged."""
         var frame_count = UInt64(len(input)) // UInt64(self._channels)
         var buf = List[Float32](capacity=len(input))
@@ -1200,21 +1200,21 @@ struct Bpf(Movable):
             self._lib[], self._ptr, buf, input, frame_count
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("bpf process failed", code))
+            raise self._lib[].error("bpf process failed", code)
         return buf^
 
-    def latency(self) raises -> UInt32:
+    def latency(self) raises MaError -> UInt32:
         """Filter latency in frames."""
         var rc = raw.bpf_get_latency(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("bpf latency failed", rc.result))
+            raise self._lib[].error("bpf latency failed", rc.result)
         return rc.value
 
-    def uninit(mut self) raises:
+    def uninit(mut self) raises MaError:
         """Release the filter early; the handle stays valid but empty."""
         var code = raw.bpf_uninit(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("bpf uninit failed", code))
+            raise self._lib[].error("bpf uninit failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():
@@ -1247,11 +1247,11 @@ struct Notch2(Movable):
         q: Float64 = 0.707107,
         channels: UInt32 = 1,
         format: SampleFormat = SAMPLE_FORMAT_F32,
-    ) raises -> UInt64:
+    ) raises MaError -> UInt64:
         """Working-heap size for this tuning, without building the filter."""
         var rc = raw.notch2_get_heap_size(lib[], format.code, channels, sample_rate, q, frequency)
         if rc.result != MA_SUCCESS:
-            raise Error(lib[].describe("notch2 heap size failed", rc.result))
+            raise lib[].error("notch2 heap size failed", rc.result)
         return rc.value
 
     @staticmethod
@@ -1264,20 +1264,20 @@ struct Notch2(Movable):
         channels: UInt32 = 1,
         format: SampleFormat = SAMPLE_FORMAT_F32,
         preallocated: Bool = False,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """`preallocated` routes init through miniaudio's preallocated-heap path."""
         var ptr = raw.notch2_alloc(lib[])
         if ptr == null_handle():
-            raise Error("notch2_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "notch2_alloc failed (out of memory)")
 
-        var code: Int
+        var code: MaResult
         if preallocated:
             code = raw.notch2_init_preallocated(lib[], ptr, format.code, channels, sample_rate, q, frequency)
         else:
             code = raw.notch2_init(lib[], ptr, format.code, channels, sample_rate, q, frequency)
         if code != MA_SUCCESS:
             raw.notch2_free(lib[], ptr)
-            raise Error(lib[].describe("notch2 init failed", code))
+            raise lib[].error("notch2 init failed", code)
         return Self(lib.copy(), ptr, channels)
 
     def retune(
@@ -1287,13 +1287,13 @@ struct Notch2(Movable):
         sample_rate: UInt32 = UInt32(48000),
         q: Float64 = 0.707107,
         format: SampleFormat = SAMPLE_FORMAT_F32,
-    ) raises:
+    ) raises MaError:
         """Re-tune in place, keeping the filter's running state."""
         var code = raw.notch2_reinit(self._lib[], self._ptr, format.code, self._channels, sample_rate, q, frequency)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("notch2 retune failed", code))
+            raise self._lib[].error("notch2 retune failed", code)
 
-    def process(mut self, input: List[Float32]) raises -> List[Float32]:
+    def process(mut self, input: List[Float32]) raises MaError -> List[Float32]:
         """Filter every frame in `input`; the frame count is unchanged."""
         var frame_count = UInt64(len(input)) // UInt64(self._channels)
         var buf = List[Float32](capacity=len(input))
@@ -1303,21 +1303,21 @@ struct Notch2(Movable):
             self._lib[], self._ptr, buf, input, frame_count
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("notch2 process failed", code))
+            raise self._lib[].error("notch2 process failed", code)
         return buf^
 
-    def latency(self) raises -> UInt32:
+    def latency(self) raises MaError -> UInt32:
         """Filter latency in frames."""
         var rc = raw.notch2_get_latency(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("notch2 latency failed", rc.result))
+            raise self._lib[].error("notch2 latency failed", rc.result)
         return rc.value
 
-    def uninit(mut self) raises:
+    def uninit(mut self) raises MaError:
         """Release the filter early; the handle stays valid but empty."""
         var code = raw.notch2_uninit(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("notch2 uninit failed", code))
+            raise self._lib[].error("notch2 uninit failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():
@@ -1351,11 +1351,11 @@ struct Peak2(Movable):
         q: Float64 = 0.707107,
         channels: UInt32 = 1,
         format: SampleFormat = SAMPLE_FORMAT_F32,
-    ) raises -> UInt64:
+    ) raises MaError -> UInt64:
         """Working-heap size for this tuning, without building the filter."""
         var rc = raw.peak2_get_heap_size(lib[], format.code, channels, sample_rate, gain_db, q, frequency)
         if rc.result != MA_SUCCESS:
-            raise Error(lib[].describe("peak2 heap size failed", rc.result))
+            raise lib[].error("peak2 heap size failed", rc.result)
         return rc.value
 
     @staticmethod
@@ -1369,20 +1369,20 @@ struct Peak2(Movable):
         channels: UInt32 = 1,
         format: SampleFormat = SAMPLE_FORMAT_F32,
         preallocated: Bool = False,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """`preallocated` routes init through miniaudio's preallocated-heap path."""
         var ptr = raw.peak2_alloc(lib[])
         if ptr == null_handle():
-            raise Error("peak2_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "peak2_alloc failed (out of memory)")
 
-        var code: Int
+        var code: MaResult
         if preallocated:
             code = raw.peak2_init_preallocated(lib[], ptr, format.code, channels, sample_rate, gain_db, q, frequency)
         else:
             code = raw.peak2_init(lib[], ptr, format.code, channels, sample_rate, gain_db, q, frequency)
         if code != MA_SUCCESS:
             raw.peak2_free(lib[], ptr)
-            raise Error(lib[].describe("peak2 init failed", code))
+            raise lib[].error("peak2 init failed", code)
         return Self(lib.copy(), ptr, channels)
 
     def retune(
@@ -1393,13 +1393,13 @@ struct Peak2(Movable):
         sample_rate: UInt32 = UInt32(48000),
         q: Float64 = 0.707107,
         format: SampleFormat = SAMPLE_FORMAT_F32,
-    ) raises:
+    ) raises MaError:
         """Re-tune in place, keeping the filter's running state."""
         var code = raw.peak2_reinit(self._lib[], self._ptr, format.code, self._channels, sample_rate, gain_db, q, frequency)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("peak2 retune failed", code))
+            raise self._lib[].error("peak2 retune failed", code)
 
-    def process(mut self, input: List[Float32]) raises -> List[Float32]:
+    def process(mut self, input: List[Float32]) raises MaError -> List[Float32]:
         """Filter every frame in `input`; the frame count is unchanged."""
         var frame_count = UInt64(len(input)) // UInt64(self._channels)
         var buf = List[Float32](capacity=len(input))
@@ -1409,21 +1409,21 @@ struct Peak2(Movable):
             self._lib[], self._ptr, buf, input, frame_count
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("peak2 process failed", code))
+            raise self._lib[].error("peak2 process failed", code)
         return buf^
 
-    def latency(self) raises -> UInt32:
+    def latency(self) raises MaError -> UInt32:
         """Filter latency in frames."""
         var rc = raw.peak2_get_latency(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("peak2 latency failed", rc.result))
+            raise self._lib[].error("peak2 latency failed", rc.result)
         return rc.value
 
-    def uninit(mut self) raises:
+    def uninit(mut self) raises MaError:
         """Release the filter early; the handle stays valid but empty."""
         var code = raw.peak2_uninit(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("peak2 uninit failed", code))
+            raise self._lib[].error("peak2 uninit failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():
@@ -1457,11 +1457,11 @@ struct Loshelf2(Movable):
         shelf_slope: Float64 = 1.0,
         channels: UInt32 = 1,
         format: SampleFormat = SAMPLE_FORMAT_F32,
-    ) raises -> UInt64:
+    ) raises MaError -> UInt64:
         """Working-heap size for this tuning, without building the filter."""
         var rc = raw.loshelf2_get_heap_size(lib[], format.code, channels, sample_rate, gain_db, shelf_slope, frequency)
         if rc.result != MA_SUCCESS:
-            raise Error(lib[].describe("loshelf2 heap size failed", rc.result))
+            raise lib[].error("loshelf2 heap size failed", rc.result)
         return rc.value
 
     @staticmethod
@@ -1475,20 +1475,20 @@ struct Loshelf2(Movable):
         channels: UInt32 = 1,
         format: SampleFormat = SAMPLE_FORMAT_F32,
         preallocated: Bool = False,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """`preallocated` routes init through miniaudio's preallocated-heap path."""
         var ptr = raw.loshelf2_alloc(lib[])
         if ptr == null_handle():
-            raise Error("loshelf2_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "loshelf2_alloc failed (out of memory)")
 
-        var code: Int
+        var code: MaResult
         if preallocated:
             code = raw.loshelf2_init_preallocated(lib[], ptr, format.code, channels, sample_rate, gain_db, shelf_slope, frequency)
         else:
             code = raw.loshelf2_init(lib[], ptr, format.code, channels, sample_rate, gain_db, shelf_slope, frequency)
         if code != MA_SUCCESS:
             raw.loshelf2_free(lib[], ptr)
-            raise Error(lib[].describe("loshelf2 init failed", code))
+            raise lib[].error("loshelf2 init failed", code)
         return Self(lib.copy(), ptr, channels)
 
     def retune(
@@ -1499,13 +1499,13 @@ struct Loshelf2(Movable):
         sample_rate: UInt32 = UInt32(48000),
         shelf_slope: Float64 = 1.0,
         format: SampleFormat = SAMPLE_FORMAT_F32,
-    ) raises:
+    ) raises MaError:
         """Re-tune in place, keeping the filter's running state."""
         var code = raw.loshelf2_reinit(self._lib[], self._ptr, format.code, self._channels, sample_rate, gain_db, shelf_slope, frequency)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("loshelf2 retune failed", code))
+            raise self._lib[].error("loshelf2 retune failed", code)
 
-    def process(mut self, input: List[Float32]) raises -> List[Float32]:
+    def process(mut self, input: List[Float32]) raises MaError -> List[Float32]:
         """Filter every frame in `input`; the frame count is unchanged."""
         var frame_count = UInt64(len(input)) // UInt64(self._channels)
         var buf = List[Float32](capacity=len(input))
@@ -1515,21 +1515,21 @@ struct Loshelf2(Movable):
             self._lib[], self._ptr, buf, input, frame_count
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("loshelf2 process failed", code))
+            raise self._lib[].error("loshelf2 process failed", code)
         return buf^
 
-    def latency(self) raises -> UInt32:
+    def latency(self) raises MaError -> UInt32:
         """Filter latency in frames."""
         var rc = raw.loshelf2_get_latency(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("loshelf2 latency failed", rc.result))
+            raise self._lib[].error("loshelf2 latency failed", rc.result)
         return rc.value
 
-    def uninit(mut self) raises:
+    def uninit(mut self) raises MaError:
         """Release the filter early; the handle stays valid but empty."""
         var code = raw.loshelf2_uninit(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("loshelf2 uninit failed", code))
+            raise self._lib[].error("loshelf2 uninit failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():
@@ -1563,11 +1563,11 @@ struct Hishelf2(Movable):
         shelf_slope: Float64 = 1.0,
         channels: UInt32 = 1,
         format: SampleFormat = SAMPLE_FORMAT_F32,
-    ) raises -> UInt64:
+    ) raises MaError -> UInt64:
         """Working-heap size for this tuning, without building the filter."""
         var rc = raw.hishelf2_get_heap_size(lib[], format.code, channels, sample_rate, gain_db, shelf_slope, frequency)
         if rc.result != MA_SUCCESS:
-            raise Error(lib[].describe("hishelf2 heap size failed", rc.result))
+            raise lib[].error("hishelf2 heap size failed", rc.result)
         return rc.value
 
     @staticmethod
@@ -1581,20 +1581,20 @@ struct Hishelf2(Movable):
         channels: UInt32 = 1,
         format: SampleFormat = SAMPLE_FORMAT_F32,
         preallocated: Bool = False,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """`preallocated` routes init through miniaudio's preallocated-heap path."""
         var ptr = raw.hishelf2_alloc(lib[])
         if ptr == null_handle():
-            raise Error("hishelf2_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "hishelf2_alloc failed (out of memory)")
 
-        var code: Int
+        var code: MaResult
         if preallocated:
             code = raw.hishelf2_init_preallocated(lib[], ptr, format.code, channels, sample_rate, gain_db, shelf_slope, frequency)
         else:
             code = raw.hishelf2_init(lib[], ptr, format.code, channels, sample_rate, gain_db, shelf_slope, frequency)
         if code != MA_SUCCESS:
             raw.hishelf2_free(lib[], ptr)
-            raise Error(lib[].describe("hishelf2 init failed", code))
+            raise lib[].error("hishelf2 init failed", code)
         return Self(lib.copy(), ptr, channels)
 
     def retune(
@@ -1605,13 +1605,13 @@ struct Hishelf2(Movable):
         sample_rate: UInt32 = UInt32(48000),
         shelf_slope: Float64 = 1.0,
         format: SampleFormat = SAMPLE_FORMAT_F32,
-    ) raises:
+    ) raises MaError:
         """Re-tune in place, keeping the filter's running state."""
         var code = raw.hishelf2_reinit(self._lib[], self._ptr, format.code, self._channels, sample_rate, gain_db, shelf_slope, frequency)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("hishelf2 retune failed", code))
+            raise self._lib[].error("hishelf2 retune failed", code)
 
-    def process(mut self, input: List[Float32]) raises -> List[Float32]:
+    def process(mut self, input: List[Float32]) raises MaError -> List[Float32]:
         """Filter every frame in `input`; the frame count is unchanged."""
         var frame_count = UInt64(len(input)) // UInt64(self._channels)
         var buf = List[Float32](capacity=len(input))
@@ -1621,21 +1621,21 @@ struct Hishelf2(Movable):
             self._lib[], self._ptr, buf, input, frame_count
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("hishelf2 process failed", code))
+            raise self._lib[].error("hishelf2 process failed", code)
         return buf^
 
-    def latency(self) raises -> UInt32:
+    def latency(self) raises MaError -> UInt32:
         """Filter latency in frames."""
         var rc = raw.hishelf2_get_latency(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("hishelf2 latency failed", rc.result))
+            raise self._lib[].error("hishelf2 latency failed", rc.result)
         return rc.value
 
-    def uninit(mut self) raises:
+    def uninit(mut self) raises MaError:
         """Release the filter early; the handle stays valid but empty."""
         var code = raw.hishelf2_uninit(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("hishelf2 uninit failed", code))
+            raise self._lib[].error("hishelf2 uninit failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():
@@ -1670,17 +1670,17 @@ struct BpfNode(Movable):
         sample_rate: UInt32 = UInt32(48000),
         order: UInt32 = UInt32(2),
         channels: UInt32 = 2,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """Attach a new node to the graph belonging to `engine`."""
         var lib = engine[]._lib.copy()
         var ptr = raw.bpf_node_alloc(lib[])
         if ptr == null_handle():
-            raise Error("bpf_node_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "bpf_node_alloc failed (out of memory)")
 
         var code = raw.bpf_node_init(lib[], ptr, engine[]._ptr, channels, sample_rate, cutoff, order)
         if code != MA_SUCCESS:
             raw.bpf_node_free(lib[], ptr)
-            raise Error(lib[].describe("bpf_node init failed", code))
+            raise lib[].error("bpf_node init failed", code)
         return Self(lib^, engine.copy(), ptr, channels)
 
     def retune(
@@ -1690,17 +1690,17 @@ struct BpfNode(Movable):
         sample_rate: UInt32 = UInt32(48000),
         order: UInt32 = UInt32(2),
         format: SampleFormat = SAMPLE_FORMAT_F32,
-    ) raises:
+    ) raises MaError:
         """Re-tune the node's filter in place, keeping it attached."""
         var code = raw.bpf_node_reinit(self._lib[], self._ptr, format.code, self._channels, sample_rate, cutoff, order)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("bpf_node retune failed", code))
+            raise self._lib[].error("bpf_node retune failed", code)
 
-    def uninit(mut self) raises:
+    def uninit(mut self) raises MaError:
         """Detach and release the node early; the handle stays valid but empty."""
         var code = raw.bpf_node_uninit(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("bpf_node uninit failed", code))
+            raise self._lib[].error("bpf_node uninit failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():
@@ -1738,17 +1738,17 @@ struct NotchNode(Movable):
         sample_rate: UInt32 = UInt32(48000),
         q: Float64 = 0.707107,
         channels: UInt32 = 2,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """Attach a new node to the graph belonging to `engine`."""
         var lib = engine[]._lib.copy()
         var ptr = raw.notch_node_alloc(lib[])
         if ptr == null_handle():
-            raise Error("notch_node_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "notch_node_alloc failed (out of memory)")
 
         var code = raw.notch_node_init(lib[], ptr, engine[]._ptr, channels, sample_rate, q, frequency)
         if code != MA_SUCCESS:
             raw.notch_node_free(lib[], ptr)
-            raise Error(lib[].describe("notch_node init failed", code))
+            raise lib[].error("notch_node init failed", code)
         return Self(lib^, engine.copy(), ptr, channels)
 
     def retune(
@@ -1758,17 +1758,17 @@ struct NotchNode(Movable):
         sample_rate: UInt32 = UInt32(48000),
         q: Float64 = 0.707107,
         format: SampleFormat = SAMPLE_FORMAT_F32,
-    ) raises:
+    ) raises MaError:
         """Re-tune the node's filter in place, keeping it attached."""
         var code = raw.notch_node_reinit(self._lib[], self._ptr, format.code, self._channels, sample_rate, q, frequency)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("notch_node retune failed", code))
+            raise self._lib[].error("notch_node retune failed", code)
 
-    def uninit(mut self) raises:
+    def uninit(mut self) raises MaError:
         """Detach and release the node early; the handle stays valid but empty."""
         var code = raw.notch_node_uninit(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("notch_node uninit failed", code))
+            raise self._lib[].error("notch_node uninit failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():
@@ -1807,17 +1807,17 @@ struct PeakNode(Movable):
         sample_rate: UInt32 = UInt32(48000),
         q: Float64 = 0.707107,
         channels: UInt32 = 2,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """Attach a new node to the graph belonging to `engine`."""
         var lib = engine[]._lib.copy()
         var ptr = raw.peak_node_alloc(lib[])
         if ptr == null_handle():
-            raise Error("peak_node_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "peak_node_alloc failed (out of memory)")
 
         var code = raw.peak_node_init(lib[], ptr, engine[]._ptr, channels, sample_rate, gain_db, q, frequency)
         if code != MA_SUCCESS:
             raw.peak_node_free(lib[], ptr)
-            raise Error(lib[].describe("peak_node init failed", code))
+            raise lib[].error("peak_node init failed", code)
         return Self(lib^, engine.copy(), ptr, channels)
 
     def retune(
@@ -1828,17 +1828,17 @@ struct PeakNode(Movable):
         sample_rate: UInt32 = UInt32(48000),
         q: Float64 = 0.707107,
         format: SampleFormat = SAMPLE_FORMAT_F32,
-    ) raises:
+    ) raises MaError:
         """Re-tune the node's filter in place, keeping it attached."""
         var code = raw.peak_node_reinit(self._lib[], self._ptr, format.code, self._channels, sample_rate, gain_db, q, frequency)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("peak_node retune failed", code))
+            raise self._lib[].error("peak_node retune failed", code)
 
-    def uninit(mut self) raises:
+    def uninit(mut self) raises MaError:
         """Detach and release the node early; the handle stays valid but empty."""
         var code = raw.peak_node_uninit(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("peak_node uninit failed", code))
+            raise self._lib[].error("peak_node uninit failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():
@@ -1880,17 +1880,17 @@ struct LoshelfNode(Movable):
         sample_rate: UInt32 = UInt32(48000),
         q: Float64 = 0.707107,
         channels: UInt32 = 2,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """Attach a new node to the graph belonging to `engine`."""
         var lib = engine[]._lib.copy()
         var ptr = raw.loshelf_node_alloc(lib[])
         if ptr == null_handle():
-            raise Error("loshelf_node_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "loshelf_node_alloc failed (out of memory)")
 
         var code = raw.loshelf_node_init(lib[], ptr, engine[]._ptr, channels, sample_rate, gain_db, q, frequency)
         if code != MA_SUCCESS:
             raw.loshelf_node_free(lib[], ptr)
-            raise Error(lib[].describe("loshelf_node init failed", code))
+            raise lib[].error("loshelf_node init failed", code)
         return Self(lib^, engine.copy(), ptr, channels)
 
     def retune(
@@ -1901,17 +1901,17 @@ struct LoshelfNode(Movable):
         sample_rate: UInt32 = UInt32(48000),
         shelf_slope: Float64 = 1.0,
         format: SampleFormat = SAMPLE_FORMAT_F32,
-    ) raises:
+    ) raises MaError:
         """Re-tune the node's filter in place, keeping it attached."""
         var code = raw.loshelf_node_reinit(self._lib[], self._ptr, format.code, self._channels, sample_rate, gain_db, shelf_slope, frequency)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("loshelf_node retune failed", code))
+            raise self._lib[].error("loshelf_node retune failed", code)
 
-    def uninit(mut self) raises:
+    def uninit(mut self) raises MaError:
         """Detach and release the node early; the handle stays valid but empty."""
         var code = raw.loshelf_node_uninit(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("loshelf_node uninit failed", code))
+            raise self._lib[].error("loshelf_node uninit failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():
@@ -1953,17 +1953,17 @@ struct HishelfNode(Movable):
         sample_rate: UInt32 = UInt32(48000),
         q: Float64 = 0.707107,
         channels: UInt32 = 2,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """Attach a new node to the graph belonging to `engine`."""
         var lib = engine[]._lib.copy()
         var ptr = raw.hishelf_node_alloc(lib[])
         if ptr == null_handle():
-            raise Error("hishelf_node_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "hishelf_node_alloc failed (out of memory)")
 
         var code = raw.hishelf_node_init(lib[], ptr, engine[]._ptr, channels, sample_rate, gain_db, q, frequency)
         if code != MA_SUCCESS:
             raw.hishelf_node_free(lib[], ptr)
-            raise Error(lib[].describe("hishelf_node init failed", code))
+            raise lib[].error("hishelf_node init failed", code)
         return Self(lib^, engine.copy(), ptr, channels)
 
     def retune(
@@ -1974,17 +1974,17 @@ struct HishelfNode(Movable):
         sample_rate: UInt32 = UInt32(48000),
         shelf_slope: Float64 = 1.0,
         format: SampleFormat = SAMPLE_FORMAT_F32,
-    ) raises:
+    ) raises MaError:
         """Re-tune the node's filter in place, keeping it attached."""
         var code = raw.hishelf_node_reinit(self._lib[], self._ptr, format.code, self._channels, sample_rate, gain_db, shelf_slope, frequency)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("hishelf_node retune failed", code))
+            raise self._lib[].error("hishelf_node retune failed", code)
 
-    def uninit(mut self) raises:
+    def uninit(mut self) raises MaError:
         """Detach and release the node early; the handle stays valid but empty."""
         var code = raw.hishelf_node_uninit(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("hishelf_node uninit failed", code))
+            raise self._lib[].error("hishelf_node uninit failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():

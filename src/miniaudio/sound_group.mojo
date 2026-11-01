@@ -13,7 +13,7 @@ parent group to nest into and the node channel counts.
 from std.memory import ArcPointer
 
 from miniaudio._lib import MaLib, null_handle
-from miniaudio.result import MA_SUCCESS
+from miniaudio.result import MaResult, MaError, MA_SUCCESS
 from miniaudio.engine import Engine
 from miniaudio._sound_types import AttenuationModel, Positioning, PanMode
 from miniaudio._ffi.sound_raw import Vec3, MaCone
@@ -36,33 +36,33 @@ struct SoundGroup(Movable):
         self._ptr = ptr
 
     @staticmethod
-    def create(engine: ArcPointer[Engine], *, flags: UInt32 = 0) raises -> Self:
+    def create(engine: ArcPointer[Engine], *, flags: UInt32 = 0) raises MaError -> Self:
         var lib = engine[]._lib.copy()
         var ptr = raw.sound_group_alloc(lib[])
         if ptr == null_handle():
-            raise Error("sound_group_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "sound_group_alloc failed (out of memory)")
         var code = raw.sound_group_init(lib[], ptr, engine[]._ptr, flags)
         if code != MA_SUCCESS:
             raw.sound_group_free(lib[], ptr)
-            raise Error(lib[].describe("sound group init failed", code))
+            raise lib[].error("sound group init failed", code)
         return Self(lib^, engine.copy(), ptr)
 
     @staticmethod
     def from_config(
         engine: ArcPointer[Engine], config: SoundGroupConfig
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """A group built from a `SoundGroupConfig` (ma_sound_group_init_ex)."""
         var lib = engine[]._lib.copy()
         var ptr = raw.sound_group_alloc(lib[])
         if ptr == null_handle():
-            raise Error("sound_group_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "sound_group_alloc failed (out of memory)")
         var code = raw.sound_group_init_ex(lib[], ptr, engine[]._ptr, config._ptr)
         if code != MA_SUCCESS:
             raw.sound_group_free(lib[], ptr)
-            raise Error(lib[].describe("sound group init_ex failed", code))
+            raise lib[].error("sound group init_ex failed", code)
         return Self(lib^, engine.copy(), ptr)
 
-    def engine(self) raises -> ArcPointer[Engine]:
+    def engine(self) raises MaError -> ArcPointer[Engine]:
         """The engine this group belongs to (ma_sound_group_get_engine).
 
         miniaudio hands back the very engine the group was created against; the
@@ -71,48 +71,48 @@ struct SoundGroup(Movable):
         """
         var handle = raw.sound_group_get_engine(self._lib[], self._ptr)
         if handle == null_handle():
-            raise Error("sound group has no engine (not initialised)")
+            raise MaError(MaResult.INVALID_OPERATION, "sound group has no engine (not initialised)")
         if handle != self._engine[]._ptr:
-            raise Error("sound group reports an engine other than the one it was built with")
+            raise MaError(MaResult.ERROR, "sound group reports an engine other than the one it was built with")
         return self._engine.copy()
 
-    def start(mut self) raises:
+    def start(mut self) raises MaError:
         var code = raw.sound_group_start(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("sound group start failed", code))
+            raise self._lib[].error("sound group start failed", code)
 
-    def stop(mut self) raises:
+    def stop(mut self) raises MaError:
         var code = raw.sound_group_stop(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("sound group stop failed", code))
+            raise self._lib[].error("sound group stop failed", code)
 
-    def set_volume(mut self, volume: Float32) raises:
+    def set_volume(mut self, volume: Float32) raises MaError:
         if raw.sound_group_set_volume(self._lib[], self._ptr, volume) != MA_SUCCESS:
-            raise Error("sound group set_volume on uninitialized group")
+            raise MaError(MaResult.INVALID_OPERATION, "sound group set_volume on uninitialized group")
 
     def volume(self) -> Float32:
         return raw.sound_group_get_volume(self._lib[], self._ptr)
 
-    def set_pan(mut self, pan: Float32) raises:
+    def set_pan(mut self, pan: Float32) raises MaError:
         if raw.sound_group_set_pan(self._lib[], self._ptr, pan) != MA_SUCCESS:
-            raise Error("sound group set_pan on uninitialized group")
+            raise MaError(MaResult.INVALID_OPERATION, "sound group set_pan on uninitialized group")
 
     def pan(self) -> Float32:
         return raw.sound_group_get_pan(self._lib[], self._ptr)
 
-    def set_pitch(mut self, pitch: Float32) raises:
+    def set_pitch(mut self, pitch: Float32) raises MaError:
         if raw.sound_group_set_pitch(self._lib[], self._ptr, pitch) != MA_SUCCESS:
-            raise Error("sound group set_pitch on uninitialized group")
+            raise MaError(MaResult.INVALID_OPERATION, "sound group set_pitch on uninitialized group")
 
     def pitch(self) -> Float32:
         return raw.sound_group_get_pitch(self._lib[], self._ptr)
 
-    def set_spatialization_enabled(mut self, enabled: Bool) raises:
+    def set_spatialization_enabled(mut self, enabled: Bool) raises MaError:
         if (
             raw.sound_group_set_spatialization_enabled(self._lib[], self._ptr, enabled)
             != MA_SUCCESS
         ):
-            raise Error("sound group set_spatialization_enabled on uninitialized group")
+            raise MaError(MaResult.INVALID_OPERATION, "sound group set_spatialization_enabled on uninitialized group")
 
     def is_spatialization_enabled(self) -> Bool:
         return raw.sound_group_is_spatialization_enabled(self._lib[], self._ptr) != 0
@@ -298,74 +298,72 @@ struct SoundGroupConfig(Movable):
         self._parent = None
 
     @staticmethod
-    def create(lib: ArcPointer[MaLib]) raises -> Self:
+    def create(lib: ArcPointer[MaLib]) raises MaError -> Self:
         """miniaudio's default group config (ma_sound_group_config_init)."""
         var ptr = raw.sound_group_config_alloc(lib[])
         if ptr == null_handle():
-            raise Error("sound_group_config_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "sound_group_config_alloc failed (out of memory)")
         var code = raw.sound_group_config_init(lib[], ptr)
         if code != MA_SUCCESS:
             raw.sound_group_config_free(lib[], ptr)
-            raise Error(lib[].describe("sound group config init failed", code))
+            raise lib[].error("sound group config init failed", code)
         return Self(lib.copy(), ptr)
 
     @staticmethod
-    def for_engine(engine: ArcPointer[Engine]) raises -> Self:
+    def for_engine(engine: ArcPointer[Engine]) raises MaError -> Self:
         """The default group config for one engine (ma_sound_group_config_init_2)."""
         var lib = engine[]._lib.copy()
         var ptr = raw.sound_group_config_alloc(lib[])
         if ptr == null_handle():
-            raise Error("sound_group_config_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "sound_group_config_alloc failed (out of memory)")
         var code = raw.sound_group_config_init_for_engine(lib[], ptr, engine[]._ptr)
         if code != MA_SUCCESS:
             raw.sound_group_config_free(lib[], ptr)
-            raise Error(lib[].describe("sound group config init for engine failed", code))
+            raise lib[].error("sound group config init for engine failed", code)
         return Self(lib^, ptr)
 
-    def set_flags(mut self, flags: UInt32) raises:
+    def set_flags(mut self, flags: UInt32) raises MaError:
         """`SOUND_FLAG_*` values OR-ed together."""
         var code = raw.sound_group_config_set_flags(self._lib[], self._ptr, flags)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("sound group config set_flags failed", code))
+            raise self._lib[].error("sound group config set_flags failed", code)
 
     def set_parent(
         mut self, parent: ArcPointer[SoundGroup], *, input_bus: UInt32 = 0
-    ) raises:
+    ) raises MaError:
         """Nest the new group inside `parent` instead of attaching to the endpoint."""
         var code = raw.sound_group_config_set_parent(
             self._lib[], self._ptr, parent[]._ptr, input_bus
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("sound group config set_parent failed", code))
+            raise self._lib[].error("sound group config set_parent failed", code)
         self._parent = parent.copy()
 
-    def clear_parent(mut self) raises:
+    def clear_parent(mut self) raises MaError:
         var code = raw.sound_group_config_set_parent(
             self._lib[], self._ptr, null_handle(), UInt32(0)
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("sound group config clear_parent failed", code))
+            raise self._lib[].error("sound group config clear_parent failed", code)
         self._parent = None
 
     def set_channels(
         mut self, channels_in: UInt32, channels_out: UInt32 = UInt32(0)
-    ) raises:
+    ) raises MaError:
         """0 means the engine's channel count."""
         var code = raw.sound_group_config_set_channels(
             self._lib[], self._ptr, channels_in, channels_out
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("sound group config set_channels failed", code))
+            raise self._lib[].error("sound group config set_channels failed", code)
 
-    def set_volume_smooth_time(mut self, frames: UInt32) raises:
+    def set_volume_smooth_time(mut self, frames: UInt32) raises MaError:
         """Frames over which volume changes are smoothed (0 for none)."""
         var code = raw.sound_group_config_set_volume_smooth_time(
             self._lib[], self._ptr, frames
         )
         if code != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("sound group config set_volume_smooth_time failed", code)
-            )
+            raise self._lib[].error("sound group config set_volume_smooth_time failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():

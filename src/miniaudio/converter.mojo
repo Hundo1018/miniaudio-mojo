@@ -23,7 +23,7 @@ from std.memory import ArcPointer
 
 from miniaudio._lib import MaLib, null_handle
 from miniaudio.decoder import SampleFormat, SAMPLE_FORMAT_F32
-from miniaudio.result import MA_SUCCESS
+from miniaudio.result import MaResult, MaError, MA_SUCCESS
 import miniaudio._ffi.converter_raw as raw
 
 
@@ -138,13 +138,13 @@ struct Resampler(Movable):
         channels: UInt32 = 1,
         format: SampleFormat = SAMPLE_FORMAT_F32,
         algorithm: ResampleAlgorithm = RESAMPLE_ALGORITHM_LINEAR,
-    ) raises -> UInt64:
+    ) raises MaError -> UInt64:
         """Working-heap size for this configuration, without building anything."""
         var rc = raw.resampler_get_heap_size(
             lib[], format.code, channels, sample_rate_in, sample_rate_out, algorithm.code
         )
         if rc.result != MA_SUCCESS:
-            raise Error(lib[].describe("resampler heap size failed", rc.result))
+            raise lib[].error("resampler heap size failed", rc.result)
         return rc.value
 
     @staticmethod
@@ -157,13 +157,13 @@ struct Resampler(Movable):
         format: SampleFormat = SAMPLE_FORMAT_F32,
         algorithm: ResampleAlgorithm = RESAMPLE_ALGORITHM_LINEAR,
         preallocated: Bool = False,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """`preallocated` routes init through miniaudio's preallocated-heap path."""
         var ptr = raw.resampler_alloc(lib[])
         if ptr == null_handle():
-            raise Error("resampler_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "resampler_alloc failed (out of memory)")
 
-        var code: Int
+        var code: MaResult
         if preallocated:
             code = raw.resampler_init_preallocated(
                 lib[], ptr, format.code, channels, sample_rate_in, sample_rate_out,
@@ -176,12 +176,12 @@ struct Resampler(Movable):
             )
         if code != MA_SUCCESS:
             raw.resampler_free(lib[], ptr)
-            raise Error(lib[].describe("resampler init failed", code))
+            raise lib[].error("resampler init failed", code)
         return Self(lib.copy(), ptr, channels)
 
     def process(
         mut self, input: List[Float32], max_output_frames: UInt64
-    ) raises -> ConversionResult:
+    ) raises MaError -> ConversionResult:
         """Convert `input`, producing at most max_output_frames frames."""
         var input_frames = UInt64(len(input)) // UInt64(self._channels)
         var samples = Int(max_output_frames) * Int(self._channels)
@@ -192,75 +192,67 @@ struct Resampler(Movable):
             self._lib[], self._ptr, input, input_frames, buf, max_output_frames
         )
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("resampler process failed", rc.result))
+            raise self._lib[].error("resampler process failed", rc.result)
         buf.resize(Int(rc.frames_out) * Int(self._channels), Float32(0))
         return ConversionResult(rc.frames_in, buf^)
 
-    def set_rate(mut self, sample_rate_in: UInt32, sample_rate_out: UInt32) raises:
+    def set_rate(mut self, sample_rate_in: UInt32, sample_rate_out: UInt32) raises MaError:
         var code = raw.resampler_set_rate(
             self._lib[], self._ptr, sample_rate_in, sample_rate_out
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("resampler set_rate failed", code))
+            raise self._lib[].error("resampler set_rate failed", code)
 
-    def set_rate_ratio(mut self, ratio: Float32) raises:
+    def set_rate_ratio(mut self, ratio: Float32) raises MaError:
         """Input rate as a multiple of the output rate (miniaudio's ratioInOut).
 
         A ratio of 2.0 therefore halves the sample rate, not doubles it.
         """
         var code = raw.resampler_set_rate_ratio(self._lib[], self._ptr, ratio)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("resampler set_rate_ratio failed", code))
+            raise self._lib[].error("resampler set_rate_ratio failed", code)
 
-    def input_latency(self) raises -> UInt64:
+    def input_latency(self) raises MaError -> UInt64:
         var rc = raw.resampler_get_input_latency(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("resampler input latency failed", rc.result)
-            )
+            raise self._lib[].error("resampler input latency failed", rc.result)
         return rc.value
 
-    def output_latency(self) raises -> UInt64:
+    def output_latency(self) raises MaError -> UInt64:
         var rc = raw.resampler_get_output_latency(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("resampler output latency failed", rc.result)
-            )
+            raise self._lib[].error("resampler output latency failed", rc.result)
         return rc.value
 
-    def required_input_frames(self, output_frame_count: UInt64) raises -> UInt64:
+    def required_input_frames(self, output_frame_count: UInt64) raises MaError -> UInt64:
         """Input frames needed to produce output_frame_count output frames."""
         var rc = raw.resampler_get_required_input_frame_count(
             self._lib[], self._ptr, output_frame_count
         )
         if rc.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("resampler required input failed", rc.result)
-            )
+            raise self._lib[].error("resampler required input failed", rc.result)
         return rc.value
 
-    def expected_output_frames(self, input_frame_count: UInt64) raises -> UInt64:
+    def expected_output_frames(self, input_frame_count: UInt64) raises MaError -> UInt64:
         """Output frames input_frame_count input frames will produce."""
         var rc = raw.resampler_get_expected_output_frame_count(
             self._lib[], self._ptr, input_frame_count
         )
         if rc.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("resampler expected output failed", rc.result)
-            )
+            raise self._lib[].error("resampler expected output failed", rc.result)
         return rc.value
 
-    def reset(mut self) raises:
+    def reset(mut self) raises MaError:
         """Clear the filter state, as if no frames had been processed."""
         var code = raw.resampler_reset(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("resampler reset failed", code))
+            raise self._lib[].error("resampler reset failed", code)
 
-    def uninit(mut self) raises:
+    def uninit(mut self) raises MaError:
         """Release the converter early; the handle stays valid but empty."""
         var code = raw.resampler_uninit(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("resampler uninit failed", code))
+            raise self._lib[].error("resampler uninit failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():
@@ -295,12 +287,12 @@ struct ChannelConverter(Movable):
         channels_out: UInt32,
         format: SampleFormat = SAMPLE_FORMAT_F32,
         mix_mode: ChannelMixMode = CHANNEL_MIX_MODE_RECTANGULAR,
-    ) raises -> UInt64:
+    ) raises MaError -> UInt64:
         var rc = raw.channel_converter_get_heap_size(
             lib[], format.code, channels_in, channels_out, mix_mode.code
         )
         if rc.result != MA_SUCCESS:
-            raise Error(lib[].describe("channel converter heap size failed", rc.result))
+            raise lib[].error("channel converter heap size failed", rc.result)
         return rc.value
 
     @staticmethod
@@ -312,13 +304,13 @@ struct ChannelConverter(Movable):
         format: SampleFormat = SAMPLE_FORMAT_F32,
         mix_mode: ChannelMixMode = CHANNEL_MIX_MODE_RECTANGULAR,
         preallocated: Bool = False,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """Channel maps default to miniaudio's standard map for each count."""
         var ptr = raw.channel_converter_alloc(lib[])
         if ptr == null_handle():
-            raise Error("channel_converter_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "channel_converter_alloc failed (out of memory)")
 
-        var code: Int
+        var code: MaResult
         if preallocated:
             code = raw.channel_converter_init_preallocated(
                 lib[], ptr, format.code, channels_in, channels_out, mix_mode.code
@@ -329,10 +321,10 @@ struct ChannelConverter(Movable):
             )
         if code != MA_SUCCESS:
             raw.channel_converter_free(lib[], ptr)
-            raise Error(lib[].describe("channel converter init failed", code))
+            raise lib[].error("channel converter init failed", code)
         return Self(lib.copy(), ptr, channels_in, channels_out)
 
-    def process(mut self, input: List[Float32]) raises -> List[Float32]:
+    def process(mut self, input: List[Float32]) raises MaError -> List[Float32]:
         """Convert every frame in `input`; the frame count is unchanged."""
         var frame_count = UInt64(len(input)) // UInt64(self._channels_in)
         var samples = Int(frame_count) * Int(self._channels_out)
@@ -343,36 +335,30 @@ struct ChannelConverter(Movable):
             self._lib[], self._ptr, buf, input, frame_count
         )
         if code != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("channel converter process failed", code)
-            )
+            raise self._lib[].error("channel converter process failed", code)
         return buf^
 
-    def input_channel_map(self) raises -> List[UInt8]:
+    def input_channel_map(self) raises MaError -> List[UInt8]:
         var rc = raw.channel_converter_get_input_channel_map(
             self._lib[], self._ptr, self._channels_in
         )
         if rc.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("channel converter input map failed", rc.result)
-            )
+            raise self._lib[].error("channel converter input map failed", rc.result)
         return rc.value.copy()
 
-    def output_channel_map(self) raises -> List[UInt8]:
+    def output_channel_map(self) raises MaError -> List[UInt8]:
         var rc = raw.channel_converter_get_output_channel_map(
             self._lib[], self._ptr, self._channels_out
         )
         if rc.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("channel converter output map failed", rc.result)
-            )
+            raise self._lib[].error("channel converter output map failed", rc.result)
         return rc.value.copy()
 
-    def uninit(mut self) raises:
+    def uninit(mut self) raises MaError:
         """Release the converter early; the handle stays valid but empty."""
         var code = raw.channel_converter_uninit(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("channel converter uninit failed", code))
+            raise self._lib[].error("channel converter uninit failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():
@@ -409,13 +395,13 @@ struct DataConverter(Movable):
         channels_out: UInt32 = 1,
         format_in: SampleFormat = SAMPLE_FORMAT_F32,
         format_out: SampleFormat = SAMPLE_FORMAT_F32,
-    ) raises -> UInt64:
+    ) raises MaError -> UInt64:
         var rc = raw.data_converter_get_heap_size(
             lib[], format_in.code, format_out.code, channels_in, channels_out,
             sample_rate_in, sample_rate_out,
         )
         if rc.result != MA_SUCCESS:
-            raise Error(lib[].describe("data converter heap size failed", rc.result))
+            raise lib[].error("data converter heap size failed", rc.result)
         return rc.value
 
     @staticmethod
@@ -429,12 +415,12 @@ struct DataConverter(Movable):
         format_in: SampleFormat = SAMPLE_FORMAT_F32,
         format_out: SampleFormat = SAMPLE_FORMAT_F32,
         preallocated: Bool = False,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         var ptr = raw.data_converter_alloc(lib[])
         if ptr == null_handle():
-            raise Error("data_converter_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "data_converter_alloc failed (out of memory)")
 
-        var code: Int
+        var code: MaResult
         if preallocated:
             code = raw.data_converter_init_preallocated(
                 lib[], ptr, format_in.code, format_out.code, channels_in,
@@ -447,7 +433,7 @@ struct DataConverter(Movable):
             )
         if code != MA_SUCCESS:
             raw.data_converter_free(lib[], ptr)
-            raise Error(lib[].describe("data converter init failed", code))
+            raise lib[].error("data converter init failed", code)
         return Self(lib.copy(), ptr, channels_in, channels_out)
 
     @staticmethod
@@ -457,22 +443,22 @@ struct DataConverter(Movable):
         sample_rate: UInt32,
         channels: UInt32 = 1,
         format: SampleFormat = SAMPLE_FORMAT_F32,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """Built from miniaudio's default config — a pass-through converter."""
         var ptr = raw.data_converter_alloc(lib[])
         if ptr == null_handle():
-            raise Error("data_converter_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "data_converter_alloc failed (out of memory)")
         var code = raw.data_converter_init_default(
             lib[], ptr, format.code, channels, sample_rate
         )
         if code != MA_SUCCESS:
             raw.data_converter_free(lib[], ptr)
-            raise Error(lib[].describe("data converter default init failed", code))
+            raise lib[].error("data converter default init failed", code)
         return Self(lib.copy(), ptr, channels, channels)
 
     def process(
         mut self, input: List[Float32], max_output_frames: UInt64
-    ) raises -> ConversionResult:
+    ) raises MaError -> ConversionResult:
         """Convert `input`, producing at most max_output_frames frames."""
         var input_frames = UInt64(len(input)) // UInt64(self._channels_in)
         var samples = Int(max_output_frames) * Int(self._channels_out)
@@ -483,83 +469,67 @@ struct DataConverter(Movable):
             self._lib[], self._ptr, input, input_frames, buf, max_output_frames
         )
         if rc.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("data converter process failed", rc.result)
-            )
+            raise self._lib[].error("data converter process failed", rc.result)
         buf.resize(Int(rc.frames_out) * Int(self._channels_out), Float32(0))
         return ConversionResult(rc.frames_in, buf^)
 
-    def set_rate(mut self, sample_rate_in: UInt32, sample_rate_out: UInt32) raises:
+    def set_rate(mut self, sample_rate_in: UInt32, sample_rate_out: UInt32) raises MaError:
         var code = raw.data_converter_set_rate(
             self._lib[], self._ptr, sample_rate_in, sample_rate_out
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("data converter set_rate failed", code))
+            raise self._lib[].error("data converter set_rate failed", code)
 
-    def set_rate_ratio(mut self, ratio: Float32) raises:
+    def set_rate_ratio(mut self, ratio: Float32) raises MaError:
         var code = raw.data_converter_set_rate_ratio(self._lib[], self._ptr, ratio)
         if code != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("data converter set_rate_ratio failed", code)
-            )
+            raise self._lib[].error("data converter set_rate_ratio failed", code)
 
-    def input_latency(self) raises -> UInt64:
+    def input_latency(self) raises MaError -> UInt64:
         var rc = raw.data_converter_get_input_latency(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("data converter input latency failed", rc.result)
-            )
+            raise self._lib[].error("data converter input latency failed", rc.result)
         return rc.value
 
-    def output_latency(self) raises -> UInt64:
+    def output_latency(self) raises MaError -> UInt64:
         var rc = raw.data_converter_get_output_latency(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("data converter output latency failed", rc.result)
-            )
+            raise self._lib[].error("data converter output latency failed", rc.result)
         return rc.value
 
-    def required_input_frames(self, output_frame_count: UInt64) raises -> UInt64:
+    def required_input_frames(self, output_frame_count: UInt64) raises MaError -> UInt64:
         var rc = raw.data_converter_get_required_input_frame_count(
             self._lib[], self._ptr, output_frame_count
         )
         if rc.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("data converter required input failed", rc.result)
-            )
+            raise self._lib[].error("data converter required input failed", rc.result)
         return rc.value
 
-    def expected_output_frames(self, input_frame_count: UInt64) raises -> UInt64:
+    def expected_output_frames(self, input_frame_count: UInt64) raises MaError -> UInt64:
         var rc = raw.data_converter_get_expected_output_frame_count(
             self._lib[], self._ptr, input_frame_count
         )
         if rc.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("data converter expected output failed", rc.result)
-            )
+            raise self._lib[].error("data converter expected output failed", rc.result)
         return rc.value
 
-    def input_channel_map(self) raises -> List[UInt8]:
+    def input_channel_map(self) raises MaError -> List[UInt8]:
         var rc = raw.data_converter_get_input_channel_map(
             self._lib[], self._ptr, self._channels_in
         )
         if rc.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("data converter input map failed", rc.result)
-            )
+            raise self._lib[].error("data converter input map failed", rc.result)
         return rc.value.copy()
 
-    def output_channel_map(self) raises -> List[UInt8]:
+    def output_channel_map(self) raises MaError -> List[UInt8]:
         var rc = raw.data_converter_get_output_channel_map(
             self._lib[], self._ptr, self._channels_out
         )
         if rc.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("data converter output map failed", rc.result)
-            )
+            raise self._lib[].error("data converter output map failed", rc.result)
         return rc.value.copy()
 
-    def reset(mut self) raises:
+    def reset(mut self) raises MaError:
         """Clear the pipeline's resampler state.
 
         Note that in miniaudio 0.11.25 this does *not* restore a cold pipeline:
@@ -570,13 +540,13 @@ struct DataConverter(Movable):
         """
         var code = raw.data_converter_reset(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("data converter reset failed", code))
+            raise self._lib[].error("data converter reset failed", code)
 
-    def uninit(mut self) raises:
+    def uninit(mut self) raises MaError:
         """Release the converter early; the handle stays valid but empty."""
         var code = raw.data_converter_uninit(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("data converter uninit failed", code))
+            raise self._lib[].error("data converter uninit failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():
@@ -613,12 +583,12 @@ struct LinearResampler(Movable):
         sample_rate_out: UInt32,
         channels: UInt32 = 1,
         format: SampleFormat = SAMPLE_FORMAT_F32,
-    ) raises -> UInt64:
+    ) raises MaError -> UInt64:
         var rc = raw.linear_resampler_get_heap_size(
             lib[], format.code, channels, sample_rate_in, sample_rate_out
         )
         if rc.result != MA_SUCCESS:
-            raise Error(lib[].describe("linear resampler heap size failed", rc.result))
+            raise lib[].error("linear resampler heap size failed", rc.result)
         return rc.value
 
     @staticmethod
@@ -630,13 +600,13 @@ struct LinearResampler(Movable):
         channels: UInt32 = 1,
         format: SampleFormat = SAMPLE_FORMAT_F32,
         preallocated: Bool = False,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """`preallocated` routes init through miniaudio's preallocated-heap path."""
         var ptr = raw.linear_resampler_alloc(lib[])
         if ptr == null_handle():
-            raise Error("linear_resampler_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "linear_resampler_alloc failed (out of memory)")
 
-        var code: Int
+        var code: MaResult
         if preallocated:
             code = raw.linear_resampler_init_preallocated(
                 lib[], ptr, format.code, channels, sample_rate_in, sample_rate_out
@@ -647,12 +617,12 @@ struct LinearResampler(Movable):
             )
         if code != MA_SUCCESS:
             raw.linear_resampler_free(lib[], ptr)
-            raise Error(lib[].describe("linear resampler init failed", code))
+            raise lib[].error("linear resampler init failed", code)
         return Self(lib.copy(), ptr, channels)
 
     def process(
         mut self, input: List[Float32], max_output_frames: UInt64
-    ) raises -> ConversionResult:
+    ) raises MaError -> ConversionResult:
         """Convert `input`, producing at most max_output_frames frames."""
         var input_frames = UInt64(len(input)) // UInt64(self._channels)
         var samples = Int(max_output_frames) * Int(self._channels)
@@ -663,80 +633,68 @@ struct LinearResampler(Movable):
             self._lib[], self._ptr, input, input_frames, buf, max_output_frames
         )
         if rc.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("linear resampler process failed", rc.result)
-            )
+            raise self._lib[].error("linear resampler process failed", rc.result)
         buf.resize(Int(rc.frames_out) * Int(self._channels), Float32(0))
         return ConversionResult(rc.frames_in, buf^)
 
-    def set_rate(mut self, sample_rate_in: UInt32, sample_rate_out: UInt32) raises:
+    def set_rate(mut self, sample_rate_in: UInt32, sample_rate_out: UInt32) raises MaError:
         var code = raw.linear_resampler_set_rate(
             self._lib[], self._ptr, sample_rate_in, sample_rate_out
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("linear resampler set_rate failed", code))
+            raise self._lib[].error("linear resampler set_rate failed", code)
 
-    def set_rate_ratio(mut self, ratio: Float32) raises:
+    def set_rate_ratio(mut self, ratio: Float32) raises MaError:
         """Input rate as a multiple of the output rate: 2.0 halves the rate."""
         var code = raw.linear_resampler_set_rate_ratio(self._lib[], self._ptr, ratio)
         if code != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("linear resampler set_rate_ratio failed", code)
-            )
+            raise self._lib[].error("linear resampler set_rate_ratio failed", code)
 
-    def input_latency(self) raises -> UInt64:
+    def input_latency(self) raises MaError -> UInt64:
         var rc = raw.linear_resampler_get_input_latency(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("linear resampler input latency failed", rc.result)
-            )
+            raise self._lib[].error("linear resampler input latency failed", rc.result)
         return rc.value
 
-    def output_latency(self) raises -> UInt64:
+    def output_latency(self) raises MaError -> UInt64:
         var rc = raw.linear_resampler_get_output_latency(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe(
+            raise self._lib[].error(
                     "linear resampler output latency failed", rc.result
                 )
-            )
         return rc.value
 
-    def required_input_frames(self, output_frame_count: UInt64) raises -> UInt64:
+    def required_input_frames(self, output_frame_count: UInt64) raises MaError -> UInt64:
         var rc = raw.linear_resampler_get_required_input_frame_count(
             self._lib[], self._ptr, output_frame_count
         )
         if rc.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe(
+            raise self._lib[].error(
                     "linear resampler required input failed", rc.result
                 )
-            )
         return rc.value
 
-    def expected_output_frames(self, input_frame_count: UInt64) raises -> UInt64:
+    def expected_output_frames(self, input_frame_count: UInt64) raises MaError -> UInt64:
         var rc = raw.linear_resampler_get_expected_output_frame_count(
             self._lib[], self._ptr, input_frame_count
         )
         if rc.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe(
+            raise self._lib[].error(
                     "linear resampler expected output failed", rc.result
                 )
-            )
         return rc.value
 
-    def reset(mut self) raises:
+    def reset(mut self) raises MaError:
         """Clear the filter state, as if no frames had been processed."""
         var code = raw.linear_resampler_reset(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("linear resampler reset failed", code))
+            raise self._lib[].error("linear resampler reset failed", code)
 
-    def uninit(mut self) raises:
+    def uninit(mut self) raises MaError:
         """Release the converter early; the handle stays valid but empty."""
         var code = raw.linear_resampler_uninit(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("linear resampler uninit failed", code))
+            raise self._lib[].error("linear resampler uninit failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():

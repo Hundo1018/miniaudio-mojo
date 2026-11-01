@@ -21,6 +21,7 @@ overrun.
 """
 
 from miniaudio._lib import MaLib
+from miniaudio.result import MaResult
 from miniaudio._ffi.spatializer_raw import MaU32, MaBool
 
 
@@ -30,8 +31,8 @@ comptime ERRNO_EINVAL: Int = 22
 comptime ERRNO_ERANGE: Int = 34
 
 # ma_result codes fopen can come back with (the rest are in miniaudio.result)
-comptime MA_ACCESS_DENIED: Int = -6
-comptime MA_IS_DIRECTORY: Int = -15
+comptime MA_ACCESS_DENIED = MaResult.ACCESS_DENIED
+comptime MA_IS_DIRECTORY = MaResult.IS_DIRECTORY
 
 # ma_backend
 comptime BACKEND_WASAPI: Int = 0
@@ -55,7 +56,7 @@ comptime BACKEND_NULL: Int = 14
 struct MaF64(Copyable, Movable):
     """Raw (result_code, value) pair for a double out-param."""
 
-    var result: Int
+    var result: MaResult
     var value: Float64
 
 
@@ -63,7 +64,7 @@ struct MaF64(Copyable, Movable):
 struct MaVersion(Copyable, Movable):
     """Raw (result_code, major, minor, revision) from ma_version."""
 
-    var result: Int
+    var result: MaResult
     var major: UInt32
     var minor: UInt32
     var revision: UInt32
@@ -220,9 +221,9 @@ def crt_wcslen(lib: MaLib, s: List[UInt32]) -> UInt64:
     return lib.handle.call["ma_shim_crt_wcslen", UInt64](_addr(s))
 
 
-def crt_fopen(lib: MaLib, path: List[UInt8], mode: List[UInt8]) -> Int:
+def crt_fopen(lib: MaLib, path: List[UInt8], mode: List[UInt8]) -> MaResult:
     """MA_SUCCESS when the open worked (the file is closed again), else ma_result."""
-    return Int(lib.handle.call["ma_shim_crt_fopen", Int32](_addr(path), _addr(mode)))
+    return MaResult(lib.handle.call["ma_shim_crt_fopen", Int32](_addr(path), _addr(mode)))
 
 
 # ---- dl ---------------------------------------------------------------------
@@ -240,14 +241,14 @@ def dl_sym(
     )
 
 
-def dl_close(lib: MaLib, library: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_dl_close", Int32](library))
+def dl_close(lib: MaLib, library: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_dl_close", Int32](library))
 
 
 def dl_call_f64(lib: MaLib, proc: OpaquePointer[MutUntrackedOrigin], arg: Float64) -> MaF64:
     """Calls a resolved `double f(double)` such as cos or sqrt."""
     var holder = [Float64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_dl_call_f64", Int32](proc, arg, holder.unsafe_ptr())
     )
     return MaF64(code, holder[0])
@@ -264,22 +265,22 @@ def spinlock_free(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]):
     lib.handle.call["ma_shim_spinlock_free", NoneType](h)
 
 
-def spinlock_lock(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> Int:
+def spinlock_lock(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
     """Spins (yielding) until the lock is held. Locking twice from one thread hangs."""
-    return Int(lib.handle.call["ma_shim_spinlock_lock", Int32](h))
+    return MaResult(lib.handle.call["ma_shim_spinlock_lock", Int32](h))
 
 
-def spinlock_lock_noyield(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_spinlock_lock_noyield", Int32](h))
+def spinlock_lock_noyield(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_spinlock_lock_noyield", Int32](h))
 
 
-def spinlock_unlock(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_spinlock_unlock", Int32](h))
+def spinlock_unlock(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_spinlock_unlock", Int32](h))
 
 
 def spinlock_is_locked(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaBool:
     var holder = [Int32(0)]
-    var code = Int(lib.handle.call["ma_shim_spinlock_is_locked", Int32](h, holder.unsafe_ptr()))
+    var code = MaResult(lib.handle.call["ma_shim_spinlock_is_locked", Int32](h, holder.unsafe_ptr()))
     return MaBool(code, holder[0] != 0)
 
 
@@ -302,8 +303,8 @@ def duplex_rb_init(
     sample_rate: UInt32,
     capture_internal_sample_rate: UInt32,
     capture_internal_period_size_in_frames: UInt32,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_duplex_rb_init", Int32](
             h,
             Int32(capture_format),
@@ -315,8 +316,8 @@ def duplex_rb_init(
     )
 
 
-def duplex_rb_uninit(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_duplex_rb_uninit", Int32](h))
+def duplex_rb_uninit(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_duplex_rb_uninit", Int32](h))
 
 
 def duplex_rb_write(
@@ -325,7 +326,7 @@ def duplex_rb_write(
     """Copies up to frame_count frames from `src`; `src` must hold that many frames
     of the buffer's format (f32 samples here). Returns (code, frames_written)."""
     var holder = [UInt32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_duplex_rb_write", Int32](
             h, _addr(src), frame_count, holder.unsafe_ptr()
         )
@@ -338,7 +339,7 @@ def duplex_rb_read(
 ) -> MaU32:
     """Copies up to frame_count frames into `dst`. Returns (code, frames_read)."""
     var holder = [UInt32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_duplex_rb_read", Int32](
             h, _addr(dst), frame_count, holder.unsafe_ptr()
         )
@@ -348,7 +349,7 @@ def duplex_rb_read(
 
 def duplex_rb_available_read(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaU32:
     var holder = [UInt32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_duplex_rb_available_read", Int32](h, holder.unsafe_ptr())
     )
     return MaU32(code, holder[0])
@@ -356,7 +357,7 @@ def duplex_rb_available_read(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -
 
 def duplex_rb_available_write(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaU32:
     var holder = [UInt32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_duplex_rb_available_write", Int32](h, holder.unsafe_ptr())
     )
     return MaU32(code, holder[0])
@@ -369,7 +370,7 @@ def runtime_version(lib: MaLib) -> MaVersion:
     var major = [UInt32(0)]
     var minor = [UInt32(0)]
     var revision = [UInt32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_runtime_version", Int32](
             major.unsafe_ptr(), minor.unsafe_ptr(), revision.unsafe_ptr()
         )
@@ -379,7 +380,7 @@ def runtime_version(lib: MaLib) -> MaVersion:
 
 def runtime_is_backend_enabled(lib: MaLib, backend: Int) -> MaBool:
     var holder = [Int32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_runtime_is_backend_enabled", Int32](
             Int32(backend), holder.unsafe_ptr()
         )
@@ -389,7 +390,7 @@ def runtime_is_backend_enabled(lib: MaLib, backend: Int) -> MaBool:
 
 def runtime_is_loopback_supported(lib: MaLib, backend: Int) -> MaBool:
     var holder = [Int32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_runtime_is_loopback_supported", Int32](
             Int32(backend), holder.unsafe_ptr()
         )

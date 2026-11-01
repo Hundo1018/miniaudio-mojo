@@ -22,6 +22,7 @@ arguments is the caller's job; pcm_convert.mojo does it.
 """
 
 from miniaudio._lib import MaLib
+from miniaudio.result import MaResult
 from miniaudio._ffi.decoder_raw import MaCount
 from miniaudio._ffi.device_raw import MaText
 from miniaudio._ffi.node_raw import MaFloat
@@ -36,8 +37,8 @@ def pcm_u8_to_u8(
     src: List[UInt8],
     sample_count: UInt64,
     dither_mode: Int = 0,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_pcm_u8_to_u8", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), sample_count, Int32(dither_mode)
         )
@@ -50,8 +51,8 @@ def pcm_u8_to_s16(
     src: List[UInt8],
     sample_count: UInt64,
     dither_mode: Int = 0,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_pcm_u8_to_s16", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), sample_count, Int32(dither_mode)
         )
@@ -64,8 +65,8 @@ def pcm_u8_to_s24(
     src: List[UInt8],
     sample_count: UInt64,
     dither_mode: Int = 0,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_pcm_u8_to_s24", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), sample_count, Int32(dither_mode)
         )
@@ -78,8 +79,8 @@ def pcm_u8_to_s32(
     src: List[UInt8],
     sample_count: UInt64,
     dither_mode: Int = 0,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_pcm_u8_to_s32", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), sample_count, Int32(dither_mode)
         )
@@ -92,8 +93,8 @@ def pcm_u8_to_f32(
     src: List[UInt8],
     sample_count: UInt64,
     dither_mode: Int = 0,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_pcm_u8_to_f32", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), sample_count, Int32(dither_mode)
         )
@@ -106,8 +107,8 @@ def pcm_s16_to_u8(
     src: List[Int16],
     sample_count: UInt64,
     dither_mode: Int = 0,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_pcm_s16_to_u8", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), sample_count, Int32(dither_mode)
         )
@@ -120,8 +121,8 @@ def pcm_s16_to_s16(
     src: List[Int16],
     sample_count: UInt64,
     dither_mode: Int = 0,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_pcm_s16_to_s16", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), sample_count, Int32(dither_mode)
         )
@@ -134,8 +135,8 @@ def pcm_s16_to_s24(
     src: List[Int16],
     sample_count: UInt64,
     dither_mode: Int = 0,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_pcm_s16_to_s24", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), sample_count, Int32(dither_mode)
         )
@@ -148,8 +149,8 @@ def pcm_s16_to_s32(
     src: List[Int16],
     sample_count: UInt64,
     dither_mode: Int = 0,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_pcm_s16_to_s32", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), sample_count, Int32(dither_mode)
         )
@@ -162,8 +163,8 @@ def pcm_s16_to_f32(
     src: List[Int16],
     sample_count: UInt64,
     dither_mode: Int = 0,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_pcm_s16_to_f32", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), sample_count, Int32(dither_mode)
         )
@@ -176,8 +177,8 @@ def pcm_s24_to_u8(
     src: List[UInt8],  # packed 3 bytes per sample
     sample_count: UInt64,
     dither_mode: Int = 0,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_pcm_s24_to_u8", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), sample_count, Int32(dither_mode)
         )
@@ -190,8 +191,8 @@ def pcm_s24_to_s16(
     src: List[UInt8],  # packed 3 bytes per sample
     sample_count: UInt64,
     dither_mode: Int = 0,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_pcm_s24_to_s16", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), sample_count, Int32(dither_mode)
         )
@@ -204,8 +205,8 @@ def pcm_s24_to_s24(
     src: List[UInt8],  # packed 3 bytes per sample
     sample_count: UInt64,
     dither_mode: Int = 0,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_pcm_s24_to_s24", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), sample_count, Int32(dither_mode)
         )
@@ -218,8 +219,8 @@ def pcm_s24_to_s32(
     src: List[UInt8],  # packed 3 bytes per sample
     sample_count: UInt64,
     dither_mode: Int = 0,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_pcm_s24_to_s32", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), sample_count, Int32(dither_mode)
         )
@@ -232,8 +233,8 @@ def pcm_s24_to_f32(
     src: List[UInt8],  # packed 3 bytes per sample
     sample_count: UInt64,
     dither_mode: Int = 0,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_pcm_s24_to_f32", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), sample_count, Int32(dither_mode)
         )
@@ -246,8 +247,8 @@ def pcm_s32_to_u8(
     src: List[Int32],
     sample_count: UInt64,
     dither_mode: Int = 0,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_pcm_s32_to_u8", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), sample_count, Int32(dither_mode)
         )
@@ -260,8 +261,8 @@ def pcm_s32_to_s16(
     src: List[Int32],
     sample_count: UInt64,
     dither_mode: Int = 0,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_pcm_s32_to_s16", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), sample_count, Int32(dither_mode)
         )
@@ -274,8 +275,8 @@ def pcm_s32_to_s24(
     src: List[Int32],
     sample_count: UInt64,
     dither_mode: Int = 0,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_pcm_s32_to_s24", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), sample_count, Int32(dither_mode)
         )
@@ -288,8 +289,8 @@ def pcm_s32_to_s32(
     src: List[Int32],
     sample_count: UInt64,
     dither_mode: Int = 0,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_pcm_s32_to_s32", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), sample_count, Int32(dither_mode)
         )
@@ -302,8 +303,8 @@ def pcm_s32_to_f32(
     src: List[Int32],
     sample_count: UInt64,
     dither_mode: Int = 0,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_pcm_s32_to_f32", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), sample_count, Int32(dither_mode)
         )
@@ -316,8 +317,8 @@ def pcm_f32_to_u8(
     src: List[Float32],
     sample_count: UInt64,
     dither_mode: Int = 0,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_pcm_f32_to_u8", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), sample_count, Int32(dither_mode)
         )
@@ -330,8 +331,8 @@ def pcm_f32_to_s16(
     src: List[Float32],
     sample_count: UInt64,
     dither_mode: Int = 0,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_pcm_f32_to_s16", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), sample_count, Int32(dither_mode)
         )
@@ -344,8 +345,8 @@ def pcm_f32_to_s24(
     src: List[Float32],
     sample_count: UInt64,
     dither_mode: Int = 0,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_pcm_f32_to_s24", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), sample_count, Int32(dither_mode)
         )
@@ -358,8 +359,8 @@ def pcm_f32_to_s32(
     src: List[Float32],
     sample_count: UInt64,
     dither_mode: Int = 0,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_pcm_f32_to_s32", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), sample_count, Int32(dither_mode)
         )
@@ -372,8 +373,8 @@ def pcm_f32_to_f32(
     src: List[Float32],
     sample_count: UInt64,
     dither_mode: Int = 0,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_pcm_f32_to_f32", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), sample_count, Int32(dither_mode)
         )
@@ -390,9 +391,9 @@ def pcm_deinterleave_u8(
     interleaved: List[UInt8],
     frame_count: UInt64,
     channels: UInt32,
-) -> Int:
+) -> MaResult:
     """Split `interleaved` into one plane per channel, `channel_stride_in_bytes` apart."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_pcm_deinterleave_u8", Int32](
             planes.unsafe_ptr(),
             channel_stride_in_bytes,
@@ -410,9 +411,9 @@ def pcm_interleave_u8(
     channel_stride_in_bytes: UInt64,
     frame_count: UInt64,
     channels: UInt32,
-) -> Int:
+) -> MaResult:
     """The inverse of `pcm_deinterleave_u8`."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_pcm_interleave_u8", Int32](
             interleaved.unsafe_ptr(),
             planes.unsafe_ptr(),
@@ -430,9 +431,9 @@ def pcm_deinterleave_s16(
     interleaved: List[Int16],
     frame_count: UInt64,
     channels: UInt32,
-) -> Int:
+) -> MaResult:
     """Split `interleaved` into one plane per channel, `channel_stride_in_bytes` apart."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_pcm_deinterleave_s16", Int32](
             planes.unsafe_ptr(),
             channel_stride_in_bytes,
@@ -450,9 +451,9 @@ def pcm_interleave_s16(
     channel_stride_in_bytes: UInt64,
     frame_count: UInt64,
     channels: UInt32,
-) -> Int:
+) -> MaResult:
     """The inverse of `pcm_deinterleave_s16`."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_pcm_interleave_s16", Int32](
             interleaved.unsafe_ptr(),
             planes.unsafe_ptr(),
@@ -470,9 +471,9 @@ def pcm_deinterleave_s24(
     interleaved: List[UInt8],
     frame_count: UInt64,
     channels: UInt32,
-) -> Int:
+) -> MaResult:
     """Split `interleaved` into one plane per channel, `channel_stride_in_bytes` apart."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_pcm_deinterleave_s24", Int32](
             planes.unsafe_ptr(),
             channel_stride_in_bytes,
@@ -490,9 +491,9 @@ def pcm_interleave_s24(
     channel_stride_in_bytes: UInt64,
     frame_count: UInt64,
     channels: UInt32,
-) -> Int:
+) -> MaResult:
     """The inverse of `pcm_deinterleave_s24`."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_pcm_interleave_s24", Int32](
             interleaved.unsafe_ptr(),
             planes.unsafe_ptr(),
@@ -510,9 +511,9 @@ def pcm_deinterleave_s32(
     interleaved: List[Int32],
     frame_count: UInt64,
     channels: UInt32,
-) -> Int:
+) -> MaResult:
     """Split `interleaved` into one plane per channel, `channel_stride_in_bytes` apart."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_pcm_deinterleave_s32", Int32](
             planes.unsafe_ptr(),
             channel_stride_in_bytes,
@@ -530,9 +531,9 @@ def pcm_interleave_s32(
     channel_stride_in_bytes: UInt64,
     frame_count: UInt64,
     channels: UInt32,
-) -> Int:
+) -> MaResult:
     """The inverse of `pcm_deinterleave_s32`."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_pcm_interleave_s32", Int32](
             interleaved.unsafe_ptr(),
             planes.unsafe_ptr(),
@@ -550,9 +551,9 @@ def pcm_deinterleave_f32(
     interleaved: List[Float32],
     frame_count: UInt64,
     channels: UInt32,
-) -> Int:
+) -> MaResult:
     """Split `interleaved` into one plane per channel, `channel_stride_in_bytes` apart."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_pcm_deinterleave_f32", Int32](
             planes.unsafe_ptr(),
             channel_stride_in_bytes,
@@ -570,9 +571,9 @@ def pcm_interleave_f32(
     channel_stride_in_bytes: UInt64,
     frame_count: UInt64,
     channels: UInt32,
-) -> Int:
+) -> MaResult:
     """The inverse of `pcm_deinterleave_f32`."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_pcm_interleave_f32", Int32](
             interleaved.unsafe_ptr(),
             planes.unsafe_ptr(),
@@ -594,9 +595,9 @@ def pcm_convert(
     format_in: Int,
     sample_count: UInt64,
     dither_mode: Int = 0,
-) -> Int:
+) -> MaResult:
     """The format-dispatching sample converter. Both buffers are raw bytes."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_pcm_convert", Int32](
             dst.unsafe_ptr(), Int32(format_out), src.unsafe_ptr(), Int32(format_in),
             sample_count, Int32(dither_mode),
@@ -613,9 +614,9 @@ def convert_pcm_frames_format(
     frame_count: UInt64,
     channels: UInt32,
     dither_mode: Int = 0,
-) -> Int:
+) -> MaResult:
     """The same dispatch, counted in frames rather than samples."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_convert_pcm_frames_format", Int32](
             dst.unsafe_ptr(), Int32(format_out), src.unsafe_ptr(), Int32(format_in),
             frame_count, channels, Int32(dither_mode),
@@ -638,7 +639,7 @@ def convert_frames(
 ) -> MaCount:
     """Format, channel and rate conversion in one call. `value` is frames written."""
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_convert_frames", Int32](
             dst.unsafe_ptr(), frame_count_out, Int32(format_out), channels_out,
             sample_rate_out, src.unsafe_ptr(), frame_count_in, Int32(format_in),
@@ -660,7 +661,7 @@ def convert_frames_measure(
 ) -> MaCount:
     """`convert_frames` with a NULL output: how many frames it would produce."""
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_convert_frames", Int32](
             Int(0), UInt64(0), Int32(format_out), channels_out, sample_rate_out,
             Int(0), frame_count_in, Int32(format_in), channels_in, sample_rate_in,
@@ -687,7 +688,7 @@ def convert_frames_ex(
 ) -> MaCount:
     """Same, through a data converter config the shim builds from these fields."""
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_convert_frames_ex", Int32](
             dst.unsafe_ptr(), frame_count_out, src.unsafe_ptr(), frame_count_in,
             Int32(format_in), Int32(format_out), channels_in, channels_out,
@@ -712,7 +713,7 @@ def convert_frames_ex_measure(
 ) -> MaCount:
     """`convert_frames_ex` with a NULL output: how many frames it would produce."""
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_convert_frames_ex", Int32](
             Int(0), UInt64(0), Int(0), frame_count_in, Int32(format_in),
             Int32(format_out), channels_in, channels_out, sample_rate_in,
@@ -729,9 +730,9 @@ def copy_pcm_frames(
     frame_count: UInt64,
     format: Int,
     channels: UInt32,
-) -> Int:
+) -> MaResult:
     """A frame-aware copy. Both buffers are raw bytes."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_copy_pcm_frames", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), frame_count, Int32(format), channels
         )
@@ -747,8 +748,8 @@ def copy_and_apply_volume_factor_u8(
     src: List[UInt8],
     sample_count: UInt64,
     factor: Float32,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_copy_and_apply_volume_factor_u8", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), sample_count, factor
         )
@@ -761,8 +762,8 @@ def copy_and_apply_volume_factor_s16(
     src: List[Int16],
     sample_count: UInt64,
     factor: Float32,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_copy_and_apply_volume_factor_s16", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), sample_count, factor
         )
@@ -775,8 +776,8 @@ def copy_and_apply_volume_factor_s24(
     src: List[UInt8],
     sample_count: UInt64,
     factor: Float32,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_copy_and_apply_volume_factor_s24", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), sample_count, factor
         )
@@ -789,8 +790,8 @@ def copy_and_apply_volume_factor_s32(
     src: List[Int32],
     sample_count: UInt64,
     factor: Float32,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_copy_and_apply_volume_factor_s32", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), sample_count, factor
         )
@@ -803,8 +804,8 @@ def copy_and_apply_volume_factor_f32(
     src: List[Float32],
     sample_count: UInt64,
     factor: Float32,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_copy_and_apply_volume_factor_f32", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), sample_count, factor
         )
@@ -818,8 +819,8 @@ def copy_and_apply_volume_factor_pcm_frames_u8(
     frame_count: UInt64,
     channels: UInt32,
     factor: Float32,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_copy_and_apply_volume_factor_pcm_frames_u8", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), frame_count, channels, factor
         )
@@ -833,8 +834,8 @@ def copy_and_apply_volume_factor_pcm_frames_s16(
     frame_count: UInt64,
     channels: UInt32,
     factor: Float32,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_copy_and_apply_volume_factor_pcm_frames_s16", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), frame_count, channels, factor
         )
@@ -848,8 +849,8 @@ def copy_and_apply_volume_factor_pcm_frames_s24(
     frame_count: UInt64,
     channels: UInt32,
     factor: Float32,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_copy_and_apply_volume_factor_pcm_frames_s24", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), frame_count, channels, factor
         )
@@ -863,8 +864,8 @@ def copy_and_apply_volume_factor_pcm_frames_s32(
     frame_count: UInt64,
     channels: UInt32,
     factor: Float32,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_copy_and_apply_volume_factor_pcm_frames_s32", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), frame_count, channels, factor
         )
@@ -878,8 +879,8 @@ def copy_and_apply_volume_factor_pcm_frames_f32(
     frame_count: UInt64,
     channels: UInt32,
     factor: Float32,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_copy_and_apply_volume_factor_pcm_frames_f32", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), frame_count, channels, factor
         )
@@ -894,9 +895,9 @@ def copy_and_apply_volume_factor_pcm_frames(
     format: Int,
     channels: UInt32,
     factor: Float32,
-) -> Int:
+) -> MaResult:
     """The format-dispatching volume copy. Both buffers are raw bytes."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_copy_and_apply_volume_factor_pcm_frames", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), frame_count, Int32(format), channels,
             factor,
@@ -911,9 +912,9 @@ def copy_and_apply_volume_factor_per_channel_f32(
     frame_count: UInt64,
     channels: UInt32,
     channel_gains: List[Float32],
-) -> Int:
+) -> MaResult:
     """One gain per channel rather than one for the whole buffer."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_copy_and_apply_volume_factor_per_channel_f32", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), frame_count, channels,
             channel_gains.unsafe_ptr(),
@@ -927,9 +928,9 @@ def copy_and_apply_volume_and_clip_samples_u8(
     src: List[Int16],
     count: UInt64,
     volume: Float32,
-) -> Int:
+) -> MaResult:
     """Volume then clip, from the wider source type miniaudio expects."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_copy_and_apply_volume_and_clip_samples_u8", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), count, volume
         )
@@ -942,9 +943,9 @@ def copy_and_apply_volume_and_clip_samples_s16(
     src: List[Int32],
     count: UInt64,
     volume: Float32,
-) -> Int:
+) -> MaResult:
     """Volume then clip, from the wider source type miniaudio expects."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_copy_and_apply_volume_and_clip_samples_s16", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), count, volume
         )
@@ -957,9 +958,9 @@ def copy_and_apply_volume_and_clip_samples_s24(
     src: List[Int64],
     count: UInt64,
     volume: Float32,
-) -> Int:
+) -> MaResult:
     """Volume then clip, from the wider source type miniaudio expects."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_copy_and_apply_volume_and_clip_samples_s24", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), count, volume
         )
@@ -972,9 +973,9 @@ def copy_and_apply_volume_and_clip_samples_s32(
     src: List[Int64],
     count: UInt64,
     volume: Float32,
-) -> Int:
+) -> MaResult:
     """Volume then clip, from the wider source type miniaudio expects."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_copy_and_apply_volume_and_clip_samples_s32", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), count, volume
         )
@@ -987,9 +988,9 @@ def copy_and_apply_volume_and_clip_samples_f32(
     src: List[Float32],
     count: UInt64,
     volume: Float32,
-) -> Int:
+) -> MaResult:
     """Volume then clip, from the wider source type miniaudio expects."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_copy_and_apply_volume_and_clip_samples_f32", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), count, volume
         )
@@ -1004,13 +1005,13 @@ def copy_and_apply_volume_and_clip_pcm_frames(
     format: Int,
     channels: UInt32,
     volume: Float32,
-) -> Int:
+) -> MaResult:
     """Volume then clip, dispatched on `format`.
 
     `dst` holds samples of `format`; `src` holds the wider type that format clips
     from (s16 for u8, s32 for s16, s64 for s24 and s32, f32 for f32).
     """
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_copy_and_apply_volume_and_clip_pcm_frames", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), frame_count, Int32(format), channels,
             volume,
@@ -1028,9 +1029,9 @@ def blend_f32(
     in_b: List[Float32],
     factor: Float32,
     channels: UInt32,
-) -> Int:
+) -> MaResult:
     """Cross-fade one frame between two inputs; 0 gives `in_a`, 1 gives `in_b`."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_blend_f32", Int32](
             dst.unsafe_ptr(), in_a.unsafe_ptr(), in_b.unsafe_ptr(), factor, channels
         )
@@ -1044,9 +1045,9 @@ def mix_pcm_frames_f32(
     frame_count: UInt64,
     channels: UInt32,
     volume: Float32,
-) -> Int:
+) -> MaResult:
     """Adds `src` into `dst` at the given volume."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_mix_pcm_frames_f32", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), frame_count, channels, volume
         )
@@ -1055,7 +1056,7 @@ def mix_pcm_frames_f32(
 
 def volume_linear_to_db(lib: MaLib, factor: Float32) -> MaFloat:
     var holder = [Float32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_volume_linear_to_db", Int32](
             factor, holder.unsafe_ptr()
         )
@@ -1065,7 +1066,7 @@ def volume_linear_to_db(lib: MaLib, factor: Float32) -> MaFloat:
 
 def volume_db_to_linear(lib: MaLib, gain: Float32) -> MaFloat:
     var holder = [Float32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_volume_db_to_linear", Int32](
             gain, holder.unsafe_ptr()
         )
@@ -1078,12 +1079,12 @@ def copy_string(lib: MaLib, src: String, capacity: UInt32 = 256) -> MaText:
     var src_c = src + "\x00"
     var buf = List[UInt8](capacity=Int(capacity))
     buf.resize(Int(capacity), UInt8(0))
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_copy_string", Int32](
             src_c.as_bytes().unsafe_ptr(), buf.unsafe_ptr(), capacity
         )
     )
-    if code != 0:
+    if code != MaResult.SUCCESS:
         # The shim leaves the buffer empty (or untouched when capacity is 0).
         return MaText(code, String())
     return MaText(code, String(unsafe_from_utf8_ptr=buf.unsafe_ptr()))

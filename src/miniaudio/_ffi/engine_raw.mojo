@@ -6,6 +6,7 @@ lifecycle/error policy lives in the API layer (engine.mojo).
 """
 
 from miniaudio._lib import MaLib
+from miniaudio.result import MaResult
 from miniaudio._ffi.sound_raw import Vec3, MaCone
 from miniaudio._ffi.decoder_raw import MaCount
 
@@ -22,31 +23,31 @@ def engine_free(lib: MaLib, eng: OpaquePointer[MutUntrackedOrigin]):
 
 def engine_init(
     lib: MaLib, eng: OpaquePointer[MutUntrackedOrigin], use_null_backend: Bool
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_engine_init", Int32](
             eng, Int32(1) if use_null_backend else Int32(0)
         )
     )
 
 
-def engine_uninit(lib: MaLib, eng: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_engine_uninit", Int32](eng))
+def engine_uninit(lib: MaLib, eng: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_engine_uninit", Int32](eng))
 
 
-def engine_start(lib: MaLib, eng: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_engine_start", Int32](eng))
+def engine_start(lib: MaLib, eng: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_engine_start", Int32](eng))
 
 
-def engine_stop(lib: MaLib, eng: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_engine_stop", Int32](eng))
+def engine_stop(lib: MaLib, eng: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_engine_stop", Int32](eng))
 
 
 def engine_play_sound(
     lib: MaLib, eng: OpaquePointer[MutUntrackedOrigin], path: String
-) -> Int:
+) -> MaResult:
     var path_c = path + "\x00"
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_engine_play_sound", Int32](
             eng, path_c.as_bytes().unsafe_ptr()
         )
@@ -67,8 +68,8 @@ def engine_get_channels(
 
 def engine_set_volume(
     lib: MaLib, eng: OpaquePointer[MutUntrackedOrigin], volume: Float32
-) -> Int:
-    return Int(lib.handle.call["ma_shim_engine_set_volume", Int32](eng, volume))
+) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_engine_set_volume", Int32](eng, volume))
 
 
 def engine_get_volume(
@@ -79,8 +80,8 @@ def engine_get_volume(
 
 def engine_set_gain_db(
     lib: MaLib, eng: OpaquePointer[MutUntrackedOrigin], gain_db: Float32
-) -> Int:
-    return Int(lib.handle.call["ma_shim_engine_set_gain_db", Int32](eng, gain_db))
+) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_engine_set_gain_db", Int32](eng, gain_db))
 
 
 def engine_get_gain_db(
@@ -91,9 +92,9 @@ def engine_get_gain_db(
 
 def engine_play_sound_ex(
     lib: MaLib, eng: OpaquePointer[MutUntrackedOrigin], path: String
-) -> Int:
+) -> MaResult:
     var path_c = path + "\x00"
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_engine_play_sound_ex", Int32](
             eng, path_c.as_bytes().unsafe_ptr()
         )
@@ -112,7 +113,7 @@ def engine_read_pcm_frames(
     MaCount(result_code, frames_read).
     """
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_engine_read_pcm_frames", Int32](
             eng, out.unsafe_ptr(), frame_count, holder.unsafe_ptr()
         )
@@ -137,8 +138,8 @@ def engine_get_time_in_milliseconds(
 
 def engine_set_time_in_pcm_frames(
     lib: MaLib, eng: OpaquePointer[MutUntrackedOrigin], global_time: UInt64
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_engine_set_time_in_pcm_frames", Int32](
             eng, global_time
         )
@@ -147,8 +148,8 @@ def engine_set_time_in_pcm_frames(
 
 def engine_set_time_in_milliseconds(
     lib: MaLib, eng: OpaquePointer[MutUntrackedOrigin], global_time: UInt64
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_engine_set_time_in_milliseconds", Int32](
             eng, global_time
         )

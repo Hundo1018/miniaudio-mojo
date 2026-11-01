@@ -6,6 +6,7 @@ assert observable progress via get_time_in_pcm_frames.
 """
 
 from std.testing import assert_equal, assert_true, TestSuite
+from miniaudio.result import MaResult
 from std.time import sleep
 
 from miniaudio._lib import MaLib, null_handle
@@ -887,7 +888,7 @@ def _engine_node(
 ) raises -> OpaquePointer[MutUntrackedOrigin]:
     var n = nraw.engine_node_alloc(lib)
     assert_true(n != null_handle())
-    var code: Int
+    var code: MaResult
     if preallocated:
         code = nraw.engine_node_init_preallocated(lib, n, eng, flags, 0, 0, 0, 0)
     else:

@@ -9,7 +9,7 @@ than hardcoded at every call site.
 from std.ffi import OwnedDLHandle
 from std.os.env import getenv
 
-from miniaudio.result import result_name
+from miniaudio.result import MaResult, MaError
 
 
 comptime LIB_PATH_ENV = "MINIAUDIO_MOJO_LIB"
@@ -22,43 +22,52 @@ def null_handle() -> OpaquePointer[MutUntrackedOrigin]:
     return OpaquePointer[MutUntrackedOrigin](unsafe_from_address=Int(0))
 
 
+def _open(path: String) raises MaError -> OwnedDLHandle:
+    try:
+        return OwnedDLHandle(path)
+    except e:
+        raise MaError(MaResult.DOES_NOT_EXIST, String("cannot load ", path, ": ", e))
+
+
 struct MaLib(Movable):
     var handle: OwnedDLHandle
 
-    def __init__(out self, var path: String) raises:
-        self.handle = OwnedDLHandle(path)
+    def __init__(out self, var path: String) raises MaError:
+        self.handle = _open(path)
 
     @staticmethod
-    def default() raises -> MaLib:
+    def default() raises MaError -> MaLib:
         var path = getenv(LIB_PATH_ENV)
         if path == "":
             path = String(DEFAULT_LIB_PATH)
         return MaLib(path)
 
-    def version(self) raises -> String:
+    def version(self) raises MaError -> String:
         var raw = self.handle.call[
             "ma_shim_version", OpaquePointer[MutUntrackedOrigin]
         ]()
         if raw == null_handle():
-            raise Error("ma_shim_version returned null")
+            raise MaError(MaResult.ERROR, "ma_shim_version returned null")
         return String(unsafe_from_utf8_ptr=raw.unsafe_bitcast[UInt8]())
 
-    def result_description(self, code: Int) -> String:
+    def result_description(self, result: MaResult) -> String:
         var raw = self.handle.call[
             "ma_shim_result_description", OpaquePointer[MutUntrackedOrigin]
-        ](Int32(code))
+        ](result.code)
         if raw == null_handle():
-            return result_name(code)
+            return String(result)
         return String(unsafe_from_utf8_ptr=raw.unsafe_bitcast[UInt8]())
 
-    def describe(self, action: String, code: Int) -> String:
-        return (
-            action
-            + ": "
-            + result_name(code)
-            + " - "
-            + self.result_description(code)
-            + " ("
-            + String(code)
-            + ")"
+    def error(self, action: String, result: MaResult) -> MaError:
+        """The MaError for a failed call: `<action>: MA_X - <description> (<code>)`."""
+        return MaError(
+            result,
+            String(
+                action, ": ", result, " - ", self.result_description(result), " (", result.code, ")"
+            ),
         )
+
+    def check(self, action: String, result: MaResult) raises MaError:
+        """Raise `error(action, result)` unless `result` is MA_SUCCESS."""
+        if result != MaResult.SUCCESS:
+            raise self.error(action, result)

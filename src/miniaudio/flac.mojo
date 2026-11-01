@@ -15,7 +15,7 @@ ones up to the f32 / s16 conversion.
 from std.memory import ArcPointer
 
 from miniaudio._lib import MaLib, null_handle
-from miniaudio.result import MA_SUCCESS, MA_AT_END
+from miniaudio.result import MaResult, MaError, MA_SUCCESS, MA_AT_END
 from miniaudio.decoder import SampleFormat, SAMPLE_FORMAT_F32, SAMPLE_FORMAT_S16
 from miniaudio.data_source import DataFormat
 import miniaudio._ffi.flac_raw as raw
@@ -43,14 +43,14 @@ struct FlacDecoder(Movable):
         *,
         format: SampleFormat = SAMPLE_FORMAT_F32,
         seek_points: UInt32 = 0,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         var ptr = raw.flac_alloc(lib[])
         if ptr == null_handle():
-            raise Error("flac_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "flac_alloc failed (out of memory)")
         var code = raw.flac_init_file(lib[], ptr, path, format.code, seek_points)
         if code != MA_SUCCESS:
             raw.flac_free(lib[], ptr)
-            raise Error(lib[].describe("flac init from file failed", code))
+            raise lib[].error("flac init from file failed", code)
         return Self(lib.copy(), ptr, List[UInt8]())
 
     @staticmethod
@@ -60,58 +60,58 @@ struct FlacDecoder(Movable):
         *,
         format: SampleFormat = SAMPLE_FORMAT_F32,
         seek_points: UInt32 = 0,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         var ptr = raw.flac_alloc(lib[])
         if ptr == null_handle():
-            raise Error("flac_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "flac_alloc failed (out of memory)")
         var code = raw.flac_init_memory(lib[], ptr, data, format.code, seek_points)
         if code != MA_SUCCESS:
             raw.flac_free(lib[], ptr)
-            raise Error(lib[].describe("flac init from memory failed", code))
+            raise lib[].error("flac init from memory failed", code)
         # `data` must outlive the decoder (miniaudio references, not copies it).
         return Self(lib.copy(), ptr, data^)
 
-    def data_format(self) raises -> DataFormat:
+    def data_format(self) raises MaError -> DataFormat:
         var f = raw.flac_get_data_format(self._lib[], self._ptr)
         if f.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("flac data format query failed", f.result))
+            raise self._lib[].error("flac data format query failed", f.result)
         return DataFormat(f.format, f.channels, f.sample_rate)
 
-    def format(self) raises -> SampleFormat:
+    def format(self) raises MaError -> SampleFormat:
         return SampleFormat(self.data_format().format)
 
-    def channels(self) raises -> UInt32:
+    def channels(self) raises MaError -> UInt32:
         return self.data_format().channels
 
-    def sample_rate(self) raises -> UInt32:
+    def sample_rate(self) raises MaError -> UInt32:
         return self.data_format().sample_rate
 
-    def channel_map(self) raises -> List[UInt8]:
+    def channel_map(self) raises MaError -> List[UInt8]:
         """The miniaudio channel map (one ma_channel code per channel)."""
         var n = self.data_format().channels
         var m = raw.flac_get_channel_map(self._lib[], self._ptr, n)
         if m.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("flac channel map query failed", m.result))
+            raise self._lib[].error("flac channel map query failed", m.result)
         return m.value.copy()
 
-    def length_in_frames(self) raises -> UInt64:
+    def length_in_frames(self) raises MaError -> UInt64:
         var c = raw.flac_get_length_in_pcm_frames(self._lib[], self._ptr)
         if c.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("flac length query failed", c.result))
+            raise self._lib[].error("flac length query failed", c.result)
         return c.value
 
-    def cursor(self) raises -> UInt64:
+    def cursor(self) raises MaError -> UInt64:
         var c = raw.flac_get_cursor_in_pcm_frames(self._lib[], self._ptr)
         if c.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("flac cursor query failed", c.result))
+            raise self._lib[].error("flac cursor query failed", c.result)
         return c.value
 
-    def seek(mut self, frame_index: UInt64) raises:
+    def seek(mut self, frame_index: UInt64) raises MaError:
         var code = raw.flac_seek_to_pcm_frame(self._lib[], self._ptr, frame_index)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("flac seek failed", code))
+            raise self._lib[].error("flac seek failed", code)
 
-    def read(mut self, mut out: List[Float32], frame_count: UInt64) raises -> UInt64:
+    def read(mut self, mut out: List[Float32], frame_count: UInt64) raises MaError -> UInt64:
         """Reads up to frame_count f32 frames into `out`, sizing it to the result.
 
         `out` is resized to frames_read * channels (interleaved). Returns the
@@ -120,35 +120,35 @@ struct FlacDecoder(Movable):
         """
         var f = self.data_format()
         if f.format != SAMPLE_FORMAT_F32.code:
-            raise Error("flac read: stream format is not f32; open with format=f32 or use read_s16")
+            raise MaError(MaResult.INVALID_OPERATION, "flac read: stream format is not f32; open with format=f32 or use read_s16")
         var ch = Int(f.channels)
         out.resize(Int(frame_count) * ch, Float32(0))
         var c = raw.flac_read_pcm_frames(self._lib[], self._ptr, out, frame_count)
         if c.result != MA_SUCCESS and c.result != MA_AT_END:
             out.resize(0, Float32(0))
-            raise Error(self._lib[].describe("flac read failed", c.result))
+            raise self._lib[].error("flac read failed", c.result)
         out.resize(Int(c.value) * ch, Float32(0))
         return c.value
 
-    def read_s16(mut self, mut out: List[Int16], frame_count: UInt64) raises -> UInt64:
+    def read_s16(mut self, mut out: List[Int16], frame_count: UInt64) raises MaError -> UInt64:
         """As `read`, for a stream opened with format=s16."""
         var f = self.data_format()
         if f.format != SAMPLE_FORMAT_S16.code:
-            raise Error("flac read_s16: stream format is not s16; open with format=s16")
+            raise MaError(MaResult.INVALID_OPERATION, "flac read_s16: stream format is not s16; open with format=s16")
         var ch = Int(f.channels)
         out.resize(Int(frame_count) * ch, Int16(0))
         var c = raw.flac_read_pcm_frames_s16(self._lib[], self._ptr, out, frame_count)
         if c.result != MA_SUCCESS and c.result != MA_AT_END:
             out.resize(0, Int16(0))
-            raise Error(self._lib[].describe("flac read failed", c.result))
+            raise self._lib[].error("flac read failed", c.result)
         out.resize(Int(c.value) * ch, Int16(0))
         return c.value
 
-    def uninit(mut self) raises:
+    def uninit(mut self) raises MaError:
         """Release the decoder early; the handle stays valid but unusable."""
         var code = raw.flac_uninit(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("flac uninit failed", code))
+            raise self._lib[].error("flac uninit failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():

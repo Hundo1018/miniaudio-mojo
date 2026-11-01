@@ -6,6 +6,7 @@ policy lives in the API layer (sound.mojo).
 """
 
 from miniaudio._lib import MaLib, null_handle
+from miniaudio.result import MaResult
 from miniaudio._ffi.decoder_raw import MaCount
 
 
@@ -22,7 +23,7 @@ struct Vec3(Copyable, Movable):
 struct MaSeconds(Copyable, Movable):
     """Raw (result_code, value) pair for shim calls with a float out-param."""
 
-    var result: Int
+    var result: MaResult
     var value: Float32
 
 
@@ -30,7 +31,7 @@ struct MaSeconds(Copyable, Movable):
 struct MaDataFormat(Copyable, Movable):
     """Raw (result_code, format, channels, sample_rate) tuple for get_data_format."""
 
-    var result: Int
+    var result: MaResult
     var format: Int
     var channels: UInt32
     var sample_rate: UInt32
@@ -61,53 +62,53 @@ def sound_init_from_file(
     engine: OpaquePointer[MutUntrackedOrigin],
     path: String,
     flags: UInt32,
-) -> Int:
+) -> MaResult:
     var path_c = path + "\x00"
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_sound_init_from_file", Int32](
             snd, engine, path_c.as_bytes().unsafe_ptr(), flags
         )
     )
 
 
-def sound_uninit(lib: MaLib, snd: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_sound_uninit", Int32](snd))
+def sound_uninit(lib: MaLib, snd: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_sound_uninit", Int32](snd))
 
 
-def sound_start(lib: MaLib, snd: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_sound_start", Int32](snd))
+def sound_start(lib: MaLib, snd: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_sound_start", Int32](snd))
 
 
-def sound_stop(lib: MaLib, snd: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_sound_stop", Int32](snd))
+def sound_stop(lib: MaLib, snd: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_sound_stop", Int32](snd))
 
 
-def sound_set_volume(lib: MaLib, snd: OpaquePointer[MutUntrackedOrigin], volume: Float32) -> Int:
-    return Int(lib.handle.call["ma_shim_sound_set_volume", Int32](snd, volume))
+def sound_set_volume(lib: MaLib, snd: OpaquePointer[MutUntrackedOrigin], volume: Float32) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_sound_set_volume", Int32](snd, volume))
 
 
 def sound_get_volume(lib: MaLib, snd: OpaquePointer[MutUntrackedOrigin]) -> Float32:
     return lib.handle.call["ma_shim_sound_get_volume", Float32](snd)
 
 
-def sound_set_pan(lib: MaLib, snd: OpaquePointer[MutUntrackedOrigin], pan: Float32) -> Int:
-    return Int(lib.handle.call["ma_shim_sound_set_pan", Int32](snd, pan))
+def sound_set_pan(lib: MaLib, snd: OpaquePointer[MutUntrackedOrigin], pan: Float32) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_sound_set_pan", Int32](snd, pan))
 
 
 def sound_get_pan(lib: MaLib, snd: OpaquePointer[MutUntrackedOrigin]) -> Float32:
     return lib.handle.call["ma_shim_sound_get_pan", Float32](snd)
 
 
-def sound_set_pitch(lib: MaLib, snd: OpaquePointer[MutUntrackedOrigin], pitch: Float32) -> Int:
-    return Int(lib.handle.call["ma_shim_sound_set_pitch", Int32](snd, pitch))
+def sound_set_pitch(lib: MaLib, snd: OpaquePointer[MutUntrackedOrigin], pitch: Float32) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_sound_set_pitch", Int32](snd, pitch))
 
 
 def sound_get_pitch(lib: MaLib, snd: OpaquePointer[MutUntrackedOrigin]) -> Float32:
     return lib.handle.call["ma_shim_sound_get_pitch", Float32](snd)
 
 
-def sound_set_looping(lib: MaLib, snd: OpaquePointer[MutUntrackedOrigin], looping: Bool) -> Int:
-    return Int(
+def sound_set_looping(lib: MaLib, snd: OpaquePointer[MutUntrackedOrigin], looping: Bool) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_sound_set_looping", Int32](
             snd, Int32(1) if looping else Int32(0)
         )
@@ -128,8 +129,8 @@ def sound_at_end(lib: MaLib, snd: OpaquePointer[MutUntrackedOrigin]) -> Int:
 
 def sound_set_spatialization_enabled(
     lib: MaLib, snd: OpaquePointer[MutUntrackedOrigin], enabled: Bool
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_sound_set_spatialization_enabled", Int32](
             snd, Int32(1) if enabled else Int32(0)
         )
@@ -144,8 +145,8 @@ def sound_is_spatialization_enabled(
 
 def sound_seek_to_pcm_frame(
     lib: MaLib, snd: OpaquePointer[MutUntrackedOrigin], frame_index: UInt64
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_sound_seek_to_pcm_frame", Int32](snd, frame_index)
     )
 
@@ -154,7 +155,7 @@ def sound_get_cursor_in_pcm_frames(
     lib: MaLib, snd: OpaquePointer[MutUntrackedOrigin]
 ) -> MaCount:
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_sound_get_cursor_in_pcm_frames", Int32](
             snd, holder.unsafe_ptr()
         )
@@ -166,7 +167,7 @@ def sound_get_length_in_pcm_frames(
     lib: MaLib, snd: OpaquePointer[MutUntrackedOrigin]
 ) -> MaCount:
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_sound_get_length_in_pcm_frames", Int32](
             snd, holder.unsafe_ptr()
         )
@@ -176,8 +177,8 @@ def sound_get_length_in_pcm_frames(
 
 def sound_seek_to_second(
     lib: MaLib, snd: OpaquePointer[MutUntrackedOrigin], seek_point: Float32
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_sound_seek_to_second", Int32](snd, seek_point)
     )
 
@@ -186,7 +187,7 @@ def sound_get_cursor_in_seconds(
     lib: MaLib, snd: OpaquePointer[MutUntrackedOrigin]
 ) -> MaSeconds:
     var holder = [Float32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_sound_get_cursor_in_seconds", Int32](
             snd, holder.unsafe_ptr()
         )
@@ -198,7 +199,7 @@ def sound_get_length_in_seconds(
     lib: MaLib, snd: OpaquePointer[MutUntrackedOrigin]
 ) -> MaSeconds:
     var holder = [Float32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_sound_get_length_in_seconds", Int32](
             snd, holder.unsafe_ptr()
         )
@@ -212,7 +213,7 @@ def sound_get_data_format(
     var fmt = [Int32(0)]
     var ch = [UInt32(0)]
     var sr = [UInt32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_sound_get_data_format", Int32](
             snd, fmt.unsafe_ptr(), ch.unsafe_ptr(), sr.unsafe_ptr()
         )
@@ -561,8 +562,8 @@ def sound_set_stop_time_with_fade_in_milliseconds(
 
 def sound_stop_with_fade_in_pcm_frames(
     lib: MaLib, snd: OpaquePointer[MutUntrackedOrigin], fade_len: UInt64
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_sound_stop_with_fade_in_pcm_frames", Int32](
             snd, fade_len
         )
@@ -571,8 +572,8 @@ def sound_stop_with_fade_in_pcm_frames(
 
 def sound_stop_with_fade_in_milliseconds(
     lib: MaLib, snd: OpaquePointer[MutUntrackedOrigin], fade_len: UInt64
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_sound_stop_with_fade_in_milliseconds", Int32](
             snd, fade_len
         )
@@ -611,8 +612,8 @@ def sound_init_copy(
     engine: OpaquePointer[MutUntrackedOrigin],
     existing: OpaquePointer[MutUntrackedOrigin],
     flags: UInt32,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_sound_init_copy", Int32](
             snd, engine, existing, flags
         )
@@ -628,9 +629,9 @@ def sound_init_from_data_source(
     engine: OpaquePointer[MutUntrackedOrigin],
     data_source: OpaquePointer[MutUntrackedOrigin],
     flags: UInt32,
-) -> Int:
+) -> MaResult:
     """The data source must outlive the sound; a borrowed view is refused."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_sound_init_from_data_source", Int32](
             snd, engine, data_source, flags
         )
@@ -659,25 +660,25 @@ def sound_config_free(lib: MaLib, cfg: OpaquePointer[MutUntrackedOrigin]):
     lib.handle.call["ma_shim_sound_config_free", NoneType](cfg)
 
 
-def sound_config_init(lib: MaLib, cfg: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_sound_config_init", Int32](cfg))
+def sound_config_init(lib: MaLib, cfg: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_sound_config_init", Int32](cfg))
 
 
 def sound_config_init_for_engine(
     lib: MaLib,
     cfg: OpaquePointer[MutUntrackedOrigin],
     engine: OpaquePointer[MutUntrackedOrigin],
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_sound_config_init_for_engine", Int32](cfg, engine)
     )
 
 
 def sound_config_set_file_path(
     lib: MaLib, cfg: OpaquePointer[MutUntrackedOrigin], path: String
-) -> Int:
+) -> MaResult:
     var path_c = path + "\x00"
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_sound_config_set_file_path", Int32](
             cfg, path_c.as_bytes().unsafe_ptr()
         )
@@ -686,8 +687,8 @@ def sound_config_set_file_path(
 
 def sound_config_clear_file_path(
     lib: MaLib, cfg: OpaquePointer[MutUntrackedOrigin]
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_sound_config_set_file_path", Int32](
             cfg, null_handle()
         )
@@ -698,9 +699,9 @@ def sound_config_set_data_source(
     lib: MaLib,
     cfg: OpaquePointer[MutUntrackedOrigin],
     data_source: OpaquePointer[MutUntrackedOrigin],
-) -> Int:
+) -> MaResult:
     """A null data source clears it; a borrowed view is refused."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_sound_config_set_data_source", Int32](
             cfg, data_source
         )
@@ -712,9 +713,9 @@ def sound_config_set_initial_attachment_group(
     cfg: OpaquePointer[MutUntrackedOrigin],
     group: OpaquePointer[MutUntrackedOrigin],
     input_bus: UInt32,
-) -> Int:
+) -> MaResult:
     """Attach the new sound to a sound group's input bus (null group clears)."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_sound_config_set_initial_attachment_group", Int32](
             cfg, group, input_bus
         )
@@ -726,9 +727,9 @@ def sound_config_set_initial_attachment_node(
     cfg: OpaquePointer[MutUntrackedOrigin],
     node: OpaquePointer[MutUntrackedOrigin],
     input_bus: UInt32,
-) -> Int:
+) -> MaResult:
     """Attach the new sound to any shim node's input bus (null node clears)."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_sound_config_set_initial_attachment_node", Int32](
             cfg, node, input_bus
         )
@@ -737,8 +738,8 @@ def sound_config_set_initial_attachment_node(
 
 def sound_config_set_flags(
     lib: MaLib, cfg: OpaquePointer[MutUntrackedOrigin], flags: UInt32
-) -> Int:
-    return Int(lib.handle.call["ma_shim_sound_config_set_flags", Int32](cfg, flags))
+) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_sound_config_set_flags", Int32](cfg, flags))
 
 
 def sound_config_set_channels(
@@ -746,8 +747,8 @@ def sound_config_set_channels(
     cfg: OpaquePointer[MutUntrackedOrigin],
     channels_in: UInt32,
     channels_out: UInt32,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_sound_config_set_channels", Int32](
             cfg, channels_in, channels_out
         )
@@ -756,8 +757,8 @@ def sound_config_set_channels(
 
 def sound_config_set_volume_smooth_time(
     lib: MaLib, cfg: OpaquePointer[MutUntrackedOrigin], frames: UInt32
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_sound_config_set_volume_smooth_time", Int32](
             cfg, frames
         )
@@ -766,8 +767,8 @@ def sound_config_set_volume_smooth_time(
 
 def sound_config_set_mono_expansion_mode(
     lib: MaLib, cfg: OpaquePointer[MutUntrackedOrigin], mode: Int
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_sound_config_set_mono_expansion_mode", Int32](
             cfg, Int32(mode)
         )
@@ -776,8 +777,8 @@ def sound_config_set_mono_expansion_mode(
 
 def sound_config_set_initial_seek_point(
     lib: MaLib, cfg: OpaquePointer[MutUntrackedOrigin], frame: UInt64
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_sound_config_set_initial_seek_point", Int32](
             cfg, frame
         )
@@ -786,16 +787,16 @@ def sound_config_set_initial_seek_point(
 
 def sound_config_set_range(
     lib: MaLib, cfg: OpaquePointer[MutUntrackedOrigin], beg: UInt64, end: UInt64
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_sound_config_set_range", Int32](cfg, beg, end)
     )
 
 
 def sound_config_set_loop_point(
     lib: MaLib, cfg: OpaquePointer[MutUntrackedOrigin], beg: UInt64, end: UInt64
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_sound_config_set_loop_point", Int32](cfg, beg, end)
     )
 
@@ -805,8 +806,8 @@ def sound_init_ex(
     snd: OpaquePointer[MutUntrackedOrigin],
     engine: OpaquePointer[MutUntrackedOrigin],
     cfg: OpaquePointer[MutUntrackedOrigin],
-) -> Int:
+) -> MaResult:
     """Init from a config (file path, data source, or neither: a group-like sound)."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_sound_init_ex", Int32](snd, engine, cfg)
     )

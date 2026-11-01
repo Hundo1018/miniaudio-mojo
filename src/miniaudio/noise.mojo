@@ -9,7 +9,7 @@ noise generator automatically.
 from std.memory import ArcPointer
 
 from miniaudio._lib import MaLib, null_handle
-from miniaudio.result import MA_SUCCESS
+from miniaudio.result import MaResult, MaError, MA_SUCCESS
 import miniaudio._ffi.noise_raw as raw
 
 comptime NoiseTypeWhite: Int = raw.NOISE_TYPE_WHITE
@@ -41,7 +41,7 @@ struct Noise(Movable):
         format: Int = 5,
         channels: UInt32 = 1,
         noise_type: Int = raw.NOISE_TYPE_WHITE,
-    ) raises -> UInt64:
+    ) raises MaError -> UInt64:
         """Working-heap bytes a generator of this shape needs, without building one.
 
         White noise keeps no per-channel state, so its heap is 0; pink and
@@ -49,7 +49,7 @@ struct Noise(Movable):
         """
         var rc = raw.noise_get_heap_size(lib[], format, channels, noise_type)
         if rc.result != MA_SUCCESS:
-            raise Error(lib[].describe("noise heap_size failed", rc.result))
+            raise lib[].error("noise heap_size failed", rc.result)
         return rc.value
 
     @staticmethod
@@ -62,7 +62,7 @@ struct Noise(Movable):
         seed: Int32 = Int32(0),
         amplitude: Float64 = 1.0,
         preallocated: Bool = False,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """Create and initialise a noise generator.
 
         format: ma_format code (5 = f32). channels: output channel count.
@@ -73,8 +73,8 @@ struct Noise(Movable):
         """
         var ptr = raw.noise_alloc(lib[])
         if ptr == null_handle():
-            raise Error("noise_alloc failed (out of memory)")
-        var code: Int
+            raise MaError(MaResult.OUT_OF_MEMORY, "noise_alloc failed (out of memory)")
+        var code: MaResult
         if preallocated:
             code = raw.noise_init_preallocated(
                 lib[], ptr, format, channels, noise_type, seed, amplitude
@@ -85,26 +85,26 @@ struct Noise(Movable):
             )
         if code != MA_SUCCESS:
             raw.noise_free(lib[], ptr)
-            raise Error(lib[].describe("noise init failed", code))
+            raise lib[].error("noise init failed", code)
         return Self(lib.copy(), ptr, channels)
 
-    def read_frames(mut self, frame_count: UInt64) raises -> List[Float32]:
+    def read_frames(mut self, frame_count: UInt64) raises MaError -> List[Float32]:
         """Generate `frame_count` PCM frames as f32 samples (channels interleaved)."""
         var n = Int(frame_count) * Int(self._channels)
         var buf = List[Float32](capacity=n)
         buf.resize(n, Float32(0))
         var rc = raw.noise_read_pcm_frames(self._lib[], self._ptr, buf, frame_count)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("noise read_frames failed", rc.result))
+            raise self._lib[].error("noise read_frames failed", rc.result)
         return buf^
 
-    def set_amplitude(mut self, amplitude: Float64) raises:
+    def set_amplitude(mut self, amplitude: Float64) raises MaError:
         if raw.noise_set_amplitude(self._lib[], self._ptr, amplitude) != MA_SUCCESS:
-            raise Error("noise set_amplitude on uninitialized noise")
+            raise MaError(MaResult.INVALID_OPERATION, "noise set_amplitude on uninitialized noise")
 
-    def set_seed(mut self, seed: Int32) raises:
+    def set_seed(mut self, seed: Int32) raises MaError:
         if raw.noise_set_seed(self._lib[], self._ptr, seed) != MA_SUCCESS:
-            raise Error("noise set_seed on uninitialized noise")
+            raise MaError(MaResult.INVALID_OPERATION, "noise set_seed on uninitialized noise")
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():

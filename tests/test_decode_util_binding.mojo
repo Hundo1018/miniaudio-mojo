@@ -10,6 +10,7 @@ paired with raw.decode_free, and the leak test checks the shim really releases i
 """
 
 from std.testing import assert_equal, assert_true, TestSuite
+from miniaudio.result import MaResult
 
 from miniaudio._lib import MaLib, null_handle
 from miniaudio.result import MA_SUCCESS, MA_INVALID_ARGS, MA_DOES_NOT_EXIST
@@ -94,11 +95,11 @@ def test_backend_config_output_pointers_are_optional() raises:
     var lib = _lib()
     var n = null_handle()
     assert_equal(
-        Int(lib.handle.call["ma_shim_decoding_backend_config_init", Int32](Int32(FMT_S16), UInt32(8), n, n)),
+        MaResult(lib.handle.call["ma_shim_decoding_backend_config_init", Int32](Int32(FMT_S16), UInt32(8), n, n)),
         MA_SUCCESS,
     )
     assert_equal(
-        Int(lib.handle.call["ma_shim_decoding_backend_config_init", Int32](Int32(99), UInt32(8), n, n)),
+        MaResult(lib.handle.call["ma_shim_decoding_backend_config_init", Int32](Int32(99), UInt32(8), n, n)),
         MA_INVALID_ARGS,
     )
 
@@ -178,23 +179,23 @@ def test_decode_file_null_pointer_arguments_rejected() raises:
     var frames = [null_handle()]
     # NULL path, NULL frame-count out, NULL frames out.
     assert_equal(
-        Int(lib.handle.call["ma_shim_decode_file", Int32](
+        MaResult(lib.handle.call["ma_shim_decode_file", Int32](
             n, Int32(FMT_F32), UInt32(0), UInt32(0), count.unsafe_ptr(), frames.unsafe_ptr(), n, n, n)),
         MA_INVALID_ARGS,
     )
     assert_equal(
-        Int(lib.handle.call["ma_shim_decode_file", Int32](
+        MaResult(lib.handle.call["ma_shim_decode_file", Int32](
             path.as_bytes().unsafe_ptr(), Int32(FMT_F32), UInt32(0), UInt32(0), n, frames.unsafe_ptr(), n, n, n)),
         MA_INVALID_ARGS,
     )
     assert_equal(
-        Int(lib.handle.call["ma_shim_decode_file", Int32](
+        MaResult(lib.handle.call["ma_shim_decode_file", Int32](
             path.as_bytes().unsafe_ptr(), Int32(FMT_F32), UInt32(0), UInt32(0), count.unsafe_ptr(), n, n, n, n)),
         MA_INVALID_ARGS,
     )
     # The describing out-parameters (format / channels / rate) are optional.
     assert_equal(
-        Int(lib.handle.call["ma_shim_decode_file", Int32](
+        MaResult(lib.handle.call["ma_shim_decode_file", Int32](
             path.as_bytes().unsafe_ptr(), Int32(FMT_F32), UInt32(0), UInt32(0),
             count.unsafe_ptr(), frames.unsafe_ptr(), n, n, n)),
         MA_SUCCESS,
@@ -241,17 +242,17 @@ def test_decode_memory_null_pointer_arguments_rejected() raises:
     var count = [UInt64(0)]
     var frames = [null_handle()]
     assert_equal(
-        Int(lib.handle.call["ma_shim_decode_memory", Int32](
+        MaResult(lib.handle.call["ma_shim_decode_memory", Int32](
             n, len(data), Int32(FMT_F32), UInt32(0), UInt32(0), count.unsafe_ptr(), frames.unsafe_ptr(), n, n, n)),
         MA_INVALID_ARGS,
     )
     assert_equal(
-        Int(lib.handle.call["ma_shim_decode_memory", Int32](
+        MaResult(lib.handle.call["ma_shim_decode_memory", Int32](
             data.unsafe_ptr(), len(data), Int32(FMT_F32), UInt32(0), UInt32(0), n, frames.unsafe_ptr(), n, n, n)),
         MA_INVALID_ARGS,
     )
     assert_equal(
-        Int(lib.handle.call["ma_shim_decode_memory", Int32](
+        MaResult(lib.handle.call["ma_shim_decode_memory", Int32](
             data.unsafe_ptr(), len(data), Int32(FMT_F32), UInt32(0), UInt32(0), count.unsafe_ptr(), n, n, n, n)),
         MA_INVALID_ARGS,
     )
@@ -310,17 +311,17 @@ def test_decode_from_vfs_null_pointer_arguments_rejected() raises:
     var frames = [null_handle()]
     var path = WAV_PATH + "\x00"
     assert_equal(
-        Int(lib.handle.call["ma_shim_decode_from_vfs", Int32](
+        MaResult(lib.handle.call["ma_shim_decode_from_vfs", Int32](
             n, n, Int32(FMT_F32), UInt32(0), UInt32(0), count.unsafe_ptr(), frames.unsafe_ptr(), n, n, n)),
         MA_INVALID_ARGS,
     )
     assert_equal(
-        Int(lib.handle.call["ma_shim_decode_from_vfs", Int32](
+        MaResult(lib.handle.call["ma_shim_decode_from_vfs", Int32](
             n, path.as_bytes().unsafe_ptr(), Int32(FMT_F32), UInt32(0), UInt32(0), n, frames.unsafe_ptr(), n, n, n)),
         MA_INVALID_ARGS,
     )
     assert_equal(
-        Int(lib.handle.call["ma_shim_decode_from_vfs", Int32](
+        MaResult(lib.handle.call["ma_shim_decode_from_vfs", Int32](
             n, path.as_bytes().unsafe_ptr(), Int32(FMT_F32), UInt32(0), UInt32(0), count.unsafe_ptr(), n, n, n, n)),
         MA_INVALID_ARGS,
     )

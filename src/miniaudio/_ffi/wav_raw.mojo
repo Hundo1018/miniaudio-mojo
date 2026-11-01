@@ -14,6 +14,7 @@ Memory init does not copy: the caller must keep `data` alive until uninit.
 """
 
 from miniaudio._lib import MaLib, null_handle
+from miniaudio.result import MaResult
 from miniaudio._ffi.decoder_raw import MaCount
 from miniaudio._ffi.converter_raw import MaChannelMap
 
@@ -22,7 +23,7 @@ from miniaudio._ffi.converter_raw import MaChannelMap
 struct MaCodecFormat(Copyable, Movable):
     """Raw (result_code, format, channels, sample_rate) from *_get_data_format."""
 
-    var result: Int
+    var result: MaResult
     var format: Int
     var channels: UInt32
     var sample_rate: UInt32
@@ -42,9 +43,9 @@ def wav_init_file(
     path: String,
     preferred_format: Int,
     seek_point_count: UInt32,
-) -> Int:
+) -> MaResult:
     var path_c = path + "\x00"
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_wav_init_file", Int32](
             h,
             path_c.as_bytes().unsafe_ptr(),
@@ -60,8 +61,8 @@ def wav_init_memory(
     data: List[UInt8],
     preferred_format: Int,
     seek_point_count: UInt32,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_wav_init_memory", Int32](
             h,
             data.unsafe_ptr(),
@@ -72,8 +73,8 @@ def wav_init_memory(
     )
 
 
-def wav_uninit(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_wav_uninit", Int32](h))
+def wav_uninit(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_wav_uninit", Int32](h))
 
 
 def wav_read_pcm_frames(
@@ -88,7 +89,7 @@ def wav_read_pcm_frames(
     frames_read); frames_read is meaningful for MA_SUCCESS and MA_AT_END.
     """
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_wav_read_pcm_frames", Int32](
             h,
             out.unsafe_ptr(),
@@ -108,7 +109,7 @@ def wav_read_pcm_frames_s16(
 ) -> MaCount:
     """As wav_read_pcm_frames, for a handle whose format is s16."""
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_wav_read_pcm_frames", Int32](
             h,
             out.unsafe_ptr(),
@@ -122,8 +123,8 @@ def wav_read_pcm_frames_s16(
 
 def wav_seek_to_pcm_frame(
     lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], frame_index: UInt64
-) -> Int:
-    return Int(lib.handle.call["ma_shim_wav_seek_to_pcm_frame", Int32](h, frame_index))
+) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_wav_seek_to_pcm_frame", Int32](h, frame_index))
 
 
 def wav_get_data_format(
@@ -132,7 +133,7 @@ def wav_get_data_format(
     var fmt = [Int32(0)]
     var channels = [UInt32(0)]
     var rate = [UInt32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_wav_get_data_format", Int32](
             h,
             fmt.unsafe_ptr(),
@@ -151,7 +152,7 @@ def wav_get_channel_map(
     """The channel map miniaudio reports for the stream, `capacity` entries long."""
     var buf = List[UInt8](capacity=Int(capacity))
     buf.resize(Int(capacity), UInt8(0))
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_wav_get_data_format", Int32](
             h,
             null_handle(),
@@ -168,7 +169,7 @@ def wav_get_cursor_in_pcm_frames(
     lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]
 ) -> MaCount:
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_wav_get_cursor_in_pcm_frames", Int32](
             h, holder.unsafe_ptr()
         )
@@ -180,7 +181,7 @@ def wav_get_length_in_pcm_frames(
     lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]
 ) -> MaCount:
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_wav_get_length_in_pcm_frames", Int32](
             h, holder.unsafe_ptr()
         )

@@ -19,7 +19,7 @@ here drive that second path.
 from std.memory import ArcPointer
 
 from miniaudio._lib import MaLib, null_handle
-from miniaudio.result import MA_SUCCESS
+from miniaudio.result import MaResult, MaError, MA_SUCCESS
 import miniaudio._ffi.context_raw as raw
 
 
@@ -60,64 +60,62 @@ struct Context(Movable):
         self._ptr = ptr
 
     @staticmethod
-    def create(lib: ArcPointer[MaLib]) raises -> Self:
+    def create(lib: ArcPointer[MaLib]) raises MaError -> Self:
         var ptr = raw.context_alloc(lib[])
         if ptr == null_handle():
-            raise Error("context_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "context_alloc failed (out of memory)")
         var code = raw.context_init(lib[], ptr)
         if code != MA_SUCCESS:
             raw.context_free(lib[], ptr)
-            raise Error(lib[].describe("context init failed", code))
+            raise lib[].error("context init failed", code)
         return Self(lib.copy(), ptr)
 
     @staticmethod
-    def size_in_bytes(lib: ArcPointer[MaLib]) raises -> UInt64:
+    def size_in_bytes(lib: ArcPointer[MaLib]) raises MaError -> UInt64:
         """How large an ma_context is — answerable without building one."""
         var rc = raw.context_sizeof(lib[])
         if rc.result != MA_SUCCESS:
-            raise Error(lib[].describe("context sizeof failed", rc.result))
+            raise lib[].error("context sizeof failed", rc.result)
         return rc.value
 
-    def has_log(self) raises -> Bool:
+    def has_log(self) raises MaError -> Bool:
         var rc = raw.context_has_log(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("context log failed", rc.result))
+            raise self._lib[].error("context log failed", rc.result)
         return rc.value
 
-    def is_loopback_supported(self) raises -> Bool:
+    def is_loopback_supported(self) raises MaError -> Bool:
         var rc = raw.context_is_loopback_supported(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("context loopback failed", rc.result))
+            raise self._lib[].error("context loopback failed", rc.result)
         return rc.value
 
-    def enumerate_devices(mut self) raises -> UInt32:
+    def enumerate_devices(mut self) raises MaError -> UInt32:
         """Run miniaudio's enumeration; returns how many devices it offered."""
         var rc = raw.context_enumerate_devices(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("context enumerate failed", rc.result))
+            raise self._lib[].error("context enumerate failed", rc.result)
         return rc.value
 
-    def device_counts(mut self) raises -> DeviceCounts:
+    def device_counts(mut self) raises MaError -> DeviceCounts:
         """The lengths of the device arrays the context keeps."""
         var rc = raw.context_get_devices(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("context get_devices failed", rc.result))
+            raise self._lib[].error("context get_devices failed", rc.result)
         return DeviceCounts(rc.playback, rc.capture)
 
-    def default_device(mut self, device_type: Int) raises -> DeviceSummary:
+    def default_device(mut self, device_type: Int) raises MaError -> DeviceSummary:
         """Summarise the backend's default device of that type."""
         var rc = raw.context_get_device_info(self._lib[], self._ptr, device_type)
         if rc.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("context device info failed", rc.result)
-            )
+            raise self._lib[].error("context device info failed", rc.result)
         return DeviceSummary(rc.name_length, rc.native_format_count)
 
-    def uninit(mut self) raises:
+    def uninit(mut self) raises MaError:
         """Release early; the handle stays valid but empty."""
         var code = raw.context_uninit(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("context uninit failed", code))
+            raise self._lib[].error("context uninit failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():
@@ -143,116 +141,112 @@ struct Vfs(Movable):
         self._ptr = ptr
 
     @staticmethod
-    def create(lib: ArcPointer[MaLib]) raises -> Self:
+    def create(lib: ArcPointer[MaLib]) raises MaError -> Self:
         var ptr = raw.vfs_alloc(lib[])
         if ptr == null_handle():
-            raise Error("vfs_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "vfs_alloc failed (out of memory)")
         var code = raw.vfs_init(lib[], ptr)
         if code != MA_SUCCESS:
             raw.vfs_free(lib[], ptr)
-            raise Error(lib[].describe("default vfs init failed", code))
+            raise lib[].error("default vfs init failed", code)
         return Self(lib.copy(), ptr)
 
-    def open(mut self, path: String, *, mode: UInt32 = OPEN_MODE_READ) raises:
+    def open(mut self, path: String, *, mode: UInt32 = OPEN_MODE_READ) raises MaError:
         var code = raw.vfs_open(self._lib[], self._ptr, path, mode)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("vfs open failed", code))
+            raise self._lib[].error("vfs open failed", code)
 
-    def close(mut self) raises:
+    def close(mut self) raises MaError:
         var code = raw.vfs_close(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("vfs close failed", code))
+            raise self._lib[].error("vfs close failed", code)
 
-    def read(mut self, size: UInt64) raises -> List[UInt8]:
+    def read(mut self, size: UInt64) raises MaError -> List[UInt8]:
         """Read up to `size` bytes; the result is truncated to what arrived."""
         var buf = List[UInt8](capacity=Int(size))
         buf.resize(Int(size), UInt8(0))
         var rc = raw.vfs_read(self._lib[], self._ptr, buf, size)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("vfs read failed", rc.result))
+            raise self._lib[].error("vfs read failed", rc.result)
         buf.resize(Int(rc.value), UInt8(0))
         return buf^
 
-    def write(mut self, data: List[UInt8]) raises -> UInt64:
+    def write(mut self, data: List[UInt8]) raises MaError -> UInt64:
         var rc = raw.vfs_write(self._lib[], self._ptr, data)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("vfs write failed", rc.result))
+            raise self._lib[].error("vfs write failed", rc.result)
         return rc.value
 
-    def seek(mut self, offset: Int64, *, origin: Int = SEEK_ORIGIN_START) raises:
+    def seek(mut self, offset: Int64, *, origin: Int = SEEK_ORIGIN_START) raises MaError:
         var code = raw.vfs_seek(self._lib[], self._ptr, offset, origin)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("vfs seek failed", code))
+            raise self._lib[].error("vfs seek failed", code)
 
-    def tell(mut self) raises -> Int64:
+    def tell(mut self) raises MaError -> Int64:
         var rc = raw.vfs_tell(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("vfs tell failed", rc.result))
+            raise self._lib[].error("vfs tell failed", rc.result)
         return rc.value
 
-    def size(mut self) raises -> UInt64:
+    def size(mut self) raises MaError -> UInt64:
         """The open file's size in bytes."""
         var rc = raw.vfs_info(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("vfs info failed", rc.result))
+            raise self._lib[].error("vfs info failed", rc.result)
         return rc.value
 
-    def read_whole_file(mut self, path: String) raises -> UInt64:
+    def read_whole_file(mut self, path: String) raises MaError -> UInt64:
         """Read a file in one call; returns its size. The shim frees the block."""
         var rc = raw.vfs_open_and_read_file(self._lib[], self._ptr, path)
         if rc.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("vfs open_and_read_file failed", rc.result)
-            )
+            raise self._lib[].error("vfs open_and_read_file failed", rc.result)
         return rc.value
 
     def open_via_default(
         mut self, path: String, *, mode: UInt32 = OPEN_MODE_READ
-    ) raises:
+    ) raises MaError:
         """Open through the fallback path, which takes no VFS at all."""
         var code = raw.vfs_or_default_open(self._lib[], self._ptr, path, mode)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("vfs or_default open failed", code))
+            raise self._lib[].error("vfs or_default open failed", code)
 
-    def close_via_default(mut self) raises:
+    def close_via_default(mut self) raises MaError:
         var code = raw.vfs_or_default_close(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("vfs or_default close failed", code))
+            raise self._lib[].error("vfs or_default close failed", code)
 
-    def read_via_default(mut self, size: UInt64) raises -> List[UInt8]:
+    def read_via_default(mut self, size: UInt64) raises MaError -> List[UInt8]:
         var buf = List[UInt8](capacity=Int(size))
         buf.resize(Int(size), UInt8(0))
         var rc = raw.vfs_or_default_read(self._lib[], self._ptr, buf, size)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("vfs or_default read failed", rc.result))
+            raise self._lib[].error("vfs or_default read failed", rc.result)
         buf.resize(Int(rc.value), UInt8(0))
         return buf^
 
-    def write_via_default(mut self, data: List[UInt8]) raises -> UInt64:
+    def write_via_default(mut self, data: List[UInt8]) raises MaError -> UInt64:
         var rc = raw.vfs_or_default_write(self._lib[], self._ptr, data)
         if rc.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("vfs or_default write failed", rc.result)
-            )
+            raise self._lib[].error("vfs or_default write failed", rc.result)
         return rc.value
 
     def seek_via_default(
         mut self, offset: Int64, *, origin: Int = SEEK_ORIGIN_START
-    ) raises:
+    ) raises MaError:
         var code = raw.vfs_or_default_seek(self._lib[], self._ptr, offset, origin)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("vfs or_default seek failed", code))
+            raise self._lib[].error("vfs or_default seek failed", code)
 
-    def tell_via_default(mut self) raises -> Int64:
+    def tell_via_default(mut self) raises MaError -> Int64:
         var rc = raw.vfs_or_default_tell(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("vfs or_default tell failed", rc.result))
+            raise self._lib[].error("vfs or_default tell failed", rc.result)
         return rc.value
 
-    def size_via_default(mut self) raises -> UInt64:
+    def size_via_default(mut self) raises MaError -> UInt64:
         var rc = raw.vfs_or_default_info(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("vfs or_default info failed", rc.result))
+            raise self._lib[].error("vfs or_default info failed", rc.result)
         return rc.value
 
     def __deinit__(deinit self):

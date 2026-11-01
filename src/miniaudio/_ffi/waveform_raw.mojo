@@ -5,6 +5,7 @@ or MaCount pairs. No lifecycle / error policy; that lives in waveform.mojo.
 """
 
 from miniaudio._lib import MaLib
+from miniaudio.result import MaResult
 from miniaudio._ffi.decoder_raw import MaCount
 
 
@@ -33,8 +34,8 @@ def waveform_init(
     waveform_type: Int,
     amplitude: Float64,
     frequency: Float64,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_waveform_init", Int32](
             wf,
             Int32(format),
@@ -47,8 +48,8 @@ def waveform_init(
     )
 
 
-def waveform_uninit(lib: MaLib, wf: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_waveform_uninit", Int32](wf))
+def waveform_uninit(lib: MaLib, wf: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_waveform_uninit", Int32](wf))
 
 
 def waveform_read_pcm_frames(
@@ -62,7 +63,7 @@ def waveform_read_pcm_frames(
     Returns MaCount(result_code, frames_read).
     """
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_waveform_read_pcm_frames", Int32](
             wf,
             out.unsafe_ptr(),
@@ -75,36 +76,36 @@ def waveform_read_pcm_frames(
 
 def waveform_seek_to_pcm_frame(
     lib: MaLib, wf: OpaquePointer[MutUntrackedOrigin], frame_index: UInt64
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_waveform_seek_to_pcm_frame", Int32](wf, frame_index)
     )
 
 
 def waveform_set_amplitude(
     lib: MaLib, wf: OpaquePointer[MutUntrackedOrigin], amplitude: Float64
-) -> Int:
-    return Int(lib.handle.call["ma_shim_waveform_set_amplitude", Int32](wf, amplitude))
+) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_waveform_set_amplitude", Int32](wf, amplitude))
 
 
 def waveform_set_frequency(
     lib: MaLib, wf: OpaquePointer[MutUntrackedOrigin], frequency: Float64
-) -> Int:
-    return Int(lib.handle.call["ma_shim_waveform_set_frequency", Int32](wf, frequency))
+) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_waveform_set_frequency", Int32](wf, frequency))
 
 
 def waveform_set_type(
     lib: MaLib, wf: OpaquePointer[MutUntrackedOrigin], waveform_type: Int
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_waveform_set_type", Int32](wf, Int32(waveform_type))
     )
 
 
 def waveform_set_sample_rate(
     lib: MaLib, wf: OpaquePointer[MutUntrackedOrigin], sample_rate: UInt32
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_waveform_set_sample_rate", Int32](wf, sample_rate)
     )
 
@@ -131,8 +132,8 @@ def pulsewave_init(
     duty_cycle: Float64,
     amplitude: Float64,
     frequency: Float64,
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_pulsewave_init", Int32](
             pw,
             Int32(format),
@@ -145,8 +146,8 @@ def pulsewave_init(
     )
 
 
-def pulsewave_uninit(lib: MaLib, pw: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_pulsewave_uninit", Int32](pw))
+def pulsewave_uninit(lib: MaLib, pw: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_pulsewave_uninit", Int32](pw))
 
 
 def pulsewave_read_pcm_frames(
@@ -161,7 +162,7 @@ def pulsewave_read_pcm_frames(
     frame_count == 0 with MA_INVALID_ARGS.
     """
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_pulsewave_read_pcm_frames", Int32](
             pw,
             out.unsafe_ptr(),
@@ -174,35 +175,35 @@ def pulsewave_read_pcm_frames(
 
 def pulsewave_seek_to_pcm_frame(
     lib: MaLib, pw: OpaquePointer[MutUntrackedOrigin], frame_index: UInt64
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_pulsewave_seek_to_pcm_frame", Int32](pw, frame_index)
     )
 
 
 def pulsewave_set_amplitude(
     lib: MaLib, pw: OpaquePointer[MutUntrackedOrigin], amplitude: Float64
-) -> Int:
-    return Int(lib.handle.call["ma_shim_pulsewave_set_amplitude", Int32](pw, amplitude))
+) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_pulsewave_set_amplitude", Int32](pw, amplitude))
 
 
 def pulsewave_set_frequency(
     lib: MaLib, pw: OpaquePointer[MutUntrackedOrigin], frequency: Float64
-) -> Int:
-    return Int(lib.handle.call["ma_shim_pulsewave_set_frequency", Int32](pw, frequency))
+) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_pulsewave_set_frequency", Int32](pw, frequency))
 
 
 def pulsewave_set_sample_rate(
     lib: MaLib, pw: OpaquePointer[MutUntrackedOrigin], sample_rate: UInt32
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_pulsewave_set_sample_rate", Int32](pw, sample_rate)
     )
 
 
 def pulsewave_set_duty_cycle(
     lib: MaLib, pw: OpaquePointer[MutUntrackedOrigin], duty_cycle: Float64
-) -> Int:
-    return Int(
+) -> MaResult:
+    return MaResult(
         lib.handle.call["ma_shim_pulsewave_set_duty_cycle", Int32](pw, duty_cycle)
     )

@@ -9,7 +9,7 @@ any audio device or engine. Useful for synthesis, testing, and procedural audio.
 from std.memory import ArcPointer
 
 from miniaudio._lib import MaLib, null_handle
-from miniaudio.result import MA_SUCCESS
+from miniaudio.result import MaResult, MaError, MA_SUCCESS
 import miniaudio._ffi.waveform_raw as raw
 
 comptime WaveformTypeSine: Int = raw.WAVEFORM_TYPE_SINE
@@ -45,7 +45,7 @@ struct Waveform(Movable):
         waveform_type: Int = raw.WAVEFORM_TYPE_SINE,
         amplitude: Float64 = 1.0,
         frequency: Float64 = 440.0,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """Create and initialise a waveform generator.
 
         format: ma_format code (5 = f32). channels: output channel count.
@@ -55,45 +55,45 @@ struct Waveform(Movable):
         """
         var ptr = raw.waveform_alloc(lib[])
         if ptr == null_handle():
-            raise Error("waveform_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "waveform_alloc failed (out of memory)")
         var code = raw.waveform_init(
             lib[], ptr, format, channels, sample_rate, waveform_type, amplitude, frequency
         )
         if code != MA_SUCCESS:
             raw.waveform_free(lib[], ptr)
-            raise Error(lib[].describe("waveform init failed", code))
+            raise lib[].error("waveform init failed", code)
         return Self(lib.copy(), ptr, channels)
 
-    def read_frames(mut self, frame_count: UInt64) raises -> List[Float32]:
+    def read_frames(mut self, frame_count: UInt64) raises MaError -> List[Float32]:
         """Generate `frame_count` PCM frames as f32 samples (channels interleaved)."""
         var n = Int(frame_count) * Int(self._channels)
         var buf = List[Float32](capacity=n)
         buf.resize(n, Float32(0))
         var rc = raw.waveform_read_pcm_frames(self._lib[], self._ptr, buf, frame_count)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("waveform read_frames failed", rc.result))
+            raise self._lib[].error("waveform read_frames failed", rc.result)
         return buf^
 
-    def seek_to_frame(mut self, frame_index: UInt64) raises:
+    def seek_to_frame(mut self, frame_index: UInt64) raises MaError:
         var code = raw.waveform_seek_to_pcm_frame(self._lib[], self._ptr, frame_index)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("waveform seek_to_frame failed", code))
+            raise self._lib[].error("waveform seek_to_frame failed", code)
 
-    def set_amplitude(mut self, amplitude: Float64) raises:
+    def set_amplitude(mut self, amplitude: Float64) raises MaError:
         if raw.waveform_set_amplitude(self._lib[], self._ptr, amplitude) != MA_SUCCESS:
-            raise Error("waveform set_amplitude on uninitialized waveform")
+            raise MaError(MaResult.INVALID_OPERATION, "waveform set_amplitude on uninitialized waveform")
 
-    def set_frequency(mut self, frequency: Float64) raises:
+    def set_frequency(mut self, frequency: Float64) raises MaError:
         if raw.waveform_set_frequency(self._lib[], self._ptr, frequency) != MA_SUCCESS:
-            raise Error("waveform set_frequency on uninitialized waveform")
+            raise MaError(MaResult.INVALID_OPERATION, "waveform set_frequency on uninitialized waveform")
 
-    def set_type(mut self, waveform_type: Int) raises:
+    def set_type(mut self, waveform_type: Int) raises MaError:
         if raw.waveform_set_type(self._lib[], self._ptr, waveform_type) != MA_SUCCESS:
-            raise Error("waveform set_type on uninitialized waveform")
+            raise MaError(MaResult.INVALID_OPERATION, "waveform set_type on uninitialized waveform")
 
-    def set_sample_rate(mut self, sample_rate: UInt32) raises:
+    def set_sample_rate(mut self, sample_rate: UInt32) raises MaError:
         if raw.waveform_set_sample_rate(self._lib[], self._ptr, sample_rate) != MA_SUCCESS:
-            raise Error("waveform set_sample_rate on uninitialized waveform")
+            raise MaError(MaResult.INVALID_OPERATION, "waveform set_sample_rate on uninitialized waveform")
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():
@@ -130,53 +130,53 @@ struct PulseWave(Movable):
         duty_cycle: Float64 = 0.5,
         amplitude: Float64 = 1.0,
         frequency: Float64 = 440.0,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """Create an f32 pulse-wave generator."""
         var ptr = raw.pulsewave_alloc(lib[])
         if ptr == null_handle():
-            raise Error("pulsewave_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "pulsewave_alloc failed (out of memory)")
         var code = raw.pulsewave_init(
             lib[], ptr, 5, channels, sample_rate, duty_cycle, amplitude, frequency
         )
         if code != MA_SUCCESS:
             raw.pulsewave_free(lib[], ptr)
-            raise Error(lib[].describe("pulsewave init failed", code))
+            raise lib[].error("pulsewave init failed", code)
         return Self(lib.copy(), ptr, channels)
 
-    def read_frames(mut self, frame_count: UInt64) raises -> List[Float32]:
+    def read_frames(mut self, frame_count: UInt64) raises MaError -> List[Float32]:
         """Generate `frame_count` frames as interleaved f32 samples."""
         var n = Int(frame_count) * Int(self._channels)
         var buf = List[Float32](capacity=n)
         buf.resize(n, Float32(0))
         var rc = raw.pulsewave_read_pcm_frames(self._lib[], self._ptr, buf, frame_count)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("pulsewave read_frames failed", rc.result))
+            raise self._lib[].error("pulsewave read_frames failed", rc.result)
         return buf^
 
-    def seek_to_frame(mut self, frame_index: UInt64) raises:
+    def seek_to_frame(mut self, frame_index: UInt64) raises MaError:
         var code = raw.pulsewave_seek_to_pcm_frame(self._lib[], self._ptr, frame_index)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("pulsewave seek_to_frame failed", code))
+            raise self._lib[].error("pulsewave seek_to_frame failed", code)
 
-    def set_amplitude(mut self, amplitude: Float64) raises:
+    def set_amplitude(mut self, amplitude: Float64) raises MaError:
         var code = raw.pulsewave_set_amplitude(self._lib[], self._ptr, amplitude)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("pulsewave set_amplitude failed", code))
+            raise self._lib[].error("pulsewave set_amplitude failed", code)
 
-    def set_frequency(mut self, frequency: Float64) raises:
+    def set_frequency(mut self, frequency: Float64) raises MaError:
         var code = raw.pulsewave_set_frequency(self._lib[], self._ptr, frequency)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("pulsewave set_frequency failed", code))
+            raise self._lib[].error("pulsewave set_frequency failed", code)
 
-    def set_sample_rate(mut self, sample_rate: UInt32) raises:
+    def set_sample_rate(mut self, sample_rate: UInt32) raises MaError:
         var code = raw.pulsewave_set_sample_rate(self._lib[], self._ptr, sample_rate)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("pulsewave set_sample_rate failed", code))
+            raise self._lib[].error("pulsewave set_sample_rate failed", code)
 
-    def set_duty_cycle(mut self, duty_cycle: Float64) raises:
+    def set_duty_cycle(mut self, duty_cycle: Float64) raises MaError:
         var code = raw.pulsewave_set_duty_cycle(self._lib[], self._ptr, duty_cycle)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("pulsewave set_duty_cycle failed", code))
+            raise self._lib[].error("pulsewave set_duty_cycle failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():

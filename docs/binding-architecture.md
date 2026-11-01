@@ -9,9 +9,9 @@ rollout is complete (see `docs/binding-coverage.md`).
 
 ```
 Layer 3  Idiomatic Mojo API      src/miniaudio/decoder.mojo, result.mojo, _lib.mojo, __init__.mojo
-           RAII (__del__), raises Error, List/Span buffers, SampleFormat, no `bridge` arg
+           RAII (__del__), raises MaError, List/Span buffers, SampleFormat, no `bridge` arg
 Layer 2  Binding layer           src/miniaudio/_ffi/decoder_raw.mojo
-           free functions, 1:1 over the shim, return raw ma_result codes / MaCount, no policy
+           free functions, 1:1 over the shim, return MaResult / MaCount, no policy
 Layer 1  Thin native shim        src/native/ma_shim*.{h,c}  ->  build/libma_shim.so
            opaque alloc/free + field accessors + config marshalling + forward to real ma_*
 Layer 0  Vendored miniaudio      vendor/miniaudio/*  (unchanged)
@@ -40,8 +40,12 @@ Layer 0  Vendored miniaudio      vendor/miniaudio/*  (unchanged)
 - RAII types own the handle and clean up in `__del__`; no manual `close`.
 - The loaded library is shared via `ArcPointer[MaLib]`; **no `bridge` argument**
   is threaded through methods.
-- Failures `raise Error` with messages built from `result_name` +
-  `MaLib.result_description`.
+- Every raising function is `raises MaError`. `MaError.result` is the `MaResult`
+  (`ma_result` as an `EnumLike`, all values, so `match e.result: case .AT_END:`);
+  the message is `MaLib.error(action, result)`: `<action>: MA_X - <description> (<code>)`.
+  Wrapper-side checks use the code miniaudio would have used: bad input
+  `INVALID_ARGS`, wrong state `INVALID_OPERATION`, failed alloc `OUT_OF_MEMORY`.
+  Keep a `try` that reads `e.result` free of plain-`raises` calls, or `e` widens to `Error`.
 - Buffers are `List[Float32]` / `List[UInt8]` / `Span` — never `String`.
 - For `init_memory`, the API keeps the source bytes alive for the decoder's
   lifetime (miniaudio references, does not copy, the memory).

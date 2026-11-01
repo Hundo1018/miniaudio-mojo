@@ -7,8 +7,8 @@ API). See docs/binding-architecture.md.
 
 from miniaudio._lib import MaLib
 from miniaudio.result import (
-    result_name,
-    is_success,
+    MaResult,
+    MaError,
     MA_SUCCESS,
     MA_AT_END,
     MA_INVALID_ARGS,

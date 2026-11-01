@@ -17,6 +17,7 @@ ma_format code and is format-agnostic.
 """
 
 from miniaudio._lib import MaLib
+from miniaudio.result import MaResult
 from miniaudio._ffi.decoder_raw import MaCount
 from miniaudio._ffi.device_raw import MaUInt
 
@@ -44,7 +45,7 @@ def biquad_get_heap_size(
 ) -> MaCount:
     """Working-heap size for this configuration, without building the filter."""
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_biquad_get_heap_size", Int32](
             Int32(format), channels, b0, b1, b2, a0, a1, a2, holder.unsafe_ptr()
         )
@@ -63,8 +64,8 @@ def biquad_init(
     a0: Float64,
     a1: Float64,
     a2: Float64,
-) -> Int:
-    return Int(lib.handle.call["ma_shim_biquad_init", Int32](f, Int32(format), channels, b0, b1, b2, a0, a1, a2))
+) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_biquad_init", Int32](f, Int32(format), channels, b0, b1, b2, a0, a1, a2))
 
 
 def biquad_init_preallocated(
@@ -78,9 +79,9 @@ def biquad_init_preallocated(
     a0: Float64,
     a1: Float64,
     a2: Float64,
-) -> Int:
+) -> MaResult:
     """Init through miniaudio's preallocated-heap path with a shim-owned block."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_biquad_init_preallocated", Int32](f, Int32(format), channels, b0, b1, b2, a0, a1, a2)
     )
 
@@ -96,13 +97,13 @@ def biquad_reinit(
     a0: Float64,
     a1: Float64,
     a2: Float64,
-) -> Int:
+) -> MaResult:
     """Retune in place, keeping the filter's running state."""
-    return Int(lib.handle.call["ma_shim_biquad_reinit", Int32](f, Int32(format), channels, b0, b1, b2, a0, a1, a2))
+    return MaResult(lib.handle.call["ma_shim_biquad_reinit", Int32](f, Int32(format), channels, b0, b1, b2, a0, a1, a2))
 
 
-def biquad_uninit(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_biquad_uninit", Int32](f))
+def biquad_uninit(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_biquad_uninit", Int32](f))
 
 
 def biquad_process(
@@ -111,9 +112,9 @@ def biquad_process(
     mut dst: List[Float32],
     src: List[Float32],
     frame_count: UInt64,
-) -> Int:
+) -> MaResult:
     """Filters frame_count frames out-of-place; the frame count is unchanged."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_biquad_process", Int32](
             f, dst.unsafe_ptr(), src.unsafe_ptr(), frame_count
         )
@@ -122,15 +123,15 @@ def biquad_process(
 
 def biquad_get_latency(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> MaUInt:
     var holder = [UInt32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_biquad_get_latency", Int32](f, holder.unsafe_ptr())
     )
     return MaUInt(code, holder[0])
 
 
-def biquad_clear_cache(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> Int:
+def biquad_clear_cache(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
     """Drop the filter memory, leaving the tuning in place."""
-    return Int(lib.handle.call["ma_shim_biquad_clear_cache", Int32](f))
+    return MaResult(lib.handle.call["ma_shim_biquad_clear_cache", Int32](f))
 
 # ---- ma_lpf1 — first-order low-pass building block ----
 
@@ -152,7 +153,7 @@ def lpf1_get_heap_size(
 ) -> MaCount:
     """Working-heap size for this configuration, without building the filter."""
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_lpf1_get_heap_size", Int32](
             Int32(format), channels, sample_rate, cutoff, holder.unsafe_ptr()
         )
@@ -167,8 +168,8 @@ def lpf1_init(
     channels: UInt32,
     sample_rate: UInt32,
     cutoff: Float64,
-) -> Int:
-    return Int(lib.handle.call["ma_shim_lpf1_init", Int32](f, Int32(format), channels, sample_rate, cutoff))
+) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_lpf1_init", Int32](f, Int32(format), channels, sample_rate, cutoff))
 
 
 def lpf1_init_preallocated(
@@ -178,9 +179,9 @@ def lpf1_init_preallocated(
     channels: UInt32,
     sample_rate: UInt32,
     cutoff: Float64,
-) -> Int:
+) -> MaResult:
     """Init through miniaudio's preallocated-heap path with a shim-owned block."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_lpf1_init_preallocated", Int32](f, Int32(format), channels, sample_rate, cutoff)
     )
 
@@ -192,13 +193,13 @@ def lpf1_reinit(
     channels: UInt32,
     sample_rate: UInt32,
     cutoff: Float64,
-) -> Int:
+) -> MaResult:
     """Retune in place, keeping the filter's running state."""
-    return Int(lib.handle.call["ma_shim_lpf1_reinit", Int32](f, Int32(format), channels, sample_rate, cutoff))
+    return MaResult(lib.handle.call["ma_shim_lpf1_reinit", Int32](f, Int32(format), channels, sample_rate, cutoff))
 
 
-def lpf1_uninit(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_lpf1_uninit", Int32](f))
+def lpf1_uninit(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_lpf1_uninit", Int32](f))
 
 
 def lpf1_process(
@@ -207,9 +208,9 @@ def lpf1_process(
     mut dst: List[Float32],
     src: List[Float32],
     frame_count: UInt64,
-) -> Int:
+) -> MaResult:
     """Filters frame_count frames out-of-place; the frame count is unchanged."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_lpf1_process", Int32](
             f, dst.unsafe_ptr(), src.unsafe_ptr(), frame_count
         )
@@ -218,15 +219,15 @@ def lpf1_process(
 
 def lpf1_get_latency(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> MaUInt:
     var holder = [UInt32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_lpf1_get_latency", Int32](f, holder.unsafe_ptr())
     )
     return MaUInt(code, holder[0])
 
 
-def lpf1_clear_cache(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> Int:
+def lpf1_clear_cache(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
     """Drop the filter memory, leaving the tuning in place."""
-    return Int(lib.handle.call["ma_shim_lpf1_clear_cache", Int32](f))
+    return MaResult(lib.handle.call["ma_shim_lpf1_clear_cache", Int32](f))
 
 # ---- ma_hpf1 — first-order high-pass building block ----
 
@@ -248,7 +249,7 @@ def hpf1_get_heap_size(
 ) -> MaCount:
     """Working-heap size for this configuration, without building the filter."""
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_hpf1_get_heap_size", Int32](
             Int32(format), channels, sample_rate, cutoff, holder.unsafe_ptr()
         )
@@ -263,8 +264,8 @@ def hpf1_init(
     channels: UInt32,
     sample_rate: UInt32,
     cutoff: Float64,
-) -> Int:
-    return Int(lib.handle.call["ma_shim_hpf1_init", Int32](f, Int32(format), channels, sample_rate, cutoff))
+) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_hpf1_init", Int32](f, Int32(format), channels, sample_rate, cutoff))
 
 
 def hpf1_init_preallocated(
@@ -274,9 +275,9 @@ def hpf1_init_preallocated(
     channels: UInt32,
     sample_rate: UInt32,
     cutoff: Float64,
-) -> Int:
+) -> MaResult:
     """Init through miniaudio's preallocated-heap path with a shim-owned block."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_hpf1_init_preallocated", Int32](f, Int32(format), channels, sample_rate, cutoff)
     )
 
@@ -288,13 +289,13 @@ def hpf1_reinit(
     channels: UInt32,
     sample_rate: UInt32,
     cutoff: Float64,
-) -> Int:
+) -> MaResult:
     """Retune in place, keeping the filter's running state."""
-    return Int(lib.handle.call["ma_shim_hpf1_reinit", Int32](f, Int32(format), channels, sample_rate, cutoff))
+    return MaResult(lib.handle.call["ma_shim_hpf1_reinit", Int32](f, Int32(format), channels, sample_rate, cutoff))
 
 
-def hpf1_uninit(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_hpf1_uninit", Int32](f))
+def hpf1_uninit(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_hpf1_uninit", Int32](f))
 
 
 def hpf1_process(
@@ -303,9 +304,9 @@ def hpf1_process(
     mut dst: List[Float32],
     src: List[Float32],
     frame_count: UInt64,
-) -> Int:
+) -> MaResult:
     """Filters frame_count frames out-of-place; the frame count is unchanged."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_hpf1_process", Int32](
             f, dst.unsafe_ptr(), src.unsafe_ptr(), frame_count
         )
@@ -314,7 +315,7 @@ def hpf1_process(
 
 def hpf1_get_latency(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> MaUInt:
     var holder = [UInt32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_hpf1_get_latency", Int32](f, holder.unsafe_ptr())
     )
     return MaUInt(code, holder[0])
@@ -340,7 +341,7 @@ def lpf2_get_heap_size(
 ) -> MaCount:
     """Working-heap size for this configuration, without building the filter."""
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_lpf2_get_heap_size", Int32](
             Int32(format), channels, sample_rate, cutoff, q, holder.unsafe_ptr()
         )
@@ -356,8 +357,8 @@ def lpf2_init(
     sample_rate: UInt32,
     cutoff: Float64,
     q: Float64,
-) -> Int:
-    return Int(lib.handle.call["ma_shim_lpf2_init", Int32](f, Int32(format), channels, sample_rate, cutoff, q))
+) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_lpf2_init", Int32](f, Int32(format), channels, sample_rate, cutoff, q))
 
 
 def lpf2_init_preallocated(
@@ -368,9 +369,9 @@ def lpf2_init_preallocated(
     sample_rate: UInt32,
     cutoff: Float64,
     q: Float64,
-) -> Int:
+) -> MaResult:
     """Init through miniaudio's preallocated-heap path with a shim-owned block."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_lpf2_init_preallocated", Int32](f, Int32(format), channels, sample_rate, cutoff, q)
     )
 
@@ -383,13 +384,13 @@ def lpf2_reinit(
     sample_rate: UInt32,
     cutoff: Float64,
     q: Float64,
-) -> Int:
+) -> MaResult:
     """Retune in place, keeping the filter's running state."""
-    return Int(lib.handle.call["ma_shim_lpf2_reinit", Int32](f, Int32(format), channels, sample_rate, cutoff, q))
+    return MaResult(lib.handle.call["ma_shim_lpf2_reinit", Int32](f, Int32(format), channels, sample_rate, cutoff, q))
 
 
-def lpf2_uninit(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_lpf2_uninit", Int32](f))
+def lpf2_uninit(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_lpf2_uninit", Int32](f))
 
 
 def lpf2_process(
@@ -398,9 +399,9 @@ def lpf2_process(
     mut dst: List[Float32],
     src: List[Float32],
     frame_count: UInt64,
-) -> Int:
+) -> MaResult:
     """Filters frame_count frames out-of-place; the frame count is unchanged."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_lpf2_process", Int32](
             f, dst.unsafe_ptr(), src.unsafe_ptr(), frame_count
         )
@@ -409,15 +410,15 @@ def lpf2_process(
 
 def lpf2_get_latency(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> MaUInt:
     var holder = [UInt32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_lpf2_get_latency", Int32](f, holder.unsafe_ptr())
     )
     return MaUInt(code, holder[0])
 
 
-def lpf2_clear_cache(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> Int:
+def lpf2_clear_cache(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
     """Drop the filter memory, leaving the tuning in place."""
-    return Int(lib.handle.call["ma_shim_lpf2_clear_cache", Int32](f))
+    return MaResult(lib.handle.call["ma_shim_lpf2_clear_cache", Int32](f))
 
 # ---- ma_hpf2 — second-order high-pass building block ----
 
@@ -440,7 +441,7 @@ def hpf2_get_heap_size(
 ) -> MaCount:
     """Working-heap size for this configuration, without building the filter."""
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_hpf2_get_heap_size", Int32](
             Int32(format), channels, sample_rate, cutoff, q, holder.unsafe_ptr()
         )
@@ -456,8 +457,8 @@ def hpf2_init(
     sample_rate: UInt32,
     cutoff: Float64,
     q: Float64,
-) -> Int:
-    return Int(lib.handle.call["ma_shim_hpf2_init", Int32](f, Int32(format), channels, sample_rate, cutoff, q))
+) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_hpf2_init", Int32](f, Int32(format), channels, sample_rate, cutoff, q))
 
 
 def hpf2_init_preallocated(
@@ -468,9 +469,9 @@ def hpf2_init_preallocated(
     sample_rate: UInt32,
     cutoff: Float64,
     q: Float64,
-) -> Int:
+) -> MaResult:
     """Init through miniaudio's preallocated-heap path with a shim-owned block."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_hpf2_init_preallocated", Int32](f, Int32(format), channels, sample_rate, cutoff, q)
     )
 
@@ -483,13 +484,13 @@ def hpf2_reinit(
     sample_rate: UInt32,
     cutoff: Float64,
     q: Float64,
-) -> Int:
+) -> MaResult:
     """Retune in place, keeping the filter's running state."""
-    return Int(lib.handle.call["ma_shim_hpf2_reinit", Int32](f, Int32(format), channels, sample_rate, cutoff, q))
+    return MaResult(lib.handle.call["ma_shim_hpf2_reinit", Int32](f, Int32(format), channels, sample_rate, cutoff, q))
 
 
-def hpf2_uninit(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_hpf2_uninit", Int32](f))
+def hpf2_uninit(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_hpf2_uninit", Int32](f))
 
 
 def hpf2_process(
@@ -498,9 +499,9 @@ def hpf2_process(
     mut dst: List[Float32],
     src: List[Float32],
     frame_count: UInt64,
-) -> Int:
+) -> MaResult:
     """Filters frame_count frames out-of-place; the frame count is unchanged."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_hpf2_process", Int32](
             f, dst.unsafe_ptr(), src.unsafe_ptr(), frame_count
         )
@@ -509,7 +510,7 @@ def hpf2_process(
 
 def hpf2_get_latency(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> MaUInt:
     var holder = [UInt32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_hpf2_get_latency", Int32](f, holder.unsafe_ptr())
     )
     return MaUInt(code, holder[0])
@@ -535,7 +536,7 @@ def lpf_get_heap_size(
 ) -> MaCount:
     """Working-heap size for this configuration, without building the filter."""
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_lpf_get_heap_size", Int32](
             Int32(format), channels, sample_rate, cutoff, order, holder.unsafe_ptr()
         )
@@ -551,8 +552,8 @@ def lpf_init(
     sample_rate: UInt32,
     cutoff: Float64,
     order: UInt32,
-) -> Int:
-    return Int(lib.handle.call["ma_shim_lpf_init", Int32](f, Int32(format), channels, sample_rate, cutoff, order))
+) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_lpf_init", Int32](f, Int32(format), channels, sample_rate, cutoff, order))
 
 
 def lpf_init_preallocated(
@@ -563,9 +564,9 @@ def lpf_init_preallocated(
     sample_rate: UInt32,
     cutoff: Float64,
     order: UInt32,
-) -> Int:
+) -> MaResult:
     """Init through miniaudio's preallocated-heap path with a shim-owned block."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_lpf_init_preallocated", Int32](f, Int32(format), channels, sample_rate, cutoff, order)
     )
 
@@ -578,13 +579,13 @@ def lpf_reinit(
     sample_rate: UInt32,
     cutoff: Float64,
     order: UInt32,
-) -> Int:
+) -> MaResult:
     """Retune in place, keeping the filter's running state."""
-    return Int(lib.handle.call["ma_shim_lpf_reinit", Int32](f, Int32(format), channels, sample_rate, cutoff, order))
+    return MaResult(lib.handle.call["ma_shim_lpf_reinit", Int32](f, Int32(format), channels, sample_rate, cutoff, order))
 
 
-def lpf_uninit(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_lpf_uninit", Int32](f))
+def lpf_uninit(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_lpf_uninit", Int32](f))
 
 
 def lpf_process(
@@ -593,9 +594,9 @@ def lpf_process(
     mut dst: List[Float32],
     src: List[Float32],
     frame_count: UInt64,
-) -> Int:
+) -> MaResult:
     """Filters frame_count frames out-of-place; the frame count is unchanged."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_lpf_process", Int32](
             f, dst.unsafe_ptr(), src.unsafe_ptr(), frame_count
         )
@@ -604,15 +605,15 @@ def lpf_process(
 
 def lpf_get_latency(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> MaUInt:
     var holder = [UInt32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_lpf_get_latency", Int32](f, holder.unsafe_ptr())
     )
     return MaUInt(code, holder[0])
 
 
-def lpf_clear_cache(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> Int:
+def lpf_clear_cache(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
     """Drop the filter memory, leaving the tuning in place."""
-    return Int(lib.handle.call["ma_shim_lpf_clear_cache", Int32](f))
+    return MaResult(lib.handle.call["ma_shim_lpf_clear_cache", Int32](f))
 
 # ---- ma_hpf — compound high-pass: first- and second-order blocks stacked to `order` ----
 
@@ -635,7 +636,7 @@ def hpf_get_heap_size(
 ) -> MaCount:
     """Working-heap size for this configuration, without building the filter."""
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_hpf_get_heap_size", Int32](
             Int32(format), channels, sample_rate, cutoff, order, holder.unsafe_ptr()
         )
@@ -651,8 +652,8 @@ def hpf_init(
     sample_rate: UInt32,
     cutoff: Float64,
     order: UInt32,
-) -> Int:
-    return Int(lib.handle.call["ma_shim_hpf_init", Int32](f, Int32(format), channels, sample_rate, cutoff, order))
+) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_hpf_init", Int32](f, Int32(format), channels, sample_rate, cutoff, order))
 
 
 def hpf_init_preallocated(
@@ -663,9 +664,9 @@ def hpf_init_preallocated(
     sample_rate: UInt32,
     cutoff: Float64,
     order: UInt32,
-) -> Int:
+) -> MaResult:
     """Init through miniaudio's preallocated-heap path with a shim-owned block."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_hpf_init_preallocated", Int32](f, Int32(format), channels, sample_rate, cutoff, order)
     )
 
@@ -678,13 +679,13 @@ def hpf_reinit(
     sample_rate: UInt32,
     cutoff: Float64,
     order: UInt32,
-) -> Int:
+) -> MaResult:
     """Retune in place, keeping the filter's running state."""
-    return Int(lib.handle.call["ma_shim_hpf_reinit", Int32](f, Int32(format), channels, sample_rate, cutoff, order))
+    return MaResult(lib.handle.call["ma_shim_hpf_reinit", Int32](f, Int32(format), channels, sample_rate, cutoff, order))
 
 
-def hpf_uninit(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_hpf_uninit", Int32](f))
+def hpf_uninit(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_hpf_uninit", Int32](f))
 
 
 def hpf_process(
@@ -693,9 +694,9 @@ def hpf_process(
     mut dst: List[Float32],
     src: List[Float32],
     frame_count: UInt64,
-) -> Int:
+) -> MaResult:
     """Filters frame_count frames out-of-place; the frame count is unchanged."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_hpf_process", Int32](
             f, dst.unsafe_ptr(), src.unsafe_ptr(), frame_count
         )
@@ -704,7 +705,7 @@ def hpf_process(
 
 def hpf_get_latency(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> MaUInt:
     var holder = [UInt32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_hpf_get_latency", Int32](f, holder.unsafe_ptr())
     )
     return MaUInt(code, holder[0])
@@ -731,9 +732,9 @@ def biquad_node_init(
     a0: Float32,
     a1: Float32,
     a2: Float32,
-) -> Int:
+) -> MaResult:
     """Attaches the node to the graph belonging to `engine`."""
-    return Int(lib.handle.call["ma_shim_biquad_node_init", Int32](n, engine, channels, b0, b1, b2, a0, a1, a2))
+    return MaResult(lib.handle.call["ma_shim_biquad_node_init", Int32](n, engine, channels, b0, b1, b2, a0, a1, a2))
 
 
 def biquad_node_reinit(
@@ -747,13 +748,13 @@ def biquad_node_reinit(
     a0: Float64,
     a1: Float64,
     a2: Float64,
-) -> Int:
+) -> MaResult:
     """Retune the node's filter in place, keeping it attached."""
-    return Int(lib.handle.call["ma_shim_biquad_node_reinit", Int32](n, Int32(format), channels, b0, b1, b2, a0, a1, a2))
+    return MaResult(lib.handle.call["ma_shim_biquad_node_reinit", Int32](n, Int32(format), channels, b0, b1, b2, a0, a1, a2))
 
 
-def biquad_node_uninit(lib: MaLib, n: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_biquad_node_uninit", Int32](n))
+def biquad_node_uninit(lib: MaLib, n: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_biquad_node_uninit", Int32](n))
 
 # ---- ma_lpf_node — compound low-pass as a node-graph node ----
 
@@ -774,9 +775,9 @@ def lpf_node_init(
     sample_rate: UInt32,
     cutoff: Float64,
     order: UInt32,
-) -> Int:
+) -> MaResult:
     """Attaches the node to the graph belonging to `engine`."""
-    return Int(lib.handle.call["ma_shim_lpf_node_init", Int32](n, engine, channels, sample_rate, cutoff, order))
+    return MaResult(lib.handle.call["ma_shim_lpf_node_init", Int32](n, engine, channels, sample_rate, cutoff, order))
 
 
 def lpf_node_reinit(
@@ -787,13 +788,13 @@ def lpf_node_reinit(
     sample_rate: UInt32,
     cutoff: Float64,
     order: UInt32,
-) -> Int:
+) -> MaResult:
     """Retune the node's filter in place, keeping it attached."""
-    return Int(lib.handle.call["ma_shim_lpf_node_reinit", Int32](n, Int32(format), channels, sample_rate, cutoff, order))
+    return MaResult(lib.handle.call["ma_shim_lpf_node_reinit", Int32](n, Int32(format), channels, sample_rate, cutoff, order))
 
 
-def lpf_node_uninit(lib: MaLib, n: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_lpf_node_uninit", Int32](n))
+def lpf_node_uninit(lib: MaLib, n: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_lpf_node_uninit", Int32](n))
 
 # ---- ma_hpf_node — compound high-pass as a node-graph node ----
 
@@ -814,9 +815,9 @@ def hpf_node_init(
     sample_rate: UInt32,
     cutoff: Float64,
     order: UInt32,
-) -> Int:
+) -> MaResult:
     """Attaches the node to the graph belonging to `engine`."""
-    return Int(lib.handle.call["ma_shim_hpf_node_init", Int32](n, engine, channels, sample_rate, cutoff, order))
+    return MaResult(lib.handle.call["ma_shim_hpf_node_init", Int32](n, engine, channels, sample_rate, cutoff, order))
 
 
 def hpf_node_reinit(
@@ -827,13 +828,13 @@ def hpf_node_reinit(
     sample_rate: UInt32,
     cutoff: Float64,
     order: UInt32,
-) -> Int:
+) -> MaResult:
     """Retune the node's filter in place, keeping it attached."""
-    return Int(lib.handle.call["ma_shim_hpf_node_reinit", Int32](n, Int32(format), channels, sample_rate, cutoff, order))
+    return MaResult(lib.handle.call["ma_shim_hpf_node_reinit", Int32](n, Int32(format), channels, sample_rate, cutoff, order))
 
 
-def hpf_node_uninit(lib: MaLib, n: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_hpf_node_uninit", Int32](n))
+def hpf_node_uninit(lib: MaLib, n: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_hpf_node_uninit", Int32](n))
 
 # ---- ma_bpf2 — second-order band-pass building block ----
 
@@ -856,7 +857,7 @@ def bpf2_get_heap_size(
 ) -> MaCount:
     """Working-heap size for this configuration, without building the filter."""
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_bpf2_get_heap_size", Int32](
             Int32(format), channels, sample_rate, cutoff, q, holder.unsafe_ptr()
         )
@@ -872,8 +873,8 @@ def bpf2_init(
     sample_rate: UInt32,
     cutoff: Float64,
     q: Float64,
-) -> Int:
-    return Int(lib.handle.call["ma_shim_bpf2_init", Int32](f, Int32(format), channels, sample_rate, cutoff, q))
+) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_bpf2_init", Int32](f, Int32(format), channels, sample_rate, cutoff, q))
 
 
 def bpf2_init_preallocated(
@@ -884,9 +885,9 @@ def bpf2_init_preallocated(
     sample_rate: UInt32,
     cutoff: Float64,
     q: Float64,
-) -> Int:
+) -> MaResult:
     """Init through miniaudio's preallocated-heap path with a shim-owned block."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_bpf2_init_preallocated", Int32](f, Int32(format), channels, sample_rate, cutoff, q)
     )
 
@@ -899,13 +900,13 @@ def bpf2_reinit(
     sample_rate: UInt32,
     cutoff: Float64,
     q: Float64,
-) -> Int:
+) -> MaResult:
     """Retune in place, keeping the filter's running state."""
-    return Int(lib.handle.call["ma_shim_bpf2_reinit", Int32](f, Int32(format), channels, sample_rate, cutoff, q))
+    return MaResult(lib.handle.call["ma_shim_bpf2_reinit", Int32](f, Int32(format), channels, sample_rate, cutoff, q))
 
 
-def bpf2_uninit(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_bpf2_uninit", Int32](f))
+def bpf2_uninit(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_bpf2_uninit", Int32](f))
 
 
 def bpf2_process(
@@ -914,9 +915,9 @@ def bpf2_process(
     mut dst: List[Float32],
     src: List[Float32],
     frame_count: UInt64,
-) -> Int:
+) -> MaResult:
     """Filters frame_count frames out-of-place; the frame count is unchanged."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_bpf2_process", Int32](
             f, dst.unsafe_ptr(), src.unsafe_ptr(), frame_count
         )
@@ -925,7 +926,7 @@ def bpf2_process(
 
 def bpf2_get_latency(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> MaUInt:
     var holder = [UInt32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_bpf2_get_latency", Int32](f, holder.unsafe_ptr())
     )
     return MaUInt(code, holder[0])
@@ -951,7 +952,7 @@ def bpf_get_heap_size(
 ) -> MaCount:
     """Working-heap size for this configuration, without building the filter."""
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_bpf_get_heap_size", Int32](
             Int32(format), channels, sample_rate, cutoff, order, holder.unsafe_ptr()
         )
@@ -967,8 +968,8 @@ def bpf_init(
     sample_rate: UInt32,
     cutoff: Float64,
     order: UInt32,
-) -> Int:
-    return Int(lib.handle.call["ma_shim_bpf_init", Int32](f, Int32(format), channels, sample_rate, cutoff, order))
+) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_bpf_init", Int32](f, Int32(format), channels, sample_rate, cutoff, order))
 
 
 def bpf_init_preallocated(
@@ -979,9 +980,9 @@ def bpf_init_preallocated(
     sample_rate: UInt32,
     cutoff: Float64,
     order: UInt32,
-) -> Int:
+) -> MaResult:
     """Init through miniaudio's preallocated-heap path with a shim-owned block."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_bpf_init_preallocated", Int32](f, Int32(format), channels, sample_rate, cutoff, order)
     )
 
@@ -994,13 +995,13 @@ def bpf_reinit(
     sample_rate: UInt32,
     cutoff: Float64,
     order: UInt32,
-) -> Int:
+) -> MaResult:
     """Retune in place, keeping the filter's running state."""
-    return Int(lib.handle.call["ma_shim_bpf_reinit", Int32](f, Int32(format), channels, sample_rate, cutoff, order))
+    return MaResult(lib.handle.call["ma_shim_bpf_reinit", Int32](f, Int32(format), channels, sample_rate, cutoff, order))
 
 
-def bpf_uninit(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_bpf_uninit", Int32](f))
+def bpf_uninit(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_bpf_uninit", Int32](f))
 
 
 def bpf_process(
@@ -1009,9 +1010,9 @@ def bpf_process(
     mut dst: List[Float32],
     src: List[Float32],
     frame_count: UInt64,
-) -> Int:
+) -> MaResult:
     """Filters frame_count frames out-of-place; the frame count is unchanged."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_bpf_process", Int32](
             f, dst.unsafe_ptr(), src.unsafe_ptr(), frame_count
         )
@@ -1020,7 +1021,7 @@ def bpf_process(
 
 def bpf_get_latency(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> MaUInt:
     var holder = [UInt32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_bpf_get_latency", Int32](f, holder.unsafe_ptr())
     )
     return MaUInt(code, holder[0])
@@ -1046,7 +1047,7 @@ def notch2_get_heap_size(
 ) -> MaCount:
     """Working-heap size for this configuration, without building the filter."""
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_notch2_get_heap_size", Int32](
             Int32(format), channels, sample_rate, q, frequency, holder.unsafe_ptr()
         )
@@ -1062,8 +1063,8 @@ def notch2_init(
     sample_rate: UInt32,
     q: Float64,
     frequency: Float64,
-) -> Int:
-    return Int(lib.handle.call["ma_shim_notch2_init", Int32](f, Int32(format), channels, sample_rate, q, frequency))
+) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_notch2_init", Int32](f, Int32(format), channels, sample_rate, q, frequency))
 
 
 def notch2_init_preallocated(
@@ -1074,9 +1075,9 @@ def notch2_init_preallocated(
     sample_rate: UInt32,
     q: Float64,
     frequency: Float64,
-) -> Int:
+) -> MaResult:
     """Init through miniaudio's preallocated-heap path with a shim-owned block."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_notch2_init_preallocated", Int32](f, Int32(format), channels, sample_rate, q, frequency)
     )
 
@@ -1089,13 +1090,13 @@ def notch2_reinit(
     sample_rate: UInt32,
     q: Float64,
     frequency: Float64,
-) -> Int:
+) -> MaResult:
     """Retune in place, keeping the filter's running state."""
-    return Int(lib.handle.call["ma_shim_notch2_reinit", Int32](f, Int32(format), channels, sample_rate, q, frequency))
+    return MaResult(lib.handle.call["ma_shim_notch2_reinit", Int32](f, Int32(format), channels, sample_rate, q, frequency))
 
 
-def notch2_uninit(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_notch2_uninit", Int32](f))
+def notch2_uninit(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_notch2_uninit", Int32](f))
 
 
 def notch2_process(
@@ -1104,9 +1105,9 @@ def notch2_process(
     mut dst: List[Float32],
     src: List[Float32],
     frame_count: UInt64,
-) -> Int:
+) -> MaResult:
     """Filters frame_count frames out-of-place; the frame count is unchanged."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_notch2_process", Int32](
             f, dst.unsafe_ptr(), src.unsafe_ptr(), frame_count
         )
@@ -1115,7 +1116,7 @@ def notch2_process(
 
 def notch2_get_latency(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> MaUInt:
     var holder = [UInt32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_notch2_get_latency", Int32](f, holder.unsafe_ptr())
     )
     return MaUInt(code, holder[0])
@@ -1142,7 +1143,7 @@ def peak2_get_heap_size(
 ) -> MaCount:
     """Working-heap size for this configuration, without building the filter."""
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_peak2_get_heap_size", Int32](
             Int32(format), channels, sample_rate, gain_db, q, frequency, holder.unsafe_ptr()
         )
@@ -1159,8 +1160,8 @@ def peak2_init(
     gain_db: Float64,
     q: Float64,
     frequency: Float64,
-) -> Int:
-    return Int(lib.handle.call["ma_shim_peak2_init", Int32](f, Int32(format), channels, sample_rate, gain_db, q, frequency))
+) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_peak2_init", Int32](f, Int32(format), channels, sample_rate, gain_db, q, frequency))
 
 
 def peak2_init_preallocated(
@@ -1172,9 +1173,9 @@ def peak2_init_preallocated(
     gain_db: Float64,
     q: Float64,
     frequency: Float64,
-) -> Int:
+) -> MaResult:
     """Init through miniaudio's preallocated-heap path with a shim-owned block."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_peak2_init_preallocated", Int32](f, Int32(format), channels, sample_rate, gain_db, q, frequency)
     )
 
@@ -1188,13 +1189,13 @@ def peak2_reinit(
     gain_db: Float64,
     q: Float64,
     frequency: Float64,
-) -> Int:
+) -> MaResult:
     """Retune in place, keeping the filter's running state."""
-    return Int(lib.handle.call["ma_shim_peak2_reinit", Int32](f, Int32(format), channels, sample_rate, gain_db, q, frequency))
+    return MaResult(lib.handle.call["ma_shim_peak2_reinit", Int32](f, Int32(format), channels, sample_rate, gain_db, q, frequency))
 
 
-def peak2_uninit(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_peak2_uninit", Int32](f))
+def peak2_uninit(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_peak2_uninit", Int32](f))
 
 
 def peak2_process(
@@ -1203,9 +1204,9 @@ def peak2_process(
     mut dst: List[Float32],
     src: List[Float32],
     frame_count: UInt64,
-) -> Int:
+) -> MaResult:
     """Filters frame_count frames out-of-place; the frame count is unchanged."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_peak2_process", Int32](
             f, dst.unsafe_ptr(), src.unsafe_ptr(), frame_count
         )
@@ -1214,7 +1215,7 @@ def peak2_process(
 
 def peak2_get_latency(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> MaUInt:
     var holder = [UInt32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_peak2_get_latency", Int32](f, holder.unsafe_ptr())
     )
     return MaUInt(code, holder[0])
@@ -1241,7 +1242,7 @@ def loshelf2_get_heap_size(
 ) -> MaCount:
     """Working-heap size for this configuration, without building the filter."""
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_loshelf2_get_heap_size", Int32](
             Int32(format), channels, sample_rate, gain_db, shelf_slope, frequency, holder.unsafe_ptr()
         )
@@ -1258,8 +1259,8 @@ def loshelf2_init(
     gain_db: Float64,
     shelf_slope: Float64,
     frequency: Float64,
-) -> Int:
-    return Int(lib.handle.call["ma_shim_loshelf2_init", Int32](f, Int32(format), channels, sample_rate, gain_db, shelf_slope, frequency))
+) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_loshelf2_init", Int32](f, Int32(format), channels, sample_rate, gain_db, shelf_slope, frequency))
 
 
 def loshelf2_init_preallocated(
@@ -1271,9 +1272,9 @@ def loshelf2_init_preallocated(
     gain_db: Float64,
     shelf_slope: Float64,
     frequency: Float64,
-) -> Int:
+) -> MaResult:
     """Init through miniaudio's preallocated-heap path with a shim-owned block."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_loshelf2_init_preallocated", Int32](f, Int32(format), channels, sample_rate, gain_db, shelf_slope, frequency)
     )
 
@@ -1287,13 +1288,13 @@ def loshelf2_reinit(
     gain_db: Float64,
     shelf_slope: Float64,
     frequency: Float64,
-) -> Int:
+) -> MaResult:
     """Retune in place, keeping the filter's running state."""
-    return Int(lib.handle.call["ma_shim_loshelf2_reinit", Int32](f, Int32(format), channels, sample_rate, gain_db, shelf_slope, frequency))
+    return MaResult(lib.handle.call["ma_shim_loshelf2_reinit", Int32](f, Int32(format), channels, sample_rate, gain_db, shelf_slope, frequency))
 
 
-def loshelf2_uninit(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_loshelf2_uninit", Int32](f))
+def loshelf2_uninit(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_loshelf2_uninit", Int32](f))
 
 
 def loshelf2_process(
@@ -1302,9 +1303,9 @@ def loshelf2_process(
     mut dst: List[Float32],
     src: List[Float32],
     frame_count: UInt64,
-) -> Int:
+) -> MaResult:
     """Filters frame_count frames out-of-place; the frame count is unchanged."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_loshelf2_process", Int32](
             f, dst.unsafe_ptr(), src.unsafe_ptr(), frame_count
         )
@@ -1313,7 +1314,7 @@ def loshelf2_process(
 
 def loshelf2_get_latency(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> MaUInt:
     var holder = [UInt32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_loshelf2_get_latency", Int32](f, holder.unsafe_ptr())
     )
     return MaUInt(code, holder[0])
@@ -1340,7 +1341,7 @@ def hishelf2_get_heap_size(
 ) -> MaCount:
     """Working-heap size for this configuration, without building the filter."""
     var holder = [UInt64(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_hishelf2_get_heap_size", Int32](
             Int32(format), channels, sample_rate, gain_db, shelf_slope, frequency, holder.unsafe_ptr()
         )
@@ -1357,8 +1358,8 @@ def hishelf2_init(
     gain_db: Float64,
     shelf_slope: Float64,
     frequency: Float64,
-) -> Int:
-    return Int(lib.handle.call["ma_shim_hishelf2_init", Int32](f, Int32(format), channels, sample_rate, gain_db, shelf_slope, frequency))
+) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_hishelf2_init", Int32](f, Int32(format), channels, sample_rate, gain_db, shelf_slope, frequency))
 
 
 def hishelf2_init_preallocated(
@@ -1370,9 +1371,9 @@ def hishelf2_init_preallocated(
     gain_db: Float64,
     shelf_slope: Float64,
     frequency: Float64,
-) -> Int:
+) -> MaResult:
     """Init through miniaudio's preallocated-heap path with a shim-owned block."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_hishelf2_init_preallocated", Int32](f, Int32(format), channels, sample_rate, gain_db, shelf_slope, frequency)
     )
 
@@ -1386,13 +1387,13 @@ def hishelf2_reinit(
     gain_db: Float64,
     shelf_slope: Float64,
     frequency: Float64,
-) -> Int:
+) -> MaResult:
     """Retune in place, keeping the filter's running state."""
-    return Int(lib.handle.call["ma_shim_hishelf2_reinit", Int32](f, Int32(format), channels, sample_rate, gain_db, shelf_slope, frequency))
+    return MaResult(lib.handle.call["ma_shim_hishelf2_reinit", Int32](f, Int32(format), channels, sample_rate, gain_db, shelf_slope, frequency))
 
 
-def hishelf2_uninit(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_hishelf2_uninit", Int32](f))
+def hishelf2_uninit(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_hishelf2_uninit", Int32](f))
 
 
 def hishelf2_process(
@@ -1401,9 +1402,9 @@ def hishelf2_process(
     mut dst: List[Float32],
     src: List[Float32],
     frame_count: UInt64,
-) -> Int:
+) -> MaResult:
     """Filters frame_count frames out-of-place; the frame count is unchanged."""
-    return Int(
+    return MaResult(
         lib.handle.call["ma_shim_hishelf2_process", Int32](
             f, dst.unsafe_ptr(), src.unsafe_ptr(), frame_count
         )
@@ -1412,7 +1413,7 @@ def hishelf2_process(
 
 def hishelf2_get_latency(lib: MaLib, f: OpaquePointer[MutUntrackedOrigin]) -> MaUInt:
     var holder = [UInt32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_hishelf2_get_latency", Int32](f, holder.unsafe_ptr())
     )
     return MaUInt(code, holder[0])
@@ -1436,9 +1437,9 @@ def bpf_node_init(
     sample_rate: UInt32,
     cutoff: Float64,
     order: UInt32,
-) -> Int:
+) -> MaResult:
     """Attaches the node to the graph belonging to `engine`."""
-    return Int(lib.handle.call["ma_shim_bpf_node_init", Int32](n, engine, channels, sample_rate, cutoff, order))
+    return MaResult(lib.handle.call["ma_shim_bpf_node_init", Int32](n, engine, channels, sample_rate, cutoff, order))
 
 
 def bpf_node_reinit(
@@ -1449,13 +1450,13 @@ def bpf_node_reinit(
     sample_rate: UInt32,
     cutoff: Float64,
     order: UInt32,
-) -> Int:
+) -> MaResult:
     """Retune the node's filter in place, keeping it attached."""
-    return Int(lib.handle.call["ma_shim_bpf_node_reinit", Int32](n, Int32(format), channels, sample_rate, cutoff, order))
+    return MaResult(lib.handle.call["ma_shim_bpf_node_reinit", Int32](n, Int32(format), channels, sample_rate, cutoff, order))
 
 
-def bpf_node_uninit(lib: MaLib, n: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_bpf_node_uninit", Int32](n))
+def bpf_node_uninit(lib: MaLib, n: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_bpf_node_uninit", Int32](n))
 
 # ---- ma_notch_node — notch as a node-graph node ----
 
@@ -1476,9 +1477,9 @@ def notch_node_init(
     sample_rate: UInt32,
     q: Float64,
     frequency: Float64,
-) -> Int:
+) -> MaResult:
     """Attaches the node to the graph belonging to `engine`."""
-    return Int(lib.handle.call["ma_shim_notch_node_init", Int32](n, engine, channels, sample_rate, q, frequency))
+    return MaResult(lib.handle.call["ma_shim_notch_node_init", Int32](n, engine, channels, sample_rate, q, frequency))
 
 
 def notch_node_reinit(
@@ -1489,13 +1490,13 @@ def notch_node_reinit(
     sample_rate: UInt32,
     q: Float64,
     frequency: Float64,
-) -> Int:
+) -> MaResult:
     """Retune the node's filter in place, keeping it attached."""
-    return Int(lib.handle.call["ma_shim_notch_node_reinit", Int32](n, Int32(format), channels, sample_rate, q, frequency))
+    return MaResult(lib.handle.call["ma_shim_notch_node_reinit", Int32](n, Int32(format), channels, sample_rate, q, frequency))
 
 
-def notch_node_uninit(lib: MaLib, n: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_notch_node_uninit", Int32](n))
+def notch_node_uninit(lib: MaLib, n: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_notch_node_uninit", Int32](n))
 
 # ---- ma_peak_node — peaking eq band as a node-graph node ----
 
@@ -1517,9 +1518,9 @@ def peak_node_init(
     gain_db: Float64,
     q: Float64,
     frequency: Float64,
-) -> Int:
+) -> MaResult:
     """Attaches the node to the graph belonging to `engine`."""
-    return Int(lib.handle.call["ma_shim_peak_node_init", Int32](n, engine, channels, sample_rate, gain_db, q, frequency))
+    return MaResult(lib.handle.call["ma_shim_peak_node_init", Int32](n, engine, channels, sample_rate, gain_db, q, frequency))
 
 
 def peak_node_reinit(
@@ -1531,13 +1532,13 @@ def peak_node_reinit(
     gain_db: Float64,
     q: Float64,
     frequency: Float64,
-) -> Int:
+) -> MaResult:
     """Retune the node's filter in place, keeping it attached."""
-    return Int(lib.handle.call["ma_shim_peak_node_reinit", Int32](n, Int32(format), channels, sample_rate, gain_db, q, frequency))
+    return MaResult(lib.handle.call["ma_shim_peak_node_reinit", Int32](n, Int32(format), channels, sample_rate, gain_db, q, frequency))
 
 
-def peak_node_uninit(lib: MaLib, n: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_peak_node_uninit", Int32](n))
+def peak_node_uninit(lib: MaLib, n: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_peak_node_uninit", Int32](n))
 
 # ---- ma_loshelf_node — low shelf as a node-graph node — note it is tuned by q where the standalone filter takes a shelf slope ----
 
@@ -1559,9 +1560,9 @@ def loshelf_node_init(
     gain_db: Float64,
     q: Float64,
     frequency: Float64,
-) -> Int:
+) -> MaResult:
     """Attaches the node to the graph belonging to `engine`."""
-    return Int(lib.handle.call["ma_shim_loshelf_node_init", Int32](n, engine, channels, sample_rate, gain_db, q, frequency))
+    return MaResult(lib.handle.call["ma_shim_loshelf_node_init", Int32](n, engine, channels, sample_rate, gain_db, q, frequency))
 
 
 def loshelf_node_reinit(
@@ -1573,13 +1574,13 @@ def loshelf_node_reinit(
     gain_db: Float64,
     shelf_slope: Float64,
     frequency: Float64,
-) -> Int:
+) -> MaResult:
     """Retune the node's filter in place, keeping it attached."""
-    return Int(lib.handle.call["ma_shim_loshelf_node_reinit", Int32](n, Int32(format), channels, sample_rate, gain_db, shelf_slope, frequency))
+    return MaResult(lib.handle.call["ma_shim_loshelf_node_reinit", Int32](n, Int32(format), channels, sample_rate, gain_db, shelf_slope, frequency))
 
 
-def loshelf_node_uninit(lib: MaLib, n: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_loshelf_node_uninit", Int32](n))
+def loshelf_node_uninit(lib: MaLib, n: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_loshelf_node_uninit", Int32](n))
 
 # ---- ma_hishelf_node — high shelf as a node-graph node — note it is tuned by q where the standalone filter takes a shelf slope ----
 
@@ -1601,9 +1602,9 @@ def hishelf_node_init(
     gain_db: Float64,
     q: Float64,
     frequency: Float64,
-) -> Int:
+) -> MaResult:
     """Attaches the node to the graph belonging to `engine`."""
-    return Int(lib.handle.call["ma_shim_hishelf_node_init", Int32](n, engine, channels, sample_rate, gain_db, q, frequency))
+    return MaResult(lib.handle.call["ma_shim_hishelf_node_init", Int32](n, engine, channels, sample_rate, gain_db, q, frequency))
 
 
 def hishelf_node_reinit(
@@ -1615,10 +1616,10 @@ def hishelf_node_reinit(
     gain_db: Float64,
     shelf_slope: Float64,
     frequency: Float64,
-) -> Int:
+) -> MaResult:
     """Retune the node's filter in place, keeping it attached."""
-    return Int(lib.handle.call["ma_shim_hishelf_node_reinit", Int32](n, Int32(format), channels, sample_rate, gain_db, shelf_slope, frequency))
+    return MaResult(lib.handle.call["ma_shim_hishelf_node_reinit", Int32](n, Int32(format), channels, sample_rate, gain_db, shelf_slope, frequency))
 
 
-def hishelf_node_uninit(lib: MaLib, n: OpaquePointer[MutUntrackedOrigin]) -> Int:
-    return Int(lib.handle.call["ma_shim_hishelf_node_uninit", Int32](n))
+def hishelf_node_uninit(lib: MaLib, n: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
+    return MaResult(lib.handle.call["ma_shim_hishelf_node_uninit", Int32](n))

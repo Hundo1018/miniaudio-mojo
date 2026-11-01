@@ -10,7 +10,7 @@ from std.builtin.variadics import TypeList
 from std.memory import ArcPointer
 
 from miniaudio._lib import MaLib, null_handle
-from miniaudio.result import MA_SUCCESS, MA_AT_END
+from miniaudio.result import MaResult, MaError, MA_SUCCESS, MA_AT_END
 import miniaudio._ffi.decoder_raw as raw
 
 
@@ -86,20 +86,20 @@ struct Decoder(Movable):
         format: SampleFormat = SAMPLE_FORMAT_F32,
         channels: UInt32 = 0,
         sample_rate: UInt32 = 0,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         var ptr = raw.decoder_alloc(lib[])
         if ptr == null_handle():
-            raise Error("decoder_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "decoder_alloc failed (out of memory)")
         var code = raw.decoder_init_file(
             lib[], ptr, path, format.code, channels, sample_rate
         )
         if code != MA_SUCCESS:
             raw.decoder_free(lib[], ptr)
-            raise Error(lib[].describe("decoder init from file failed", code))
+            raise lib[].error("decoder init from file failed", code)
         return Self(lib.copy(), ptr, List[UInt8]())
 
     @staticmethod
-    def from_file_native(lib: ArcPointer[MaLib], path: String) raises -> Self:
+    def from_file_native(lib: ArcPointer[MaLib], path: String) raises MaError -> Self:
         """Open a file preserving its native format/channels/sample-rate.
 
         Uses miniaudio's default decoder config (no output conversion), unlike
@@ -107,11 +107,11 @@ struct Decoder(Movable):
         """
         var ptr = raw.decoder_alloc(lib[])
         if ptr == null_handle():
-            raise Error("decoder_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "decoder_alloc failed (out of memory)")
         var code = raw.decoder_init_file_default(lib[], ptr, path)
         if code != MA_SUCCESS:
             raw.decoder_free(lib[], ptr)
-            raise Error(lib[].describe("decoder init from file (native) failed", code))
+            raise lib[].error("decoder init from file (native) failed", code)
         return Self(lib.copy(), ptr, List[UInt8]())
 
     @staticmethod
@@ -122,7 +122,7 @@ struct Decoder(Movable):
         format: SampleFormat = SAMPLE_FORMAT_F32,
         channels: UInt32 = 0,
         sample_rate: UInt32 = 0,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """Open a file through miniaudio's default (stdio) VFS.
 
         Behaves like `from_file` but routes I/O through the VFS abstraction with
@@ -131,13 +131,13 @@ struct Decoder(Movable):
         """
         var ptr = raw.decoder_alloc(lib[])
         if ptr == null_handle():
-            raise Error("decoder_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "decoder_alloc failed (out of memory)")
         var code = raw.decoder_init_file_vfs(
             lib[], ptr, path, format.code, channels, sample_rate
         )
         if code != MA_SUCCESS:
             raw.decoder_free(lib[], ptr)
-            raise Error(lib[].describe("decoder init from file (vfs) failed", code))
+            raise lib[].error("decoder init from file (vfs) failed", code)
         return Self(lib.copy(), ptr, List[UInt8]())
 
     @staticmethod
@@ -148,16 +148,16 @@ struct Decoder(Movable):
         format: SampleFormat = SAMPLE_FORMAT_F32,
         channels: UInt32 = 0,
         sample_rate: UInt32 = 0,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         var ptr = raw.decoder_alloc(lib[])
         if ptr == null_handle():
-            raise Error("decoder_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "decoder_alloc failed (out of memory)")
         var code = raw.decoder_init_memory(
             lib[], ptr, data, format.code, channels, sample_rate
         )
         if code != MA_SUCCESS:
             raw.decoder_free(lib[], ptr)
-            raise Error(lib[].describe("decoder init from memory failed", code))
+            raise lib[].error("decoder init from memory failed", code)
         # `data` must outlive the decoder (miniaudio references, not copies it).
         return Self(lib.copy(), ptr, data^)
 
@@ -170,31 +170,31 @@ struct Decoder(Movable):
     def format(self) -> SampleFormat:
         return SampleFormat(raw.decoder_output_format(self._lib[], self._ptr))
 
-    def length_in_frames(self) raises -> UInt64:
+    def length_in_frames(self) raises MaError -> UInt64:
         var c = raw.decoder_get_length_in_pcm_frames(self._lib[], self._ptr)
         if c.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("decoder length query failed", c.result))
+            raise self._lib[].error("decoder length query failed", c.result)
         return c.value
 
-    def cursor(self) raises -> UInt64:
+    def cursor(self) raises MaError -> UInt64:
         var c = raw.decoder_get_cursor_in_pcm_frames(self._lib[], self._ptr)
         if c.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("decoder cursor query failed", c.result))
+            raise self._lib[].error("decoder cursor query failed", c.result)
         return c.value
 
-    def available_frames(self) raises -> UInt64:
+    def available_frames(self) raises MaError -> UInt64:
         """Frames still available to read from the current cursor position."""
         var c = raw.decoder_get_available_frames(self._lib[], self._ptr)
         if c.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("decoder available-frames query failed", c.result))
+            raise self._lib[].error("decoder available-frames query failed", c.result)
         return c.value
 
-    def seek(mut self, frame_index: UInt64) raises:
+    def seek(mut self, frame_index: UInt64) raises MaError:
         var code = raw.decoder_seek_to_pcm_frame(self._lib[], self._ptr, frame_index)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("decoder seek failed", code))
+            raise self._lib[].error("decoder seek failed", code)
 
-    def read(mut self, mut out: List[Float32], frame_count: UInt64) raises -> UInt64:
+    def read(mut self, mut out: List[Float32], frame_count: UInt64) raises MaError -> UInt64:
         """Reads up to frame_count frames into `out`, sizing it to the result.
 
         `out` is resized to frames_read * channels (interleaved). Returns the
@@ -202,12 +202,12 @@ struct Decoder(Movable):
         """
         var ch = Int(self.channels())
         if ch == 0:
-            raise Error("decoder has unknown channel count")
+            raise MaError(MaResult.INVALID_DATA, "decoder has unknown channel count")
         out.resize(Int(frame_count) * ch, Float32(0))
         var c = raw.decoder_read_pcm_frames(self._lib[], self._ptr, out, frame_count)
         if c.result != MA_SUCCESS and c.result != MA_AT_END:
             out.resize(0, Float32(0))
-            raise Error(self._lib[].describe("decoder read failed", c.result))
+            raise self._lib[].error("decoder read failed", c.result)
         out.resize(Int(c.value) * ch, Float32(0))
         return c.value
 

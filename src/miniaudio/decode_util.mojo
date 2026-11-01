@@ -18,7 +18,7 @@ wav / flac / mp3 backends take (preferred format and seek-table size).
 from std.memory import ArcPointer
 
 from miniaudio._lib import MaLib, null_handle
-from miniaudio.result import MA_SUCCESS
+from miniaudio.result import MaResult, MaError, MA_SUCCESS
 from miniaudio.decoder import SampleFormat, SAMPLE_FORMAT_F32, SAMPLE_FORMAT_S16
 from miniaudio.context import Vfs
 import miniaudio._ffi.decode_util_raw as raw
@@ -36,12 +36,12 @@ def decoding_backend_config(
     lib: ArcPointer[MaLib],
     preferred_format: SampleFormat,
     seek_point_count: UInt32 = 0,
-) raises -> DecodingBackendConfig:
+) raises MaError -> DecodingBackendConfig:
     var c = raw.decoding_backend_config_init(
         lib[], preferred_format.code, seek_point_count
     )
     if c.result != MA_SUCCESS:
-        raise Error(lib[].describe("decoding backend config init failed", c.result))
+        raise lib[].error("decoding backend config init failed", c.result)
     return DecodingBackendConfig(SampleFormat(c.preferred_format), c.seek_point_count)
 
 
@@ -75,9 +75,9 @@ struct DecodedAudio(Movable):
         """Interleaved samples in the buffer (frame_count * channels)."""
         return Int(self.frame_count) * Int(self.channels)
 
-    def samples_f32(self) raises -> List[Float32]:
+    def samples_f32(self) raises MaError -> List[Float32]:
         if self.format != SAMPLE_FORMAT_F32:
-            raise Error("decoded audio is not f32; decode with format=f32")
+            raise MaError(MaResult.INVALID_OPERATION, "decoded audio is not f32; decode with format=f32")
         var n = self.sample_count()
         var out = List[Float32]()
         out.resize(n, Float32(0))
@@ -86,9 +86,9 @@ struct DecodedAudio(Movable):
             out[i] = src[unsafe_offset=i]
         return out^
 
-    def samples_s16(self) raises -> List[Int16]:
+    def samples_s16(self) raises MaError -> List[Int16]:
         if self.format != SAMPLE_FORMAT_S16:
-            raise Error("decoded audio is not s16; decode with format=s16")
+            raise MaError(MaResult.INVALID_OPERATION, "decoded audio is not s16; decode with format=s16")
         var n = self.sample_count()
         var out = List[Int16]()
         out.resize(n, Int16(0))
@@ -104,9 +104,9 @@ struct DecodedAudio(Movable):
 
 def _wrap(
     lib: ArcPointer[MaLib], d: raw.MaDecoded, what: String
-) raises -> DecodedAudio:
+) raises MaError -> DecodedAudio:
     if d.result != MA_SUCCESS:
-        raise Error(lib[].describe(what, d.result))
+        raise lib[].error(what, d.result)
     return DecodedAudio(
         lib.copy(), d.frames, d.frame_count, SampleFormat(d.format), d.channels, d.sample_rate
     )
@@ -119,7 +119,7 @@ def decode_file(
     format: SampleFormat = SAMPLE_FORMAT_F32,
     channels: UInt32 = 0,
     sample_rate: UInt32 = 0,
-) raises -> DecodedAudio:
+) raises MaError -> DecodedAudio:
     var d = raw.decode_file(lib[], path, format.code, channels, sample_rate)
     return _wrap(lib, d, "decode file failed")
 
@@ -131,7 +131,7 @@ def decode_memory(
     format: SampleFormat = SAMPLE_FORMAT_F32,
     channels: UInt32 = 0,
     sample_rate: UInt32 = 0,
-) raises -> DecodedAudio:
+) raises MaError -> DecodedAudio:
     """Decodes an in-memory file image; `data` need only live for the call."""
     var d = raw.decode_memory(lib[], data, format.code, channels, sample_rate)
     return _wrap(lib, d, "decode memory failed")
@@ -145,7 +145,7 @@ def decode_from_vfs(
     format: SampleFormat = SAMPLE_FORMAT_F32,
     channels: UInt32 = 0,
     sample_rate: UInt32 = 0,
-) raises -> DecodedAudio:
+) raises MaError -> DecodedAudio:
     """Decodes a file through an initialised `Vfs`."""
     var d = raw.decode_from_vfs(lib[], vfs._ptr, path, format.code, channels, sample_rate)
     return _wrap(lib, d, "decode from vfs failed")
@@ -158,7 +158,7 @@ def decode_from_default_vfs(
     format: SampleFormat = SAMPLE_FORMAT_F32,
     channels: UInt32 = 0,
     sample_rate: UInt32 = 0,
-) raises -> DecodedAudio:
+) raises MaError -> DecodedAudio:
     """Decodes a file through miniaudio's default (stdio) file system."""
     var d = raw.decode_from_vfs(lib[], null_handle(), path, format.code, channels, sample_rate)
     return _wrap(lib, d, "decode from default vfs failed")

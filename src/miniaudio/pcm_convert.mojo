@@ -37,7 +37,7 @@ from std.memory import ArcPointer
 
 from miniaudio._lib import MaLib
 from miniaudio.decoder import SampleFormat
-from miniaudio.result import MA_SUCCESS
+from miniaudio.result import MaResult, MaError, MA_SUCCESS
 import miniaudio._ffi.pcm_convert_raw as raw
 
 
@@ -49,7 +49,7 @@ comptime DITHER_MODE_TRIANGLE = Int(2)
 # ---- helpers -------------------------------------------------------------------
 
 
-def bytes_per_sample(format: SampleFormat) raises -> Int:
+def bytes_per_sample(format: SampleFormat) raises MaError -> Int:
     """Bytes one sample of `format` occupies. Raises for an unknown format."""
     match format:
         case .U8:
@@ -61,10 +61,10 @@ def bytes_per_sample(format: SampleFormat) raises -> Int:
         case .S32 | .F32:
             return 4
         case _:
-            raise Error("unknown sample format " + String(format.code))
+            raise MaError(MaResult.INVALID_ARGS, "unknown sample format " + String(format.code))
 
 
-def clip_source_bytes_per_sample(format: SampleFormat) raises -> Int:
+def clip_source_bytes_per_sample(format: SampleFormat) raises MaError -> Int:
     """Bytes per sample of the wider type that `format` is clipped from.
 
     u8 clips from s16, s16 from s32, s24 and s32 from s64, and f32 from f32.
@@ -77,7 +77,7 @@ def clip_source_bytes_per_sample(format: SampleFormat) raises -> Int:
         case .S24 | .S32:
             return 8
         case _:
-            raise Error("unknown sample format " + String(format.code))
+            raise MaError(MaResult.INVALID_ARGS, "unknown sample format " + String(format.code))
 
 
 def _zeroed(count: Int) -> List[UInt8]:
@@ -86,18 +86,19 @@ def _zeroed(count: Int) -> List[UInt8]:
     return out^
 
 
-def _require_channels(channels: UInt32) raises:
+def _require_channels(channels: UInt32) raises MaError:
     if channels == 0:
-        raise Error("channels must be at least 1")
+        raise MaError(MaResult.INVALID_ARGS, "channels must be at least 1")
 
 
-def _whole(length: Int, unit: Int, what: String) raises -> Int:
+def _whole(length: Int, unit: Int, what: String) raises MaError -> Int:
     """`length // unit`, raising when `length` is not a whole multiple of `unit`."""
     if length % unit != 0:
-        raise Error(
+        raise MaError(
+                MaResult.INVALID_ARGS,
             what + ": length " + String(length) + " is not a whole multiple of "
             + String(unit)
-        )
+            )
     return length // unit
 
 
@@ -110,7 +111,7 @@ def f32_to_bytes(values: List[Float32]) -> List[UInt8]:
     return out^
 
 
-def bytes_to_f32(data: List[UInt8]) raises -> List[Float32]:
+def bytes_to_f32(data: List[UInt8]) raises MaError -> List[Float32]:
     """The inverse of `f32_to_bytes`."""
     var n = _whole(len(data), 4, "bytes_to_f32")
     var out = List[Float32](capacity=n)
@@ -130,7 +131,7 @@ def s16_to_bytes(values: List[Int16]) -> List[UInt8]:
     return out^
 
 
-def bytes_to_s16(data: List[UInt8]) raises -> List[Int16]:
+def bytes_to_s16(data: List[UInt8]) raises MaError -> List[Int16]:
     """The inverse of `s16_to_bytes`."""
     var n = _whole(len(data), 2, "bytes_to_s16")
     var out = List[Int16](capacity=n)
@@ -150,7 +151,7 @@ def s32_to_bytes(values: List[Int32]) -> List[UInt8]:
     return out^
 
 
-def bytes_to_s32(data: List[UInt8]) raises -> List[Int32]:
+def bytes_to_s32(data: List[UInt8]) raises MaError -> List[Int32]:
     """The inverse of `s32_to_bytes`."""
     var n = _whole(len(data), 4, "bytes_to_s32")
     var out = List[Int32](capacity=n)
@@ -178,14 +179,14 @@ def convert_u8_to_u8(
     src: List[UInt8],
     *,
     dither_mode: Int = DITHER_MODE_NONE,
-) raises -> List[UInt8]:
+) raises MaError -> List[UInt8]:
     """Convert u8 samples to u8."""
     var sample_count = len(src)
     var dst = List[UInt8](capacity=sample_count)
     dst.resize(sample_count, UInt8(0))
     var code = raw.pcm_u8_to_u8(lib[], dst, src, UInt64(sample_count), dither_mode)
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("pcm_u8_to_u8 failed", code))
+        raise lib[].error("pcm_u8_to_u8 failed", code)
     return dst^
 
 
@@ -194,14 +195,14 @@ def convert_u8_to_s16(
     src: List[UInt8],
     *,
     dither_mode: Int = DITHER_MODE_NONE,
-) raises -> List[Int16]:
+) raises MaError -> List[Int16]:
     """Convert u8 samples to s16."""
     var sample_count = len(src)
     var dst = List[Int16](capacity=sample_count)
     dst.resize(sample_count, Int16(0))
     var code = raw.pcm_u8_to_s16(lib[], dst, src, UInt64(sample_count), dither_mode)
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("pcm_u8_to_s16 failed", code))
+        raise lib[].error("pcm_u8_to_s16 failed", code)
     return dst^
 
 
@@ -210,14 +211,14 @@ def convert_u8_to_s24(
     src: List[UInt8],
     *,
     dither_mode: Int = DITHER_MODE_NONE,
-) raises -> List[UInt8]:
+) raises MaError -> List[UInt8]:
     """Convert u8 samples to s24."""
     var sample_count = len(src)
     var dst = List[UInt8](capacity=sample_count * 3)
     dst.resize(sample_count * 3, UInt8(0))
     var code = raw.pcm_u8_to_s24(lib[], dst, src, UInt64(sample_count), dither_mode)
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("pcm_u8_to_s24 failed", code))
+        raise lib[].error("pcm_u8_to_s24 failed", code)
     return dst^
 
 
@@ -226,14 +227,14 @@ def convert_u8_to_s32(
     src: List[UInt8],
     *,
     dither_mode: Int = DITHER_MODE_NONE,
-) raises -> List[Int32]:
+) raises MaError -> List[Int32]:
     """Convert u8 samples to s32."""
     var sample_count = len(src)
     var dst = List[Int32](capacity=sample_count)
     dst.resize(sample_count, Int32(0))
     var code = raw.pcm_u8_to_s32(lib[], dst, src, UInt64(sample_count), dither_mode)
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("pcm_u8_to_s32 failed", code))
+        raise lib[].error("pcm_u8_to_s32 failed", code)
     return dst^
 
 
@@ -242,14 +243,14 @@ def convert_u8_to_f32(
     src: List[UInt8],
     *,
     dither_mode: Int = DITHER_MODE_NONE,
-) raises -> List[Float32]:
+) raises MaError -> List[Float32]:
     """Convert u8 samples to f32."""
     var sample_count = len(src)
     var dst = List[Float32](capacity=sample_count)
     dst.resize(sample_count, Float32(0))
     var code = raw.pcm_u8_to_f32(lib[], dst, src, UInt64(sample_count), dither_mode)
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("pcm_u8_to_f32 failed", code))
+        raise lib[].error("pcm_u8_to_f32 failed", code)
     return dst^
 
 
@@ -258,14 +259,14 @@ def convert_s16_to_u8(
     src: List[Int16],
     *,
     dither_mode: Int = DITHER_MODE_NONE,
-) raises -> List[UInt8]:
+) raises MaError -> List[UInt8]:
     """Convert s16 samples to u8."""
     var sample_count = len(src)
     var dst = List[UInt8](capacity=sample_count)
     dst.resize(sample_count, UInt8(0))
     var code = raw.pcm_s16_to_u8(lib[], dst, src, UInt64(sample_count), dither_mode)
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("pcm_s16_to_u8 failed", code))
+        raise lib[].error("pcm_s16_to_u8 failed", code)
     return dst^
 
 
@@ -274,14 +275,14 @@ def convert_s16_to_s16(
     src: List[Int16],
     *,
     dither_mode: Int = DITHER_MODE_NONE,
-) raises -> List[Int16]:
+) raises MaError -> List[Int16]:
     """Convert s16 samples to s16."""
     var sample_count = len(src)
     var dst = List[Int16](capacity=sample_count)
     dst.resize(sample_count, Int16(0))
     var code = raw.pcm_s16_to_s16(lib[], dst, src, UInt64(sample_count), dither_mode)
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("pcm_s16_to_s16 failed", code))
+        raise lib[].error("pcm_s16_to_s16 failed", code)
     return dst^
 
 
@@ -290,14 +291,14 @@ def convert_s16_to_s24(
     src: List[Int16],
     *,
     dither_mode: Int = DITHER_MODE_NONE,
-) raises -> List[UInt8]:
+) raises MaError -> List[UInt8]:
     """Convert s16 samples to s24."""
     var sample_count = len(src)
     var dst = List[UInt8](capacity=sample_count * 3)
     dst.resize(sample_count * 3, UInt8(0))
     var code = raw.pcm_s16_to_s24(lib[], dst, src, UInt64(sample_count), dither_mode)
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("pcm_s16_to_s24 failed", code))
+        raise lib[].error("pcm_s16_to_s24 failed", code)
     return dst^
 
 
@@ -306,14 +307,14 @@ def convert_s16_to_s32(
     src: List[Int16],
     *,
     dither_mode: Int = DITHER_MODE_NONE,
-) raises -> List[Int32]:
+) raises MaError -> List[Int32]:
     """Convert s16 samples to s32."""
     var sample_count = len(src)
     var dst = List[Int32](capacity=sample_count)
     dst.resize(sample_count, Int32(0))
     var code = raw.pcm_s16_to_s32(lib[], dst, src, UInt64(sample_count), dither_mode)
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("pcm_s16_to_s32 failed", code))
+        raise lib[].error("pcm_s16_to_s32 failed", code)
     return dst^
 
 
@@ -322,14 +323,14 @@ def convert_s16_to_f32(
     src: List[Int16],
     *,
     dither_mode: Int = DITHER_MODE_NONE,
-) raises -> List[Float32]:
+) raises MaError -> List[Float32]:
     """Convert s16 samples to f32."""
     var sample_count = len(src)
     var dst = List[Float32](capacity=sample_count)
     dst.resize(sample_count, Float32(0))
     var code = raw.pcm_s16_to_f32(lib[], dst, src, UInt64(sample_count), dither_mode)
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("pcm_s16_to_f32 failed", code))
+        raise lib[].error("pcm_s16_to_f32 failed", code)
     return dst^
 
 
@@ -338,14 +339,14 @@ def convert_s24_to_u8(
     src: List[UInt8],
     *,
     dither_mode: Int = DITHER_MODE_NONE,
-) raises -> List[UInt8]:
+) raises MaError -> List[UInt8]:
     """Convert s24 samples to u8."""
     var sample_count = _whole(len(src), 3, "convert_s24_to_u8")
     var dst = List[UInt8](capacity=sample_count)
     dst.resize(sample_count, UInt8(0))
     var code = raw.pcm_s24_to_u8(lib[], dst, src, UInt64(sample_count), dither_mode)
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("pcm_s24_to_u8 failed", code))
+        raise lib[].error("pcm_s24_to_u8 failed", code)
     return dst^
 
 
@@ -354,14 +355,14 @@ def convert_s24_to_s16(
     src: List[UInt8],
     *,
     dither_mode: Int = DITHER_MODE_NONE,
-) raises -> List[Int16]:
+) raises MaError -> List[Int16]:
     """Convert s24 samples to s16."""
     var sample_count = _whole(len(src), 3, "convert_s24_to_s16")
     var dst = List[Int16](capacity=sample_count)
     dst.resize(sample_count, Int16(0))
     var code = raw.pcm_s24_to_s16(lib[], dst, src, UInt64(sample_count), dither_mode)
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("pcm_s24_to_s16 failed", code))
+        raise lib[].error("pcm_s24_to_s16 failed", code)
     return dst^
 
 
@@ -370,14 +371,14 @@ def convert_s24_to_s24(
     src: List[UInt8],
     *,
     dither_mode: Int = DITHER_MODE_NONE,
-) raises -> List[UInt8]:
+) raises MaError -> List[UInt8]:
     """Convert s24 samples to s24."""
     var sample_count = _whole(len(src), 3, "convert_s24_to_s24")
     var dst = List[UInt8](capacity=sample_count * 3)
     dst.resize(sample_count * 3, UInt8(0))
     var code = raw.pcm_s24_to_s24(lib[], dst, src, UInt64(sample_count), dither_mode)
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("pcm_s24_to_s24 failed", code))
+        raise lib[].error("pcm_s24_to_s24 failed", code)
     return dst^
 
 
@@ -386,14 +387,14 @@ def convert_s24_to_s32(
     src: List[UInt8],
     *,
     dither_mode: Int = DITHER_MODE_NONE,
-) raises -> List[Int32]:
+) raises MaError -> List[Int32]:
     """Convert s24 samples to s32."""
     var sample_count = _whole(len(src), 3, "convert_s24_to_s32")
     var dst = List[Int32](capacity=sample_count)
     dst.resize(sample_count, Int32(0))
     var code = raw.pcm_s24_to_s32(lib[], dst, src, UInt64(sample_count), dither_mode)
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("pcm_s24_to_s32 failed", code))
+        raise lib[].error("pcm_s24_to_s32 failed", code)
     return dst^
 
 
@@ -402,14 +403,14 @@ def convert_s24_to_f32(
     src: List[UInt8],
     *,
     dither_mode: Int = DITHER_MODE_NONE,
-) raises -> List[Float32]:
+) raises MaError -> List[Float32]:
     """Convert s24 samples to f32."""
     var sample_count = _whole(len(src), 3, "convert_s24_to_f32")
     var dst = List[Float32](capacity=sample_count)
     dst.resize(sample_count, Float32(0))
     var code = raw.pcm_s24_to_f32(lib[], dst, src, UInt64(sample_count), dither_mode)
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("pcm_s24_to_f32 failed", code))
+        raise lib[].error("pcm_s24_to_f32 failed", code)
     return dst^
 
 
@@ -418,14 +419,14 @@ def convert_s32_to_u8(
     src: List[Int32],
     *,
     dither_mode: Int = DITHER_MODE_NONE,
-) raises -> List[UInt8]:
+) raises MaError -> List[UInt8]:
     """Convert s32 samples to u8."""
     var sample_count = len(src)
     var dst = List[UInt8](capacity=sample_count)
     dst.resize(sample_count, UInt8(0))
     var code = raw.pcm_s32_to_u8(lib[], dst, src, UInt64(sample_count), dither_mode)
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("pcm_s32_to_u8 failed", code))
+        raise lib[].error("pcm_s32_to_u8 failed", code)
     return dst^
 
 
@@ -434,14 +435,14 @@ def convert_s32_to_s16(
     src: List[Int32],
     *,
     dither_mode: Int = DITHER_MODE_NONE,
-) raises -> List[Int16]:
+) raises MaError -> List[Int16]:
     """Convert s32 samples to s16."""
     var sample_count = len(src)
     var dst = List[Int16](capacity=sample_count)
     dst.resize(sample_count, Int16(0))
     var code = raw.pcm_s32_to_s16(lib[], dst, src, UInt64(sample_count), dither_mode)
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("pcm_s32_to_s16 failed", code))
+        raise lib[].error("pcm_s32_to_s16 failed", code)
     return dst^
 
 
@@ -450,14 +451,14 @@ def convert_s32_to_s24(
     src: List[Int32],
     *,
     dither_mode: Int = DITHER_MODE_NONE,
-) raises -> List[UInt8]:
+) raises MaError -> List[UInt8]:
     """Convert s32 samples to s24."""
     var sample_count = len(src)
     var dst = List[UInt8](capacity=sample_count * 3)
     dst.resize(sample_count * 3, UInt8(0))
     var code = raw.pcm_s32_to_s24(lib[], dst, src, UInt64(sample_count), dither_mode)
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("pcm_s32_to_s24 failed", code))
+        raise lib[].error("pcm_s32_to_s24 failed", code)
     return dst^
 
 
@@ -466,14 +467,14 @@ def convert_s32_to_s32(
     src: List[Int32],
     *,
     dither_mode: Int = DITHER_MODE_NONE,
-) raises -> List[Int32]:
+) raises MaError -> List[Int32]:
     """Convert s32 samples to s32."""
     var sample_count = len(src)
     var dst = List[Int32](capacity=sample_count)
     dst.resize(sample_count, Int32(0))
     var code = raw.pcm_s32_to_s32(lib[], dst, src, UInt64(sample_count), dither_mode)
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("pcm_s32_to_s32 failed", code))
+        raise lib[].error("pcm_s32_to_s32 failed", code)
     return dst^
 
 
@@ -482,14 +483,14 @@ def convert_s32_to_f32(
     src: List[Int32],
     *,
     dither_mode: Int = DITHER_MODE_NONE,
-) raises -> List[Float32]:
+) raises MaError -> List[Float32]:
     """Convert s32 samples to f32."""
     var sample_count = len(src)
     var dst = List[Float32](capacity=sample_count)
     dst.resize(sample_count, Float32(0))
     var code = raw.pcm_s32_to_f32(lib[], dst, src, UInt64(sample_count), dither_mode)
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("pcm_s32_to_f32 failed", code))
+        raise lib[].error("pcm_s32_to_f32 failed", code)
     return dst^
 
 
@@ -498,14 +499,14 @@ def convert_f32_to_u8(
     src: List[Float32],
     *,
     dither_mode: Int = DITHER_MODE_NONE,
-) raises -> List[UInt8]:
+) raises MaError -> List[UInt8]:
     """Convert f32 samples to u8."""
     var sample_count = len(src)
     var dst = List[UInt8](capacity=sample_count)
     dst.resize(sample_count, UInt8(0))
     var code = raw.pcm_f32_to_u8(lib[], dst, src, UInt64(sample_count), dither_mode)
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("pcm_f32_to_u8 failed", code))
+        raise lib[].error("pcm_f32_to_u8 failed", code)
     return dst^
 
 
@@ -514,14 +515,14 @@ def convert_f32_to_s16(
     src: List[Float32],
     *,
     dither_mode: Int = DITHER_MODE_NONE,
-) raises -> List[Int16]:
+) raises MaError -> List[Int16]:
     """Convert f32 samples to s16."""
     var sample_count = len(src)
     var dst = List[Int16](capacity=sample_count)
     dst.resize(sample_count, Int16(0))
     var code = raw.pcm_f32_to_s16(lib[], dst, src, UInt64(sample_count), dither_mode)
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("pcm_f32_to_s16 failed", code))
+        raise lib[].error("pcm_f32_to_s16 failed", code)
     return dst^
 
 
@@ -530,14 +531,14 @@ def convert_f32_to_s24(
     src: List[Float32],
     *,
     dither_mode: Int = DITHER_MODE_NONE,
-) raises -> List[UInt8]:
+) raises MaError -> List[UInt8]:
     """Convert f32 samples to s24."""
     var sample_count = len(src)
     var dst = List[UInt8](capacity=sample_count * 3)
     dst.resize(sample_count * 3, UInt8(0))
     var code = raw.pcm_f32_to_s24(lib[], dst, src, UInt64(sample_count), dither_mode)
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("pcm_f32_to_s24 failed", code))
+        raise lib[].error("pcm_f32_to_s24 failed", code)
     return dst^
 
 
@@ -546,14 +547,14 @@ def convert_f32_to_s32(
     src: List[Float32],
     *,
     dither_mode: Int = DITHER_MODE_NONE,
-) raises -> List[Int32]:
+) raises MaError -> List[Int32]:
     """Convert f32 samples to s32."""
     var sample_count = len(src)
     var dst = List[Int32](capacity=sample_count)
     dst.resize(sample_count, Int32(0))
     var code = raw.pcm_f32_to_s32(lib[], dst, src, UInt64(sample_count), dither_mode)
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("pcm_f32_to_s32 failed", code))
+        raise lib[].error("pcm_f32_to_s32 failed", code)
     return dst^
 
 
@@ -562,14 +563,14 @@ def convert_f32_to_f32(
     src: List[Float32],
     *,
     dither_mode: Int = DITHER_MODE_NONE,
-) raises -> List[Float32]:
+) raises MaError -> List[Float32]:
     """Convert f32 samples to f32."""
     var sample_count = len(src)
     var dst = List[Float32](capacity=sample_count)
     dst.resize(sample_count, Float32(0))
     var code = raw.pcm_f32_to_f32(lib[], dst, src, UInt64(sample_count), dither_mode)
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("pcm_f32_to_f32 failed", code))
+        raise lib[].error("pcm_f32_to_f32 failed", code)
     return dst^
 
 
@@ -578,7 +579,7 @@ def convert_f32_to_f32(
 
 def deinterleave_u8(
     lib: ArcPointer[MaLib], interleaved: List[UInt8], *, channels: UInt32
-) raises -> List[UInt8]:
+) raises MaError -> List[UInt8]:
     """Split into one plane per channel, laid out end to end."""
     _require_channels(channels)
     var frame_count = _whole(len(interleaved), Int(channels) * 1, "deinterleave_u8")
@@ -589,13 +590,13 @@ def deinterleave_u8(
         lib[], planes, stride, interleaved, UInt64(frame_count), channels
     )
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("pcm_deinterleave_u8 failed", code))
+        raise lib[].error("pcm_deinterleave_u8 failed", code)
     return planes^
 
 
 def interleave_u8(
     lib: ArcPointer[MaLib], planes: List[UInt8], *, channels: UInt32
-) raises -> List[UInt8]:
+) raises MaError -> List[UInt8]:
     """The inverse of `deinterleave_u8`."""
     _require_channels(channels)
     var frame_count = _whole(len(planes), Int(channels) * 1, "interleave_u8")
@@ -606,13 +607,13 @@ def interleave_u8(
         lib[], interleaved, planes, stride, UInt64(frame_count), channels
     )
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("pcm_interleave_u8 failed", code))
+        raise lib[].error("pcm_interleave_u8 failed", code)
     return interleaved^
 
 
 def deinterleave_s16(
     lib: ArcPointer[MaLib], interleaved: List[Int16], *, channels: UInt32
-) raises -> List[Int16]:
+) raises MaError -> List[Int16]:
     """Split into one plane per channel, laid out end to end."""
     _require_channels(channels)
     var frame_count = _whole(len(interleaved), Int(channels) * 1, "deinterleave_s16")
@@ -623,13 +624,13 @@ def deinterleave_s16(
         lib[], planes, stride, interleaved, UInt64(frame_count), channels
     )
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("pcm_deinterleave_s16 failed", code))
+        raise lib[].error("pcm_deinterleave_s16 failed", code)
     return planes^
 
 
 def interleave_s16(
     lib: ArcPointer[MaLib], planes: List[Int16], *, channels: UInt32
-) raises -> List[Int16]:
+) raises MaError -> List[Int16]:
     """The inverse of `deinterleave_s16`."""
     _require_channels(channels)
     var frame_count = _whole(len(planes), Int(channels) * 1, "interleave_s16")
@@ -640,13 +641,13 @@ def interleave_s16(
         lib[], interleaved, planes, stride, UInt64(frame_count), channels
     )
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("pcm_interleave_s16 failed", code))
+        raise lib[].error("pcm_interleave_s16 failed", code)
     return interleaved^
 
 
 def deinterleave_s24(
     lib: ArcPointer[MaLib], interleaved: List[UInt8], *, channels: UInt32
-) raises -> List[UInt8]:
+) raises MaError -> List[UInt8]:
     """Split into one plane per channel, laid out end to end."""
     _require_channels(channels)
     var frame_count = _whole(len(interleaved), Int(channels) * 3, "deinterleave_s24")
@@ -657,13 +658,13 @@ def deinterleave_s24(
         lib[], planes, stride, interleaved, UInt64(frame_count), channels
     )
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("pcm_deinterleave_s24 failed", code))
+        raise lib[].error("pcm_deinterleave_s24 failed", code)
     return planes^
 
 
 def interleave_s24(
     lib: ArcPointer[MaLib], planes: List[UInt8], *, channels: UInt32
-) raises -> List[UInt8]:
+) raises MaError -> List[UInt8]:
     """The inverse of `deinterleave_s24`."""
     _require_channels(channels)
     var frame_count = _whole(len(planes), Int(channels) * 3, "interleave_s24")
@@ -674,13 +675,13 @@ def interleave_s24(
         lib[], interleaved, planes, stride, UInt64(frame_count), channels
     )
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("pcm_interleave_s24 failed", code))
+        raise lib[].error("pcm_interleave_s24 failed", code)
     return interleaved^
 
 
 def deinterleave_s32(
     lib: ArcPointer[MaLib], interleaved: List[Int32], *, channels: UInt32
-) raises -> List[Int32]:
+) raises MaError -> List[Int32]:
     """Split into one plane per channel, laid out end to end."""
     _require_channels(channels)
     var frame_count = _whole(len(interleaved), Int(channels) * 1, "deinterleave_s32")
@@ -691,13 +692,13 @@ def deinterleave_s32(
         lib[], planes, stride, interleaved, UInt64(frame_count), channels
     )
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("pcm_deinterleave_s32 failed", code))
+        raise lib[].error("pcm_deinterleave_s32 failed", code)
     return planes^
 
 
 def interleave_s32(
     lib: ArcPointer[MaLib], planes: List[Int32], *, channels: UInt32
-) raises -> List[Int32]:
+) raises MaError -> List[Int32]:
     """The inverse of `deinterleave_s32`."""
     _require_channels(channels)
     var frame_count = _whole(len(planes), Int(channels) * 1, "interleave_s32")
@@ -708,13 +709,13 @@ def interleave_s32(
         lib[], interleaved, planes, stride, UInt64(frame_count), channels
     )
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("pcm_interleave_s32 failed", code))
+        raise lib[].error("pcm_interleave_s32 failed", code)
     return interleaved^
 
 
 def deinterleave_f32(
     lib: ArcPointer[MaLib], interleaved: List[Float32], *, channels: UInt32
-) raises -> List[Float32]:
+) raises MaError -> List[Float32]:
     """Split into one plane per channel, laid out end to end."""
     _require_channels(channels)
     var frame_count = _whole(len(interleaved), Int(channels) * 1, "deinterleave_f32")
@@ -725,13 +726,13 @@ def deinterleave_f32(
         lib[], planes, stride, interleaved, UInt64(frame_count), channels
     )
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("pcm_deinterleave_f32 failed", code))
+        raise lib[].error("pcm_deinterleave_f32 failed", code)
     return planes^
 
 
 def interleave_f32(
     lib: ArcPointer[MaLib], planes: List[Float32], *, channels: UInt32
-) raises -> List[Float32]:
+) raises MaError -> List[Float32]:
     """The inverse of `deinterleave_f32`."""
     _require_channels(channels)
     var frame_count = _whole(len(planes), Int(channels) * 1, "interleave_f32")
@@ -742,7 +743,7 @@ def interleave_f32(
         lib[], interleaved, planes, stride, UInt64(frame_count), channels
     )
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("pcm_interleave_f32 failed", code))
+        raise lib[].error("pcm_interleave_f32 failed", code)
     return interleaved^
 
 
@@ -756,7 +757,7 @@ def convert_samples(
     format_in: SampleFormat,
     format_out: SampleFormat,
     dither_mode: Int = DITHER_MODE_NONE,
-) raises -> List[UInt8]:
+) raises MaError -> List[UInt8]:
     """Convert a buffer of `format_in` samples to `format_out`; both are raw bytes."""
     var sample_count = _whole(len(src), bytes_per_sample(format_in), "convert_samples")
     var dst = _zeroed(sample_count * bytes_per_sample(format_out))
@@ -765,7 +766,7 @@ def convert_samples(
         dither_mode,
     )
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("pcm_convert failed", code))
+        raise lib[].error("pcm_convert failed", code)
     return dst^
 
 
@@ -777,7 +778,7 @@ def convert_frames_format(
     format_in: SampleFormat,
     format_out: SampleFormat,
     dither_mode: Int = DITHER_MODE_NONE,
-) raises -> List[UInt8]:
+) raises MaError -> List[UInt8]:
     """The same dispatch, counted in frames rather than samples."""
     _require_channels(channels)
     var frame_count = _whole(
@@ -789,7 +790,7 @@ def convert_frames_format(
         channels, dither_mode,
     )
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("convert_pcm_frames_format failed", code))
+        raise lib[].error("convert_pcm_frames_format failed", code)
     return dst^
 
 
@@ -811,14 +812,14 @@ def converted_frame_count(
     format_out: SampleFormat,
     channels_out: UInt32,
     sample_rate_out: UInt32,
-) raises -> UInt64:
+) raises MaError -> UInt64:
     """How many frames `convert_frames` would produce, without converting anything."""
     var rc = raw.convert_frames_measure(
         lib[], format_out.code, channels_out, sample_rate_out, frame_count_in,
         format_in.code, channels_in, sample_rate_in,
     )
     if rc.result != MA_SUCCESS:
-        raise Error(lib[].describe("convert_frames (measure) failed", rc.result))
+        raise lib[].error("convert_frames (measure) failed", rc.result)
     return rc.value
 
 
@@ -832,7 +833,7 @@ def convert_frames(
     format_out: SampleFormat,
     channels_out: UInt32,
     sample_rate_out: UInt32,
-) raises -> ConvertedFrames:
+) raises MaError -> ConvertedFrames:
     """Format, channel and rate conversion in one call.
 
     Asks miniaudio how many frames the conversion produces, sizes the output to
@@ -855,7 +856,7 @@ def convert_frames(
         frame_count_in, format_in.code, channels_in, sample_rate_in,
     )
     if rc.result != MA_SUCCESS:
-        raise Error(lib[].describe("convert_frames failed", rc.result))
+        raise lib[].error("convert_frames failed", rc.result)
     dst.resize(Int(rc.value) * bytes_per_frame, UInt8(0))
     return ConvertedFrames(rc.value, dst^)
 
@@ -872,7 +873,7 @@ def convert_frames_ex(
     sample_rate_out: UInt32,
     dither_mode: Int = DITHER_MODE_NONE,
     lpf_order: UInt32 = 1,
-) raises -> ConvertedFrames:
+) raises MaError -> ConvertedFrames:
     """`convert_frames` through a data converter config, so dither and the
     resampler's low-pass order (0 turns it off) can be chosen."""
     _require_channels(channels_in)
@@ -885,7 +886,7 @@ def convert_frames_ex(
         channels_out, sample_rate_in, sample_rate_out, dither_mode, lpf_order,
     )
     if measured.result != MA_SUCCESS:
-        raise Error(lib[].describe("convert_frames_ex (measure) failed", measured.result))
+        raise lib[].error("convert_frames_ex (measure) failed", measured.result)
     var bytes_per_frame = Int(channels_out) * bytes_per_sample(format_out)
     var dst = _zeroed(Int(measured.value) * bytes_per_frame)
     var rc = raw.convert_frames_ex(
@@ -894,7 +895,7 @@ def convert_frames_ex(
         dither_mode, lpf_order,
     )
     if rc.result != MA_SUCCESS:
-        raise Error(lib[].describe("convert_frames_ex failed", rc.result))
+        raise lib[].error("convert_frames_ex failed", rc.result)
     dst.resize(Int(rc.value) * bytes_per_frame, UInt8(0))
     return ConvertedFrames(rc.value, dst^)
 
@@ -905,7 +906,7 @@ def copy_frames(
     *,
     format: SampleFormat,
     channels: UInt32 = 1,
-) raises -> List[UInt8]:
+) raises MaError -> List[UInt8]:
     """A frame-aware copy of raw bytes."""
     _require_channels(channels)
     var frame_count = _whole(
@@ -914,7 +915,7 @@ def copy_frames(
     var dst = _zeroed(len(src))
     var code = raw.copy_pcm_frames(lib[], dst, src, UInt64(frame_count), format.code, channels)
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("copy_pcm_frames failed", code))
+        raise lib[].error("copy_pcm_frames failed", code)
     return dst^
 
 
@@ -923,7 +924,7 @@ def copy_frames(
 
 def scaled_u8(
     lib: ArcPointer[MaLib], src: List[UInt8], factor: Float32
-) raises -> List[UInt8]:
+) raises MaError -> List[UInt8]:
     """A copy of u8 samples with the volume applied, leaving `src` untouched."""
     var sample_count = len(src)
     var dst = List[UInt8](capacity=len(src))
@@ -932,13 +933,13 @@ def scaled_u8(
         lib[], dst, src, UInt64(sample_count), factor
     )
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("copy_and_apply_volume_factor_u8 failed", code))
+        raise lib[].error("copy_and_apply_volume_factor_u8 failed", code)
     return dst^
 
 
 def scaled_s16(
     lib: ArcPointer[MaLib], src: List[Int16], factor: Float32
-) raises -> List[Int16]:
+) raises MaError -> List[Int16]:
     """A copy of s16 samples with the volume applied, leaving `src` untouched."""
     var sample_count = len(src)
     var dst = List[Int16](capacity=len(src))
@@ -947,13 +948,13 @@ def scaled_s16(
         lib[], dst, src, UInt64(sample_count), factor
     )
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("copy_and_apply_volume_factor_s16 failed", code))
+        raise lib[].error("copy_and_apply_volume_factor_s16 failed", code)
     return dst^
 
 
 def scaled_s24(
     lib: ArcPointer[MaLib], src: List[UInt8], factor: Float32
-) raises -> List[UInt8]:
+) raises MaError -> List[UInt8]:
     """A copy of s24 samples with the volume applied, leaving `src` untouched."""
     var sample_count = _whole(len(src), 3, "scaled_s24")
     var dst = List[UInt8](capacity=len(src))
@@ -962,13 +963,13 @@ def scaled_s24(
         lib[], dst, src, UInt64(sample_count), factor
     )
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("copy_and_apply_volume_factor_s24 failed", code))
+        raise lib[].error("copy_and_apply_volume_factor_s24 failed", code)
     return dst^
 
 
 def scaled_s32(
     lib: ArcPointer[MaLib], src: List[Int32], factor: Float32
-) raises -> List[Int32]:
+) raises MaError -> List[Int32]:
     """A copy of s32 samples with the volume applied, leaving `src` untouched."""
     var sample_count = len(src)
     var dst = List[Int32](capacity=len(src))
@@ -977,13 +978,13 @@ def scaled_s32(
         lib[], dst, src, UInt64(sample_count), factor
     )
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("copy_and_apply_volume_factor_s32 failed", code))
+        raise lib[].error("copy_and_apply_volume_factor_s32 failed", code)
     return dst^
 
 
 def scaled_f32(
     lib: ArcPointer[MaLib], src: List[Float32], factor: Float32
-) raises -> List[Float32]:
+) raises MaError -> List[Float32]:
     """A copy of f32 samples with the volume applied, leaving `src` untouched."""
     var sample_count = len(src)
     var dst = List[Float32](capacity=len(src))
@@ -992,13 +993,13 @@ def scaled_f32(
         lib[], dst, src, UInt64(sample_count), factor
     )
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("copy_and_apply_volume_factor_f32 failed", code))
+        raise lib[].error("copy_and_apply_volume_factor_f32 failed", code)
     return dst^
 
 
 def scaled_frames_u8(
     lib: ArcPointer[MaLib], src: List[UInt8], factor: Float32, *, channels: UInt32 = 1
-) raises -> List[UInt8]:
+) raises MaError -> List[UInt8]:
     """The frame-shaped version of `scaled_u8`."""
     _require_channels(channels)
     var frame_count = _whole(len(src), Int(channels) * 1, "scaled_frames_u8")
@@ -1008,15 +1009,13 @@ def scaled_frames_u8(
         lib[], dst, src, UInt64(frame_count), channels, factor
     )
     if code != MA_SUCCESS:
-        raise Error(
-            lib[].describe("copy_and_apply_volume_factor_pcm_frames_u8 failed", code)
-        )
+        raise lib[].error("copy_and_apply_volume_factor_pcm_frames_u8 failed", code)
     return dst^
 
 
 def scaled_frames_s16(
     lib: ArcPointer[MaLib], src: List[Int16], factor: Float32, *, channels: UInt32 = 1
-) raises -> List[Int16]:
+) raises MaError -> List[Int16]:
     """The frame-shaped version of `scaled_s16`."""
     _require_channels(channels)
     var frame_count = _whole(len(src), Int(channels) * 1, "scaled_frames_s16")
@@ -1026,15 +1025,13 @@ def scaled_frames_s16(
         lib[], dst, src, UInt64(frame_count), channels, factor
     )
     if code != MA_SUCCESS:
-        raise Error(
-            lib[].describe("copy_and_apply_volume_factor_pcm_frames_s16 failed", code)
-        )
+        raise lib[].error("copy_and_apply_volume_factor_pcm_frames_s16 failed", code)
     return dst^
 
 
 def scaled_frames_s24(
     lib: ArcPointer[MaLib], src: List[UInt8], factor: Float32, *, channels: UInt32 = 1
-) raises -> List[UInt8]:
+) raises MaError -> List[UInt8]:
     """The frame-shaped version of `scaled_s24`."""
     _require_channels(channels)
     var frame_count = _whole(len(src), Int(channels) * 3, "scaled_frames_s24")
@@ -1044,15 +1041,13 @@ def scaled_frames_s24(
         lib[], dst, src, UInt64(frame_count), channels, factor
     )
     if code != MA_SUCCESS:
-        raise Error(
-            lib[].describe("copy_and_apply_volume_factor_pcm_frames_s24 failed", code)
-        )
+        raise lib[].error("copy_and_apply_volume_factor_pcm_frames_s24 failed", code)
     return dst^
 
 
 def scaled_frames_s32(
     lib: ArcPointer[MaLib], src: List[Int32], factor: Float32, *, channels: UInt32 = 1
-) raises -> List[Int32]:
+) raises MaError -> List[Int32]:
     """The frame-shaped version of `scaled_s32`."""
     _require_channels(channels)
     var frame_count = _whole(len(src), Int(channels) * 1, "scaled_frames_s32")
@@ -1062,15 +1057,13 @@ def scaled_frames_s32(
         lib[], dst, src, UInt64(frame_count), channels, factor
     )
     if code != MA_SUCCESS:
-        raise Error(
-            lib[].describe("copy_and_apply_volume_factor_pcm_frames_s32 failed", code)
-        )
+        raise lib[].error("copy_and_apply_volume_factor_pcm_frames_s32 failed", code)
     return dst^
 
 
 def scaled_frames_f32(
     lib: ArcPointer[MaLib], src: List[Float32], factor: Float32, *, channels: UInt32 = 1
-) raises -> List[Float32]:
+) raises MaError -> List[Float32]:
     """The frame-shaped version of `scaled_f32`."""
     _require_channels(channels)
     var frame_count = _whole(len(src), Int(channels) * 1, "scaled_frames_f32")
@@ -1080,9 +1073,7 @@ def scaled_frames_f32(
         lib[], dst, src, UInt64(frame_count), channels, factor
     )
     if code != MA_SUCCESS:
-        raise Error(
-            lib[].describe("copy_and_apply_volume_factor_pcm_frames_f32 failed", code)
-        )
+        raise lib[].error("copy_and_apply_volume_factor_pcm_frames_f32 failed", code)
     return dst^
 
 
@@ -1093,7 +1084,7 @@ def scaled_frames(
     *,
     format: SampleFormat,
     channels: UInt32 = 1,
-) raises -> List[UInt8]:
+) raises MaError -> List[UInt8]:
     """The format-dispatching version of `scaled_frames_<format>`, on raw bytes."""
     _require_channels(channels)
     var frame_count = _whole(
@@ -1104,20 +1095,18 @@ def scaled_frames(
         lib[], dst, src, UInt64(frame_count), format.code, channels, factor
     )
     if code != MA_SUCCESS:
-        raise Error(
-            lib[].describe("copy_and_apply_volume_factor_pcm_frames failed", code)
-        )
+        raise lib[].error("copy_and_apply_volume_factor_pcm_frames failed", code)
     return dst^
 
 
 def scaled_per_channel(
     lib: ArcPointer[MaLib], src: List[Float32], channel_gains: List[Float32]
-) raises -> List[Float32]:
+) raises MaError -> List[Float32]:
     """Scale f32 frames with one gain per channel; the channel count is the
     number of gains."""
     var channels = len(channel_gains)
     if channels == 0:
-        raise Error("channel_gains must not be empty")
+        raise MaError(MaResult.INVALID_ARGS, "channel_gains must not be empty")
     var frame_count = _whole(len(src), channels, "scaled_per_channel")
     var dst = List[Float32](capacity=len(src))
     dst.resize(len(src), Float32(0))
@@ -1125,9 +1114,7 @@ def scaled_per_channel(
         lib[], dst, src, UInt64(frame_count), UInt32(channels), channel_gains
     )
     if code != MA_SUCCESS:
-        raise Error(
-            lib[].describe("copy_and_apply_volume_factor_per_channel_f32 failed", code)
-        )
+        raise lib[].error("copy_and_apply_volume_factor_per_channel_f32 failed", code)
     return dst^
 
 
@@ -1136,7 +1123,7 @@ def scaled_per_channel(
 
 def scaled_and_clipped_u8(
     lib: ArcPointer[MaLib], src: List[Int16], volume: Float32
-) raises -> List[UInt8]:
+) raises MaError -> List[UInt8]:
     """Apply the volume to a Int16 buffer and clip it down into u8."""
     var dst = List[UInt8](capacity=len(src))
     dst.resize(len(src), UInt8(0))
@@ -1144,15 +1131,13 @@ def scaled_and_clipped_u8(
         lib[], dst, src, UInt64(len(src)), volume
     )
     if code != MA_SUCCESS:
-        raise Error(
-            lib[].describe("copy_and_apply_volume_and_clip_samples_u8 failed", code)
-        )
+        raise lib[].error("copy_and_apply_volume_and_clip_samples_u8 failed", code)
     return dst^
 
 
 def scaled_and_clipped_s16(
     lib: ArcPointer[MaLib], src: List[Int32], volume: Float32
-) raises -> List[Int16]:
+) raises MaError -> List[Int16]:
     """Apply the volume to a Int32 buffer and clip it down into s16."""
     var dst = List[Int16](capacity=len(src))
     dst.resize(len(src), Int16(0))
@@ -1160,15 +1145,13 @@ def scaled_and_clipped_s16(
         lib[], dst, src, UInt64(len(src)), volume
     )
     if code != MA_SUCCESS:
-        raise Error(
-            lib[].describe("copy_and_apply_volume_and_clip_samples_s16 failed", code)
-        )
+        raise lib[].error("copy_and_apply_volume_and_clip_samples_s16 failed", code)
     return dst^
 
 
 def scaled_and_clipped_s24(
     lib: ArcPointer[MaLib], src: List[Int64], volume: Float32
-) raises -> List[UInt8]:
+) raises MaError -> List[UInt8]:
     """Apply the volume to a Int64 buffer and clip it down into s24."""
     var dst = List[UInt8](capacity=len(src) * 3)
     dst.resize(len(src) * 3, UInt8(0))
@@ -1176,15 +1159,13 @@ def scaled_and_clipped_s24(
         lib[], dst, src, UInt64(len(src)), volume
     )
     if code != MA_SUCCESS:
-        raise Error(
-            lib[].describe("copy_and_apply_volume_and_clip_samples_s24 failed", code)
-        )
+        raise lib[].error("copy_and_apply_volume_and_clip_samples_s24 failed", code)
     return dst^
 
 
 def scaled_and_clipped_s32(
     lib: ArcPointer[MaLib], src: List[Int64], volume: Float32
-) raises -> List[Int32]:
+) raises MaError -> List[Int32]:
     """Apply the volume to a Int64 buffer and clip it down into s32."""
     var dst = List[Int32](capacity=len(src))
     dst.resize(len(src), Int32(0))
@@ -1192,15 +1173,13 @@ def scaled_and_clipped_s32(
         lib[], dst, src, UInt64(len(src)), volume
     )
     if code != MA_SUCCESS:
-        raise Error(
-            lib[].describe("copy_and_apply_volume_and_clip_samples_s32 failed", code)
-        )
+        raise lib[].error("copy_and_apply_volume_and_clip_samples_s32 failed", code)
     return dst^
 
 
 def scaled_and_clipped_f32(
     lib: ArcPointer[MaLib], src: List[Float32], volume: Float32
-) raises -> List[Float32]:
+) raises MaError -> List[Float32]:
     """Apply the volume to a Float32 buffer and clip it down into f32."""
     var dst = List[Float32](capacity=len(src))
     dst.resize(len(src), Float32(0))
@@ -1208,9 +1187,7 @@ def scaled_and_clipped_f32(
         lib[], dst, src, UInt64(len(src)), volume
     )
     if code != MA_SUCCESS:
-        raise Error(
-            lib[].describe("copy_and_apply_volume_and_clip_samples_f32 failed", code)
-        )
+        raise lib[].error("copy_and_apply_volume_and_clip_samples_f32 failed", code)
     return dst^
 
 
@@ -1221,7 +1198,7 @@ def scaled_and_clipped_frames(
     *,
     format: SampleFormat,
     channels: UInt32 = 1,
-) raises -> List[UInt8]:
+) raises MaError -> List[UInt8]:
     """The format-dispatching version of `scaled_and_clipped_<format>`.
 
     `src` holds the wider type `format` clips from (see
@@ -1237,9 +1214,7 @@ def scaled_and_clipped_frames(
         lib[], dst, src, UInt64(frame_count), format.code, channels, volume
     )
     if code != MA_SUCCESS:
-        raise Error(
-            lib[].describe("copy_and_apply_volume_and_clip_pcm_frames failed", code)
-        )
+        raise lib[].error("copy_and_apply_volume_and_clip_pcm_frames failed", code)
     return dst^
 
 
@@ -1248,21 +1223,21 @@ def scaled_and_clipped_frames(
 
 def blend(
     lib: ArcPointer[MaLib], a: List[Float32], b: List[Float32], factor: Float32
-) raises -> List[Float32]:
+) raises MaError -> List[Float32]:
     """Cross-fade one frame between two inputs; 0 gives `a`, 1 gives `b`.
 
     The frame is as wide as the lists, which must match. A factor outside [0, 1]
     extrapolates rather than clamping.
     """
     if len(a) != len(b):
-        raise Error("blend needs two frames of the same width")
+        raise MaError(MaResult.INVALID_ARGS, "blend needs two frames of the same width")
     var channels = len(a)
     _require_channels(UInt32(channels))
     var dst = List[Float32](capacity=channels)
     dst.resize(channels, Float32(0))
     var code = raw.blend_f32(lib[], dst, a, b, factor, UInt32(channels))
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("blend_f32 failed", code))
+        raise lib[].error("blend_f32 failed", code)
     return dst^
 
 
@@ -1273,43 +1248,43 @@ def mix_into(
     volume: Float32,
     *,
     channels: UInt32 = 1,
-) raises:
+) raises MaError:
     """Add `src` into `dst` at the given volume. `dst` must be at least as long."""
     _require_channels(channels)
     var frame_count = _whole(len(src), Int(channels), "mix_into")
     if len(dst) < len(src):
-        raise Error("mix_into: dst is shorter than src")
+        raise MaError(MaResult.INVALID_ARGS, "mix_into: dst is shorter than src")
     var code = raw.mix_pcm_frames_f32(
         lib[], dst, src, UInt64(frame_count), channels, volume
     )
     if code != MA_SUCCESS:
-        raise Error(lib[].describe("mix_pcm_frames_f32 failed", code))
+        raise lib[].error("mix_pcm_frames_f32 failed", code)
 
 
-def linear_to_db(lib: ArcPointer[MaLib], factor: Float32) raises -> Float32:
+def linear_to_db(lib: ArcPointer[MaLib], factor: Float32) raises MaError -> Float32:
     """A linear gain in decibels. 0 is -inf and a negative factor is NaN."""
     var rc = raw.volume_linear_to_db(lib[], factor)
     if rc.result != MA_SUCCESS:
-        raise Error(lib[].describe("volume_linear_to_db failed", rc.result))
+        raise lib[].error("volume_linear_to_db failed", rc.result)
     return rc.value
 
 
-def db_to_linear(lib: ArcPointer[MaLib], gain: Float32) raises -> Float32:
+def db_to_linear(lib: ArcPointer[MaLib], gain: Float32) raises MaError -> Float32:
     """A gain in decibels as a linear factor."""
     var rc = raw.volume_db_to_linear(lib[], gain)
     if rc.result != MA_SUCCESS:
-        raise Error(lib[].describe("volume_db_to_linear failed", rc.result))
+        raise lib[].error("volume_db_to_linear failed", rc.result)
     return rc.value
 
 
 def duplicate_string(
     lib: ArcPointer[MaLib], text: String, *, capacity: UInt32 = 256
-) raises -> String:
+) raises MaError -> String:
     """miniaudio duplicates the string; the shim copies it out and frees it.
 
     Raises when the text does not fit in `capacity` bytes including the terminator.
     """
     var rc = raw.copy_string(lib[], text, capacity)
     if rc.result != MA_SUCCESS:
-        raise Error(lib[].describe("copy_string failed", rc.result))
+        raise lib[].error("copy_string failed", rc.result)
     return rc.value

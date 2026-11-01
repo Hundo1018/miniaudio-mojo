@@ -13,13 +13,14 @@ counts frames, not samples.
 """
 
 from miniaudio._lib import MaLib, null_handle
+from miniaudio.result import MaResult
 
 
 @fieldwise_init
 struct MaDecoded(Copyable, Movable):
     """Raw result of a one-shot decode; `frames` is owned by the caller."""
 
-    var result: Int
+    var result: MaResult
     var frame_count: UInt64
     var frames: OpaquePointer[MutUntrackedOrigin]
     var format: Int
@@ -31,7 +32,7 @@ struct MaDecoded(Copyable, Movable):
 struct MaBackendConfig(Copyable, Movable):
     """Raw (result_code, preferred_format, seek_point_count)."""
 
-    var result: Int
+    var result: MaResult
     var preferred_format: Int
     var seek_point_count: UInt32
 
@@ -41,7 +42,7 @@ def decoding_backend_config_init(
 ) -> MaBackendConfig:
     var fmt = [Int32(0)]
     var seeks = [UInt32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_decoding_backend_config_init", Int32](
             Int32(preferred_format),
             seek_point_count,
@@ -66,7 +67,7 @@ def decode_file(
     var fmt = [Int32(0)]
     var ch = [UInt32(0)]
     var sr = [UInt32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_decode_file", Int32](
             path_c.as_bytes().unsafe_ptr(),
             Int32(format),
@@ -95,7 +96,7 @@ def decode_memory(
     var fmt = [Int32(0)]
     var ch = [UInt32(0)]
     var sr = [UInt32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_decode_memory", Int32](
             data.unsafe_ptr(),
             len(data),
@@ -128,7 +129,7 @@ def decode_from_vfs(
     var fmt = [Int32(0)]
     var ch = [UInt32(0)]
     var sr = [UInt32(0)]
-    var code = Int(
+    var code = MaResult(
         lib.handle.call["ma_shim_decode_from_vfs", Int32](
             vfs,
             path_c.as_bytes().unsafe_ptr(),

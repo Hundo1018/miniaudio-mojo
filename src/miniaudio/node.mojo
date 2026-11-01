@@ -44,7 +44,7 @@ from std.memory import ArcPointer
 
 from miniaudio._lib import MaLib, null_handle
 from miniaudio.engine import Engine
-from miniaudio.result import MA_SUCCESS
+from miniaudio.result import MaResult, MaError, MA_SUCCESS
 import miniaudio._ffi.node_raw as raw
 
 
@@ -78,7 +78,7 @@ struct NodeGraph(Movable):
         self._owner = None
 
     @staticmethod
-    def of_engine(engine: ArcPointer[Engine]) raises -> Self:
+    def of_engine(engine: ArcPointer[Engine]) raises MaError -> Self:
         """A non-owning view of the engine's own node graph (ma_engine_get_node_graph).
 
         Reading from it competes with the engine's audio thread while the engine
@@ -87,32 +87,32 @@ struct NodeGraph(Movable):
         var lib = engine[]._lib.copy()
         var ptr = raw.node_graph_alloc(lib[])
         if ptr == null_handle():
-            raise Error("node_graph_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "node_graph_alloc failed (out of memory)")
         var code = raw.node_graph_borrow_engine(lib[], ptr, engine[]._ptr)
         if code != MA_SUCCESS:
             raw.node_graph_free(lib[], ptr)
-            raise Error(lib[].describe("engine node graph borrow failed", code))
+            raise lib[].error("engine node graph borrow failed", code)
         var rc = raw.node_graph_get_channels(lib[], ptr)
         if rc.result != MA_SUCCESS:
             raw.node_graph_free(lib[], ptr)
-            raise Error(lib[].describe("engine node graph channels failed", rc.result))
+            raise lib[].error("engine node graph channels failed", rc.result)
         var view = Self(lib^, ptr, rc.value)
         view._owner = engine.copy()
         return view^
 
     @staticmethod
-    def create(lib: ArcPointer[MaLib], *, channels: UInt32 = 2) raises -> Self:
+    def create(lib: ArcPointer[MaLib], *, channels: UInt32 = 2) raises MaError -> Self:
         """An empty graph. Attach nodes to its endpoint, then read from it."""
         var ptr = raw.node_graph_alloc(lib[])
         if ptr == null_handle():
-            raise Error("node_graph_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "node_graph_alloc failed (out of memory)")
         var code = raw.node_graph_init(lib[], ptr, channels)
         if code != MA_SUCCESS:
             raw.node_graph_free(lib[], ptr)
-            raise Error(lib[].describe("node graph init failed", code))
+            raise lib[].error("node graph init failed", code)
         return Self(lib.copy(), ptr, channels)
 
-    def read(mut self, frame_count: UInt64) raises -> List[Float32]:
+    def read(mut self, frame_count: UInt64) raises MaError -> List[Float32]:
         """Pull frame_count frames through the graph."""
         var samples = Int(frame_count) * Int(self._channels)
         var buf = List[Float32](capacity=samples)
@@ -120,53 +120,47 @@ struct NodeGraph(Movable):
 
         var rc = raw.node_graph_read(self._lib[], self._ptr, buf, frame_count)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("node graph read failed", rc.result))
+            raise self._lib[].error("node graph read failed", rc.result)
         buf.resize(Int(rc.value) * Int(self._channels), Float32(0))
         return buf^
 
-    def channels(self) raises -> UInt32:
+    def channels(self) raises MaError -> UInt32:
         var rc = raw.node_graph_get_channels(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("node graph channels failed", rc.result)
-            )
+            raise self._lib[].error("node graph channels failed", rc.result)
         return rc.value
 
-    def time(self) raises -> UInt64:
+    def time(self) raises MaError -> UInt64:
         """The graph's global time, in frames."""
         var rc = raw.node_graph_get_time(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("node graph time failed", rc.result))
+            raise self._lib[].error("node graph time failed", rc.result)
         return rc.value
 
-    def set_time(mut self, global_time: UInt64) raises:
+    def set_time(mut self, global_time: UInt64) raises MaError:
         var code = raw.node_graph_set_time(self._lib[], self._ptr, global_time)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("node graph set_time failed", code))
+            raise self._lib[].error("node graph set_time failed", code)
 
-    def processing_size(self) raises -> UInt32:
+    def processing_size(self) raises MaError -> UInt32:
         """Frames the graph processes per internal pass."""
         var rc = raw.node_graph_get_processing_size(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("node graph processing size failed", rc.result)
-            )
+            raise self._lib[].error("node graph processing size failed", rc.result)
         return rc.value
 
-    def endpoint_input_bus_count(self) raises -> UInt32:
+    def endpoint_input_bus_count(self) raises MaError -> UInt32:
         """How many input buses the endpoint offers for nodes to attach to."""
         var rc = raw.node_graph_endpoint_input_bus_count(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("node graph endpoint failed", rc.result)
-            )
+            raise self._lib[].error("node graph endpoint failed", rc.result)
         return rc.value
 
-    def uninit(mut self) raises:
+    def uninit(mut self) raises MaError:
         """Release the graph early; the handle stays valid but empty."""
         var code = raw.node_graph_uninit(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("node graph uninit failed", code))
+            raise self._lib[].error("node graph uninit failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():
@@ -199,12 +193,12 @@ struct OffsetNode(Movable):
         self._ptr = ptr
 
     @staticmethod
-    def heap_size(graph: ArcPointer[NodeGraph], *, channels: UInt32 = 2) raises -> UInt64:
+    def heap_size(graph: ArcPointer[NodeGraph], *, channels: UInt32 = 2) raises MaError -> UInt64:
         """Working-heap size for a node in this graph, without building one."""
         var lib = graph[]._lib.copy()
         var rc = raw.node_get_heap_size(lib[], graph[]._ptr, channels)
         if rc.result != MA_SUCCESS:
-            raise Error(lib[].describe("node heap size failed", rc.result))
+            raise lib[].error("node heap size failed", rc.result)
         return rc.value
 
     @staticmethod
@@ -214,14 +208,14 @@ struct OffsetNode(Movable):
         offset: Float32,
         channels: UInt32 = 2,
         preallocated: Bool = False,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """`preallocated` routes init through miniaudio's preallocated-heap path."""
         var lib = graph[]._lib.copy()
         var ptr = raw.node_alloc(lib[])
         if ptr == null_handle():
-            raise Error("node_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "node_alloc failed (out of memory)")
 
-        var code: Int
+        var code: MaResult
         if preallocated:
             code = raw.node_init_preallocated(
                 lib[], ptr, graph[]._ptr, channels, offset
@@ -230,7 +224,7 @@ struct OffsetNode(Movable):
             code = raw.node_init(lib[], ptr, graph[]._ptr, channels, offset)
         if code != MA_SUCCESS:
             raw.node_free(lib[], ptr)
-            raise Error(lib[].describe("node init failed", code))
+            raise lib[].error("node init failed", code)
         return Self(lib^, graph.copy(), ptr)
 
     def attach_to(
@@ -239,7 +233,7 @@ struct OffsetNode(Movable):
         *,
         output_bus: UInt32 = 0,
         other_input_bus: UInt32 = 0,
-    ) raises:
+    ) raises MaError:
         """Feed this node's output into another offset node's input."""
         self._attach(other._ptr, output_bus, other_input_bus)
 
@@ -249,7 +243,7 @@ struct OffsetNode(Movable):
         *,
         output_bus: UInt32 = 0,
         other_input_bus: UInt32 = 0,
-    ) raises:
+    ) raises MaError:
         """Feed this node's output into a delay node's input."""
         self._attach(other._ptr, output_bus, other_input_bus)
 
@@ -259,7 +253,7 @@ struct OffsetNode(Movable):
         *,
         output_bus: UInt32 = 0,
         other_input_bus: UInt32 = 0,
-    ) raises:
+    ) raises MaError:
         """Feed this node's output into a splitter node's input."""
         self._attach(other._ptr, output_bus, other_input_bus)
 
@@ -269,7 +263,7 @@ struct OffsetNode(Movable):
         *,
         output_bus: UInt32 = 0,
         other_input_bus: UInt32 = 0,
-    ) raises:
+    ) raises MaError:
         """Feed this node's output into an engine node's input."""
         self._attach(other._ptr, output_bus, other_input_bus)
 
@@ -279,7 +273,7 @@ struct OffsetNode(Movable):
         *,
         output_bus: UInt32 = 0,
         other_input_bus: UInt32 = 0,
-    ) raises:
+    ) raises MaError:
         """Feed this node's output into the engine's endpoint."""
         self._attach(other._ptr, output_bus, other_input_bus)
 
@@ -288,147 +282,137 @@ struct OffsetNode(Movable):
         other: OpaquePointer[MutUntrackedOrigin],
         output_bus: UInt32,
         other_input_bus: UInt32,
-    ) raises:
+    ) raises MaError:
         """Shared body: the shim resolves any node handle to its ma_node."""
         var code = raw.node_attach_output_bus(
             self._lib[], self._ptr, output_bus, other, other_input_bus
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("node attach failed", code))
+            raise self._lib[].error("node attach failed", code)
 
     def attach_to_endpoint(
         mut self, *, output_bus: UInt32 = 0, endpoint_input_bus: UInt32 = 0
-    ) raises:
+    ) raises MaError:
         """Feed this node's output straight into the graph's endpoint."""
         var code = raw.node_attach_to_endpoint(
             self._lib[], self._ptr, output_bus, self._graph[]._ptr, endpoint_input_bus
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("node attach to endpoint failed", code))
+            raise self._lib[].error("node attach to endpoint failed", code)
 
-    def detach(mut self, *, output_bus: UInt32 = 0) raises:
+    def detach(mut self, *, output_bus: UInt32 = 0) raises MaError:
         var code = raw.node_detach_output_bus(self._lib[], self._ptr, output_bus)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("node detach failed", code))
+            raise self._lib[].error("node detach failed", code)
 
-    def detach_all(mut self) raises:
+    def detach_all(mut self) raises MaError:
         var code = raw.node_detach_all_output_buses(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("node detach all failed", code))
+            raise self._lib[].error("node detach all failed", code)
 
-    def set_volume(mut self, volume: Float32, *, output_bus: UInt32 = 0) raises:
+    def set_volume(mut self, volume: Float32, *, output_bus: UInt32 = 0) raises MaError:
         var code = raw.node_set_output_bus_volume(
             self._lib[], self._ptr, output_bus, volume
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("node set volume failed", code))
+            raise self._lib[].error("node set volume failed", code)
 
-    def volume(self, *, output_bus: UInt32 = 0) raises -> Float32:
+    def volume(self, *, output_bus: UInt32 = 0) raises MaError -> Float32:
         var rc = raw.node_get_output_bus_volume(self._lib[], self._ptr, output_bus)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("node volume failed", rc.result))
+            raise self._lib[].error("node volume failed", rc.result)
         return rc.value
 
-    def input_bus_count(self) raises -> UInt32:
+    def input_bus_count(self) raises MaError -> UInt32:
         var rc = raw.node_get_input_bus_count(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("node input bus count failed", rc.result)
-            )
+            raise self._lib[].error("node input bus count failed", rc.result)
         return rc.value
 
-    def output_bus_count(self) raises -> UInt32:
+    def output_bus_count(self) raises MaError -> UInt32:
         var rc = raw.node_get_output_bus_count(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("node output bus count failed", rc.result)
-            )
+            raise self._lib[].error("node output bus count failed", rc.result)
         return rc.value
 
-    def input_channels(self, *, bus: UInt32 = 0) raises -> UInt32:
+    def input_channels(self, *, bus: UInt32 = 0) raises MaError -> UInt32:
         var rc = raw.node_get_input_channels(self._lib[], self._ptr, bus)
         if rc.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("node input channels failed", rc.result)
-            )
+            raise self._lib[].error("node input channels failed", rc.result)
         return rc.value
 
-    def output_channels(self, *, bus: UInt32 = 0) raises -> UInt32:
+    def output_channels(self, *, bus: UInt32 = 0) raises MaError -> UInt32:
         var rc = raw.node_get_output_channels(self._lib[], self._ptr, bus)
         if rc.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("node output channels failed", rc.result)
-            )
+            raise self._lib[].error("node output channels failed", rc.result)
         return rc.value
 
-    def set_state(mut self, state: Int) raises:
+    def set_state(mut self, state: Int) raises MaError:
         """NODE_STATE_STARTED or NODE_STATE_STOPPED."""
         var code = raw.node_set_state(self._lib[], self._ptr, state)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("node set state failed", code))
+            raise self._lib[].error("node set state failed", code)
 
-    def state(self) raises -> Int:
+    def state(self) raises MaError -> Int:
         var rc = raw.node_get_state(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("node state failed", rc.result))
+            raise self._lib[].error("node state failed", rc.result)
         return rc.value
 
-    def set_state_time(mut self, state: Int, global_time: UInt64) raises:
+    def set_state_time(mut self, state: Int, global_time: UInt64) raises MaError:
         """Schedule `state` to take effect at a global time."""
         var code = raw.node_set_state_time(
             self._lib[], self._ptr, state, global_time
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("node set state time failed", code))
+            raise self._lib[].error("node set state time failed", code)
 
-    def state_time(self, state: Int) raises -> UInt64:
+    def state_time(self, state: Int) raises MaError -> UInt64:
         var rc = raw.node_get_state_time(self._lib[], self._ptr, state)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("node state time failed", rc.result))
+            raise self._lib[].error("node state time failed", rc.result)
         return rc.value
 
-    def state_at(self, global_time: UInt64) raises -> Int:
+    def state_at(self, global_time: UInt64) raises MaError -> Int:
         """What the node's state will be at a given global time."""
         var rc = raw.node_get_state_by_time(self._lib[], self._ptr, global_time)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("node state at failed", rc.result))
+            raise self._lib[].error("node state at failed", rc.result)
         return rc.value
 
-    def state_in_range(self, begin: UInt64, end: UInt64) raises -> Int:
+    def state_in_range(self, begin: UInt64, end: UInt64) raises MaError -> Int:
         """The node's state across a span of global time."""
         var rc = raw.node_get_state_by_time_range(
             self._lib[], self._ptr, begin, end
         )
         if rc.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("node state in range failed", rc.result)
-            )
+            raise self._lib[].error("node state in range failed", rc.result)
         return rc.value
 
-    def time(self) raises -> UInt64:
+    def time(self) raises MaError -> UInt64:
         """The node's local time, in frames."""
         var rc = raw.node_get_time(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("node time failed", rc.result))
+            raise self._lib[].error("node time failed", rc.result)
         return rc.value
 
-    def set_time(mut self, local_time: UInt64) raises:
+    def set_time(mut self, local_time: UInt64) raises MaError:
         var code = raw.node_set_time(self._lib[], self._ptr, local_time)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("node set time failed", code))
+            raise self._lib[].error("node set time failed", code)
 
-    def belongs_to(self, graph: ArcPointer[NodeGraph]) raises -> Bool:
+    def belongs_to(self, graph: ArcPointer[NodeGraph]) raises MaError -> Bool:
         """Whether this node lives in that graph."""
         var rc = raw.node_belongs_to_graph(self._lib[], self._ptr, graph[]._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("node graph identity failed", rc.result))
+            raise self._lib[].error("node graph identity failed", rc.result)
         return rc.value
 
-    def uninit(mut self) raises:
+    def uninit(mut self) raises MaError:
         """Detach and release the node early; the handle stays valid but empty."""
         var code = raw.node_uninit(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("node uninit failed", code))
+            raise self._lib[].error("node uninit failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():
@@ -463,28 +447,28 @@ struct DelayNode(Movable):
         decay: Float32 = Float32(0.5),
         channels: UInt32 = 2,
         sample_rate: UInt32 = 48000,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         var lib = graph[]._lib.copy()
         var ptr = raw.delay_node_alloc(lib[])
         if ptr == null_handle():
-            raise Error("delay_node_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "delay_node_alloc failed (out of memory)")
 
         var code = raw.delay_node_init(
             lib[], ptr, graph[]._ptr, channels, sample_rate, delay_in_frames, decay
         )
         if code != MA_SUCCESS:
             raw.delay_node_free(lib[], ptr)
-            raise Error(lib[].describe("delay node init failed", code))
+            raise lib[].error("delay node init failed", code)
         return Self(lib^, graph.copy(), ptr)
 
-    def attach_to_endpoint(mut self) raises:
+    def attach_to_endpoint(mut self) raises MaError:
         var code = raw.delay_node_attach_to_endpoint(
             self._lib[], self._ptr, self._graph[]._ptr
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("delay node attach failed", code))
+            raise self._lib[].error("delay node attach failed", code)
 
-    def set_wet(mut self, value: Float32) raises:
+    def set_wet(mut self, value: Float32) raises MaError:
         """Output gain of the whole node — *not* a wet/dry blend.
 
         miniaudio computes `buffer = buffer*decay + in*dry` and then
@@ -494,46 +478,46 @@ struct DelayNode(Movable):
         """
         var code = raw.delay_node_set_wet(self._lib[], self._ptr, value)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("delay node set wet failed", code))
+            raise self._lib[].error("delay node set wet failed", code)
 
-    def wet(self) raises -> Float32:
+    def wet(self) raises MaError -> Float32:
         var rc = raw.delay_node_get_wet(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("delay node wet failed", rc.result))
+            raise self._lib[].error("delay node wet failed", rc.result)
         return rc.value
 
-    def set_dry(mut self, value: Float32) raises:
+    def set_dry(mut self, value: Float32) raises MaError:
         """Gain applied to the signal going *into* the delay line.
 
         See `set_wet` — despite the name this is not an un-delayed path.
         """
         var code = raw.delay_node_set_dry(self._lib[], self._ptr, value)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("delay node set dry failed", code))
+            raise self._lib[].error("delay node set dry failed", code)
 
-    def dry(self) raises -> Float32:
+    def dry(self) raises MaError -> Float32:
         var rc = raw.delay_node_get_dry(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("delay node dry failed", rc.result))
+            raise self._lib[].error("delay node dry failed", rc.result)
         return rc.value
 
-    def set_decay(mut self, value: Float32) raises:
+    def set_decay(mut self, value: Float32) raises MaError:
         """Feedback: how much each echo carries into the next."""
         var code = raw.delay_node_set_decay(self._lib[], self._ptr, value)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("delay node set decay failed", code))
+            raise self._lib[].error("delay node set decay failed", code)
 
-    def decay(self) raises -> Float32:
+    def decay(self) raises MaError -> Float32:
         var rc = raw.delay_node_get_decay(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("delay node decay failed", rc.result))
+            raise self._lib[].error("delay node decay failed", rc.result)
         return rc.value
 
-    def uninit(mut self) raises:
+    def uninit(mut self) raises MaError:
         """Detach and release the node early; the handle stays valid but empty."""
         var code = raw.delay_node_uninit(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("delay node uninit failed", code))
+            raise self._lib[].error("delay node uninit failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():
@@ -561,30 +545,30 @@ struct SplitterNode(Movable):
         self._ptr = ptr
 
     @staticmethod
-    def create(graph: ArcPointer[NodeGraph], *, channels: UInt32 = 2) raises -> Self:
+    def create(graph: ArcPointer[NodeGraph], *, channels: UInt32 = 2) raises MaError -> Self:
         var lib = graph[]._lib.copy()
         var ptr = raw.splitter_node_alloc(lib[])
         if ptr == null_handle():
-            raise Error("splitter_node_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "splitter_node_alloc failed (out of memory)")
 
         var code = raw.splitter_node_init(lib[], ptr, graph[]._ptr, channels)
         if code != MA_SUCCESS:
             raw.splitter_node_free(lib[], ptr)
-            raise Error(lib[].describe("splitter node init failed", code))
+            raise lib[].error("splitter node init failed", code)
         return Self(lib^, graph.copy(), ptr)
 
-    def attach_to_endpoint(mut self, *, output_bus: UInt32 = 0) raises:
+    def attach_to_endpoint(mut self, *, output_bus: UInt32 = 0) raises MaError:
         var code = raw.splitter_node_attach_to_endpoint(
             self._lib[], self._ptr, output_bus, self._graph[]._ptr
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("splitter node attach failed", code))
+            raise self._lib[].error("splitter node attach failed", code)
 
-    def uninit(mut self) raises:
+    def uninit(mut self) raises MaError:
         """Detach and release the node early; the handle stays valid but empty."""
         var code = raw.splitter_node_uninit(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("splitter node uninit failed", code))
+            raise self._lib[].error("splitter node uninit failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():
@@ -621,95 +605,87 @@ struct EndpointNode(Movable):
         self._ptr = ptr
 
     @staticmethod
-    def of_engine(engine: ArcPointer[Engine]) raises -> Self:
+    def of_engine(engine: ArcPointer[Engine]) raises MaError -> Self:
         """The engine's endpoint node (ma_engine_get_endpoint)."""
         var lib = engine[]._lib.copy()
         var ptr = raw.node_alloc(lib[])
         if ptr == null_handle():
-            raise Error("node_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "node_alloc failed (out of memory)")
         var code = raw.node_borrow_engine_endpoint(lib[], ptr, engine[]._ptr)
         if code != MA_SUCCESS:
             raw.node_free(lib[], ptr)
-            raise Error(lib[].describe("engine endpoint borrow failed", code))
+            raise lib[].error("engine endpoint borrow failed", code)
         return Self(lib^, engine.copy(), ptr)
 
-    def is_endpoint_of(self, graph: ArcPointer[NodeGraph]) raises -> Bool:
+    def is_endpoint_of(self, graph: ArcPointer[NodeGraph]) raises MaError -> Bool:
         """Whether this is that graph's endpoint (identity, not just membership)."""
         var rc = raw.node_is_graph_endpoint(self._lib[], self._ptr, graph[]._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("endpoint identity failed", rc.result))
+            raise self._lib[].error("endpoint identity failed", rc.result)
         return rc.value
 
-    def belongs_to(self, graph: ArcPointer[NodeGraph]) raises -> Bool:
+    def belongs_to(self, graph: ArcPointer[NodeGraph]) raises MaError -> Bool:
         """Whether this node lives in that graph."""
         var rc = raw.node_belongs_to_graph(self._lib[], self._ptr, graph[]._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("node graph identity failed", rc.result))
+            raise self._lib[].error("node graph identity failed", rc.result)
         return rc.value
 
-    def set_volume(mut self, volume: Float32, *, output_bus: UInt32 = 0) raises:
+    def set_volume(mut self, volume: Float32, *, output_bus: UInt32 = 0) raises MaError:
         var code = raw.node_set_output_bus_volume(
             self._lib[], self._ptr, output_bus, volume
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("endpoint set volume failed", code))
+            raise self._lib[].error("endpoint set volume failed", code)
 
-    def volume(self, *, output_bus: UInt32 = 0) raises -> Float32:
+    def volume(self, *, output_bus: UInt32 = 0) raises MaError -> Float32:
         var rc = raw.node_get_output_bus_volume(self._lib[], self._ptr, output_bus)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("endpoint volume failed", rc.result))
+            raise self._lib[].error("endpoint volume failed", rc.result)
         return rc.value
 
-    def input_bus_count(self) raises -> UInt32:
+    def input_bus_count(self) raises MaError -> UInt32:
         var rc = raw.node_get_input_bus_count(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("endpoint input bus count failed", rc.result)
-            )
+            raise self._lib[].error("endpoint input bus count failed", rc.result)
         return rc.value
 
-    def output_bus_count(self) raises -> UInt32:
+    def output_bus_count(self) raises MaError -> UInt32:
         var rc = raw.node_get_output_bus_count(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("endpoint output bus count failed", rc.result)
-            )
+            raise self._lib[].error("endpoint output bus count failed", rc.result)
         return rc.value
 
-    def input_channels(self, *, bus: UInt32 = 0) raises -> UInt32:
+    def input_channels(self, *, bus: UInt32 = 0) raises MaError -> UInt32:
         var rc = raw.node_get_input_channels(self._lib[], self._ptr, bus)
         if rc.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("endpoint input channels failed", rc.result)
-            )
+            raise self._lib[].error("endpoint input channels failed", rc.result)
         return rc.value
 
-    def output_channels(self, *, bus: UInt32 = 0) raises -> UInt32:
+    def output_channels(self, *, bus: UInt32 = 0) raises MaError -> UInt32:
         var rc = raw.node_get_output_channels(self._lib[], self._ptr, bus)
         if rc.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("endpoint output channels failed", rc.result)
-            )
+            raise self._lib[].error("endpoint output channels failed", rc.result)
         return rc.value
 
-    def state(self) raises -> Int:
+    def state(self) raises MaError -> Int:
         var rc = raw.node_get_state(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("endpoint state failed", rc.result))
+            raise self._lib[].error("endpoint state failed", rc.result)
         return rc.value
 
-    def time(self) raises -> UInt64:
+    def time(self) raises MaError -> UInt64:
         """The endpoint's local time, in frames."""
         var rc = raw.node_get_time(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("endpoint time failed", rc.result))
+            raise self._lib[].error("endpoint time failed", rc.result)
         return rc.value
 
-    def uninit(mut self) raises:
+    def uninit(mut self) raises MaError:
         """Hand the view back early; the endpoint itself is untouched."""
         var code = raw.node_uninit(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("endpoint view uninit failed", code))
+            raise self._lib[].error("endpoint view uninit failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():
@@ -758,14 +734,14 @@ struct EngineNode(Movable):
         channels_in: UInt32 = 0,
         channels_out: UInt32 = 0,
         volume_smooth_time: UInt32 = 0,
-    ) raises -> UInt64:
+    ) raises MaError -> UInt64:
         """Working-heap bytes for an engine node of this shape, without building one."""
         var lib = engine[]._lib.copy()
         var rc = raw.engine_node_get_heap_size(
             lib[], engine[]._ptr, flags, channels_in, channels_out, volume_smooth_time
         )
         if rc.result != MA_SUCCESS:
-            raise Error(lib[].describe("engine node heap size failed", rc.result))
+            raise lib[].error("engine node heap size failed", rc.result)
         return rc.value
 
     @staticmethod
@@ -778,7 +754,7 @@ struct EngineNode(Movable):
         volume_smooth_time: UInt32 = 0,
         pinned_listener_index: UInt32 = 0,
         preallocated: Bool = False,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """Build an engine node. Channels of 0 mean the engine's channel count.
 
         `flags` are `SOUND_FLAG_*` (`NO_PITCH` and `NO_SPATIALIZATION` apply).
@@ -790,9 +766,9 @@ struct EngineNode(Movable):
         var lib = engine[]._lib.copy()
         var ptr = raw.engine_node_alloc(lib[])
         if ptr == null_handle():
-            raise Error("engine_node_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "engine_node_alloc failed (out of memory)")
 
-        var code: Int
+        var code: MaResult
         if preallocated:
             code = raw.engine_node_init_preallocated(
                 lib[], ptr, engine[]._ptr, flags, channels_in, channels_out,
@@ -805,18 +781,18 @@ struct EngineNode(Movable):
             )
         if code != MA_SUCCESS:
             raw.engine_node_free(lib[], ptr)
-            raise Error(lib[].describe("engine node init failed", code))
+            raise lib[].error("engine node init failed", code)
         return Self(lib^, graph^, ptr)
 
     def attach_to_endpoint(
         mut self, *, output_bus: UInt32 = 0, endpoint_input_bus: UInt32 = 0
-    ) raises:
+    ) raises MaError:
         """Feed this node's output straight into the engine's endpoint."""
         var code = raw.node_attach_to_endpoint(
             self._lib[], self._ptr, output_bus, self._graph[]._ptr, endpoint_input_bus
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("engine node attach to endpoint failed", code))
+            raise self._lib[].error("engine node attach to endpoint failed", code)
 
     def attach_to(
         mut self,
@@ -824,13 +800,13 @@ struct EngineNode(Movable):
         *,
         output_bus: UInt32 = 0,
         other_input_bus: UInt32 = 0,
-    ) raises:
+    ) raises MaError:
         """Feed this node's output into another engine node's input."""
         var code = raw.node_attach_output_bus(
             self._lib[], self._ptr, output_bus, other._ptr, other_input_bus
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("engine node attach failed", code))
+            raise self._lib[].error("engine node attach failed", code)
 
     def attach_to(
         mut self,
@@ -838,93 +814,85 @@ struct EngineNode(Movable):
         *,
         output_bus: UInt32 = 0,
         other_input_bus: UInt32 = 0,
-    ) raises:
+    ) raises MaError:
         """Feed this node's output into the engine's endpoint (through its view)."""
         var code = raw.node_attach_output_bus(
             self._lib[], self._ptr, output_bus, other._ptr, other_input_bus
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("engine node attach failed", code))
+            raise self._lib[].error("engine node attach failed", code)
 
-    def detach(mut self, *, output_bus: UInt32 = 0) raises:
+    def detach(mut self, *, output_bus: UInt32 = 0) raises MaError:
         var code = raw.node_detach_output_bus(self._lib[], self._ptr, output_bus)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("engine node detach failed", code))
+            raise self._lib[].error("engine node detach failed", code)
 
-    def detach_all(mut self) raises:
+    def detach_all(mut self) raises MaError:
         var code = raw.node_detach_all_output_buses(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("engine node detach all failed", code))
+            raise self._lib[].error("engine node detach all failed", code)
 
-    def set_volume(mut self, volume: Float32, *, output_bus: UInt32 = 0) raises:
+    def set_volume(mut self, volume: Float32, *, output_bus: UInt32 = 0) raises MaError:
         var code = raw.node_set_output_bus_volume(
             self._lib[], self._ptr, output_bus, volume
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("engine node set volume failed", code))
+            raise self._lib[].error("engine node set volume failed", code)
 
-    def volume(self, *, output_bus: UInt32 = 0) raises -> Float32:
+    def volume(self, *, output_bus: UInt32 = 0) raises MaError -> Float32:
         var rc = raw.node_get_output_bus_volume(self._lib[], self._ptr, output_bus)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("engine node volume failed", rc.result))
+            raise self._lib[].error("engine node volume failed", rc.result)
         return rc.value
 
-    def input_bus_count(self) raises -> UInt32:
+    def input_bus_count(self) raises MaError -> UInt32:
         var rc = raw.node_get_input_bus_count(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("engine node input bus count failed", rc.result)
-            )
+            raise self._lib[].error("engine node input bus count failed", rc.result)
         return rc.value
 
-    def output_bus_count(self) raises -> UInt32:
+    def output_bus_count(self) raises MaError -> UInt32:
         var rc = raw.node_get_output_bus_count(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("engine node output bus count failed", rc.result)
-            )
+            raise self._lib[].error("engine node output bus count failed", rc.result)
         return rc.value
 
-    def input_channels(self, *, bus: UInt32 = 0) raises -> UInt32:
+    def input_channels(self, *, bus: UInt32 = 0) raises MaError -> UInt32:
         var rc = raw.node_get_input_channels(self._lib[], self._ptr, bus)
         if rc.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("engine node input channels failed", rc.result)
-            )
+            raise self._lib[].error("engine node input channels failed", rc.result)
         return rc.value
 
-    def output_channels(self, *, bus: UInt32 = 0) raises -> UInt32:
+    def output_channels(self, *, bus: UInt32 = 0) raises MaError -> UInt32:
         var rc = raw.node_get_output_channels(self._lib[], self._ptr, bus)
         if rc.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("engine node output channels failed", rc.result)
-            )
+            raise self._lib[].error("engine node output channels failed", rc.result)
         return rc.value
 
-    def set_state(mut self, state: Int) raises:
+    def set_state(mut self, state: Int) raises MaError:
         """NODE_STATE_STARTED or NODE_STATE_STOPPED."""
         var code = raw.node_set_state(self._lib[], self._ptr, state)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("engine node set state failed", code))
+            raise self._lib[].error("engine node set state failed", code)
 
-    def state(self) raises -> Int:
+    def state(self) raises MaError -> Int:
         var rc = raw.node_get_state(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("engine node state failed", rc.result))
+            raise self._lib[].error("engine node state failed", rc.result)
         return rc.value
 
-    def belongs_to(self, graph: ArcPointer[NodeGraph]) raises -> Bool:
+    def belongs_to(self, graph: ArcPointer[NodeGraph]) raises MaError -> Bool:
         """Whether this node lives in that graph."""
         var rc = raw.node_belongs_to_graph(self._lib[], self._ptr, graph[]._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("node graph identity failed", rc.result))
+            raise self._lib[].error("node graph identity failed", rc.result)
         return rc.value
 
-    def uninit(mut self) raises:
+    def uninit(mut self) raises MaError:
         """Detach and release the node early; the handle stays valid but empty."""
         var code = raw.engine_node_uninit(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("engine node uninit failed", code))
+            raise self._lib[].error("engine node uninit failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():

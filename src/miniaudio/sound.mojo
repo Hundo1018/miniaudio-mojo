@@ -18,7 +18,7 @@ to play, loop points, an initial seek position, a group or node to feed into.
 from std.memory import ArcPointer
 
 from miniaudio._lib import MaLib, null_handle
-from miniaudio.result import MA_SUCCESS
+from miniaudio.result import MaResult, MaError, MA_SUCCESS
 from miniaudio.decoder import SampleFormat
 from miniaudio.engine import Engine
 from miniaudio.data_source import DataSource
@@ -86,15 +86,15 @@ struct Sound(Movable):
     @staticmethod
     def from_file(
         engine: ArcPointer[Engine], path: String, *, flags: UInt32 = 0
-    ) raises -> Self:
+    ) raises MaError -> Self:
         var lib = engine[]._lib.copy()
         var ptr = raw.sound_alloc(lib[])
         if ptr == null_handle():
-            raise Error("sound_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "sound_alloc failed (out of memory)")
         var code = raw.sound_init_from_file(lib[], ptr, engine[]._ptr, path, flags)
         if code != MA_SUCCESS:
             raw.sound_free(lib[], ptr)
-            raise Error(lib[].describe("sound init from file failed", code))
+            raise lib[].error("sound init from file failed", code)
         return Self(lib^, engine.copy(), ptr)
 
     @staticmethod
@@ -103,7 +103,7 @@ struct Sound(Movable):
         source: ArcPointer[DataSource],
         *,
         flags: UInt32 = 0,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """A sound that plays from a `DataSource` you built.
 
         The sound reads the source on the engine's audio thread, so it keeps the
@@ -113,19 +113,19 @@ struct Sound(Movable):
         var lib = engine[]._lib.copy()
         var ptr = raw.sound_alloc(lib[])
         if ptr == null_handle():
-            raise Error("sound_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "sound_alloc failed (out of memory)")
         var code = raw.sound_init_from_data_source(
             lib[], ptr, engine[]._ptr, source[]._ptr, flags
         )
         if code != MA_SUCCESS:
             raw.sound_free(lib[], ptr)
-            raise Error(lib[].describe("sound init from data source failed", code))
+            raise lib[].error("sound init from data source failed", code)
         var snd = Self(lib^, engine.copy(), ptr)
         snd._source = source.copy()
         return snd^
 
     @staticmethod
-    def from_config(engine: ArcPointer[Engine], config: SoundConfig) raises -> Self:
+    def from_config(engine: ArcPointer[Engine], config: SoundConfig) raises MaError -> Self:
         """A sound built from a `SoundConfig` (ma_sound_init_ex).
 
         The config supplies a file path, a data source, or neither (which gives a
@@ -136,18 +136,18 @@ struct Sound(Movable):
         var lib = engine[]._lib.copy()
         var ptr = raw.sound_alloc(lib[])
         if ptr == null_handle():
-            raise Error("sound_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "sound_alloc failed (out of memory)")
         var code = raw.sound_init_ex(lib[], ptr, engine[]._ptr, config._ptr)
         if code != MA_SUCCESS:
             raw.sound_free(lib[], ptr)
-            raise Error(lib[].describe("sound init_ex failed", code))
+            raise lib[].error("sound init_ex failed", code)
         var snd = Self(lib^, engine.copy(), ptr)
         snd._source = config._source.copy()
         snd._group = config._group.copy()
         snd._node = config._node.copy()
         return snd^
 
-    def engine(self) raises -> ArcPointer[Engine]:
+    def engine(self) raises MaError -> ArcPointer[Engine]:
         """The engine this sound belongs to (ma_sound_get_engine).
 
         miniaudio hands back the very engine the sound was created against; the
@@ -156,12 +156,12 @@ struct Sound(Movable):
         """
         var handle = raw.sound_get_engine(self._lib[], self._ptr)
         if handle == null_handle():
-            raise Error("sound has no engine (not initialised)")
+            raise MaError(MaResult.INVALID_OPERATION, "sound has no engine (not initialised)")
         if handle != self._engine[]._ptr:
-            raise Error("sound reports an engine other than the one it was built with")
+            raise MaError(MaResult.ERROR, "sound reports an engine other than the one it was built with")
         return self._engine.copy()
 
-    def data_source(self) raises -> DataSource:
+    def data_source(self) raises MaError -> DataSource:
         """A borrowed view of the data source this sound plays from (ma_sound_get_data_source).
 
         For a sound built with `from_data_source` it is that very source
@@ -172,48 +172,48 @@ struct Sound(Movable):
         """
         var ptr = dsraw.data_source_alloc(self._lib[])
         if ptr == null_handle():
-            raise Error("data_source_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "data_source_alloc failed (out of memory)")
         var code = dsraw.data_source_borrow_sound(self._lib[], ptr, self._ptr)
         if code != MA_SUCCESS:
             dsraw.data_source_free(self._lib[], ptr)
-            raise Error(self._lib[].describe("sound data source borrow failed", code))
+            raise self._lib[].error("sound data source borrow failed", code)
         var fmt = self.data_format()
         return DataSource(self._lib.copy(), ptr, fmt.channels)
 
-    def start(mut self) raises:
+    def start(mut self) raises MaError:
         var code = raw.sound_start(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("sound start failed", code))
+            raise self._lib[].error("sound start failed", code)
 
-    def stop(mut self) raises:
+    def stop(mut self) raises MaError:
         var code = raw.sound_stop(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("sound stop failed", code))
+            raise self._lib[].error("sound stop failed", code)
 
-    def set_volume(mut self, volume: Float32) raises:
+    def set_volume(mut self, volume: Float32) raises MaError:
         if raw.sound_set_volume(self._lib[], self._ptr, volume) != MA_SUCCESS:
-            raise Error("sound set_volume on uninitialized sound")
+            raise MaError(MaResult.INVALID_OPERATION, "sound set_volume on uninitialized sound")
 
     def volume(self) -> Float32:
         return raw.sound_get_volume(self._lib[], self._ptr)
 
-    def set_pan(mut self, pan: Float32) raises:
+    def set_pan(mut self, pan: Float32) raises MaError:
         if raw.sound_set_pan(self._lib[], self._ptr, pan) != MA_SUCCESS:
-            raise Error("sound set_pan on uninitialized sound")
+            raise MaError(MaResult.INVALID_OPERATION, "sound set_pan on uninitialized sound")
 
     def pan(self) -> Float32:
         return raw.sound_get_pan(self._lib[], self._ptr)
 
-    def set_pitch(mut self, pitch: Float32) raises:
+    def set_pitch(mut self, pitch: Float32) raises MaError:
         if raw.sound_set_pitch(self._lib[], self._ptr, pitch) != MA_SUCCESS:
-            raise Error("sound set_pitch on uninitialized sound")
+            raise MaError(MaResult.INVALID_OPERATION, "sound set_pitch on uninitialized sound")
 
     def pitch(self) -> Float32:
         return raw.sound_get_pitch(self._lib[], self._ptr)
 
-    def set_looping(mut self, looping: Bool) raises:
+    def set_looping(mut self, looping: Bool) raises MaError:
         if raw.sound_set_looping(self._lib[], self._ptr, looping) != MA_SUCCESS:
-            raise Error("sound set_looping on uninitialized sound")
+            raise MaError(MaResult.INVALID_OPERATION, "sound set_looping on uninitialized sound")
 
     def is_looping(self) -> Bool:
         return raw.sound_is_looping(self._lib[], self._ptr) != 0
@@ -224,62 +224,56 @@ struct Sound(Movable):
     def at_end(self) -> Bool:
         return raw.sound_at_end(self._lib[], self._ptr) != 0
 
-    def set_spatialization_enabled(mut self, enabled: Bool) raises:
+    def set_spatialization_enabled(mut self, enabled: Bool) raises MaError:
         if (
             raw.sound_set_spatialization_enabled(self._lib[], self._ptr, enabled)
             != MA_SUCCESS
         ):
-            raise Error("sound set_spatialization_enabled on uninitialized sound")
+            raise MaError(MaResult.INVALID_OPERATION, "sound set_spatialization_enabled on uninitialized sound")
 
     def is_spatialization_enabled(self) -> Bool:
         return raw.sound_is_spatialization_enabled(self._lib[], self._ptr) != 0
 
-    def seek(mut self, frame_index: UInt64) raises:
+    def seek(mut self, frame_index: UInt64) raises MaError:
         var code = raw.sound_seek_to_pcm_frame(self._lib[], self._ptr, frame_index)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("sound seek failed", code))
+            raise self._lib[].error("sound seek failed", code)
 
-    def cursor(self) raises -> UInt64:
+    def cursor(self) raises MaError -> UInt64:
         var c = raw.sound_get_cursor_in_pcm_frames(self._lib[], self._ptr)
         if c.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("sound cursor query failed", c.result))
+            raise self._lib[].error("sound cursor query failed", c.result)
         return c.value
 
-    def length_in_frames(self) raises -> UInt64:
+    def length_in_frames(self) raises MaError -> UInt64:
         var c = raw.sound_get_length_in_pcm_frames(self._lib[], self._ptr)
         if c.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("sound length query failed", c.result))
+            raise self._lib[].error("sound length query failed", c.result)
         return c.value
 
     # ---- seconds-based cursor / seek ----
 
-    def seek_to_second(mut self, seek_point: Float32) raises:
+    def seek_to_second(mut self, seek_point: Float32) raises MaError:
         var code = raw.sound_seek_to_second(self._lib[], self._ptr, seek_point)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("sound seek_to_second failed", code))
+            raise self._lib[].error("sound seek_to_second failed", code)
 
-    def cursor_in_seconds(self) raises -> Float32:
+    def cursor_in_seconds(self) raises MaError -> Float32:
         var c = raw.sound_get_cursor_in_seconds(self._lib[], self._ptr)
         if c.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("sound cursor(s) query failed", c.result)
-            )
+            raise self._lib[].error("sound cursor(s) query failed", c.result)
         return c.value
 
-    def length_in_seconds(self) raises -> Float32:
+    def length_in_seconds(self) raises MaError -> Float32:
         var c = raw.sound_get_length_in_seconds(self._lib[], self._ptr)
         if c.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("sound length(s) query failed", c.result)
-            )
+            raise self._lib[].error("sound length(s) query failed", c.result)
         return c.value
 
-    def data_format(self) raises -> DataFormat:
+    def data_format(self) raises MaError -> DataFormat:
         var d = raw.sound_get_data_format(self._lib[], self._ptr)
         if d.result != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("sound data_format query failed", d.result)
-            )
+            raise self._lib[].error("sound data_format query failed", d.result)
         return DataFormat(SampleFormat(d.format), d.channels, d.sample_rate)
 
     # ---- spatialization: position / direction / velocity ----
@@ -460,23 +454,19 @@ struct Sound(Movable):
             self._lib[], self._ptr, stop_time, fade_len
         )
 
-    def stop_with_fade_in_pcm_frames(mut self, fade_len: UInt64) raises:
+    def stop_with_fade_in_pcm_frames(mut self, fade_len: UInt64) raises MaError:
         var code = raw.sound_stop_with_fade_in_pcm_frames(
             self._lib[], self._ptr, fade_len
         )
         if code != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("sound stop_with_fade failed", code)
-            )
+            raise self._lib[].error("sound stop_with_fade failed", code)
 
-    def stop_with_fade_in_milliseconds(mut self, fade_len: UInt64) raises:
+    def stop_with_fade_in_milliseconds(mut self, fade_len: UInt64) raises MaError:
         var code = raw.sound_stop_with_fade_in_milliseconds(
             self._lib[], self._ptr, fade_len
         )
         if code != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("sound stop_with_fade(ms) failed", code)
-            )
+            raise self._lib[].error("sound stop_with_fade(ms) failed", code)
 
     def reset_start_time(mut self):
         raw.sound_reset_start_time(self._lib[], self._ptr)
@@ -494,18 +484,18 @@ struct Sound(Movable):
         return raw.sound_get_time_in_milliseconds(self._lib[], self._ptr)
 
     @staticmethod
-    def copy_of(existing: Sound, *, flags: UInt32 = 0) raises -> Self:
+    def copy_of(existing: Sound, *, flags: UInt32 = 0) raises MaError -> Self:
         """Create an independent Sound that shares `existing`'s data source."""
         var lib = existing._lib.copy()
         var ptr = raw.sound_alloc(lib[])
         if ptr == null_handle():
-            raise Error("sound_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "sound_alloc failed (out of memory)")
         var code = raw.sound_init_copy(
             lib[], ptr, existing._engine[]._ptr, existing._ptr, flags
         )
         if code != MA_SUCCESS:
             raw.sound_free(lib[], ptr)
-            raise Error(lib[].describe("sound init_copy failed", code))
+            raise lib[].error("sound init_copy failed", code)
         return Self(lib^, existing._engine.copy(), ptr)
 
     def __deinit__(deinit self):
@@ -558,138 +548,138 @@ struct SoundConfig(Movable):
         self._node = None
 
     @staticmethod
-    def create(lib: ArcPointer[MaLib]) raises -> Self:
+    def create(lib: ArcPointer[MaLib]) raises MaError -> Self:
         """miniaudio's default config (ma_sound_config_init)."""
         var ptr = raw.sound_config_alloc(lib[])
         if ptr == null_handle():
-            raise Error("sound_config_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "sound_config_alloc failed (out of memory)")
         var code = raw.sound_config_init(lib[], ptr)
         if code != MA_SUCCESS:
             raw.sound_config_free(lib[], ptr)
-            raise Error(lib[].describe("sound config init failed", code))
+            raise lib[].error("sound config init failed", code)
         return Self(lib.copy(), ptr)
 
     @staticmethod
-    def for_engine(engine: ArcPointer[Engine]) raises -> Self:
+    def for_engine(engine: ArcPointer[Engine]) raises MaError -> Self:
         """The default config for one engine (ma_sound_config_init_2)."""
         var lib = engine[]._lib.copy()
         var ptr = raw.sound_config_alloc(lib[])
         if ptr == null_handle():
-            raise Error("sound_config_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "sound_config_alloc failed (out of memory)")
         var code = raw.sound_config_init_for_engine(lib[], ptr, engine[]._ptr)
         if code != MA_SUCCESS:
             raw.sound_config_free(lib[], ptr)
-            raise Error(lib[].describe("sound config init for engine failed", code))
+            raise lib[].error("sound config init for engine failed", code)
         return Self(lib^, ptr)
 
-    def set_file_path(mut self, path: String) raises:
+    def set_file_path(mut self, path: String) raises MaError:
         """Load the sound from a file through the engine's resource manager."""
         var code = raw.sound_config_set_file_path(self._lib[], self._ptr, path)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("sound config set_file_path failed", code))
+            raise self._lib[].error("sound config set_file_path failed", code)
 
-    def clear_file_path(mut self) raises:
+    def clear_file_path(mut self) raises MaError:
         var code = raw.sound_config_clear_file_path(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("sound config clear_file_path failed", code))
+            raise self._lib[].error("sound config clear_file_path failed", code)
 
-    def set_data_source(mut self, source: ArcPointer[DataSource]) raises:
+    def set_data_source(mut self, source: ArcPointer[DataSource]) raises MaError:
         """Play from a `DataSource` you built. A borrowed view is refused."""
         var code = raw.sound_config_set_data_source(
             self._lib[], self._ptr, source[]._ptr
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("sound config set_data_source failed", code))
+            raise self._lib[].error("sound config set_data_source failed", code)
         self._source = source.copy()
 
-    def clear_data_source(mut self) raises:
+    def clear_data_source(mut self) raises MaError:
         var code = raw.sound_config_set_data_source(
             self._lib[], self._ptr, null_handle()
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("sound config clear_data_source failed", code))
+            raise self._lib[].error("sound config clear_data_source failed", code)
         self._source = None
 
     def set_group(
         mut self, group: ArcPointer[SoundGroup], *, input_bus: UInt32 = 0
-    ) raises:
+    ) raises MaError:
         """Feed the new sound into a sound group instead of the endpoint."""
         var code = raw.sound_config_set_initial_attachment_group(
             self._lib[], self._ptr, group[]._ptr, input_bus
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("sound config set_group failed", code))
+            raise self._lib[].error("sound config set_group failed", code)
         self._group = group.copy()
         self._node = None
 
     def set_engine_node(
         mut self, node: ArcPointer[EngineNode], *, input_bus: UInt32 = 0
-    ) raises:
+    ) raises MaError:
         """Feed the new sound into an `EngineNode` instead of the endpoint."""
         var code = raw.sound_config_set_initial_attachment_node(
             self._lib[], self._ptr, node[]._ptr, input_bus
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("sound config set_engine_node failed", code))
+            raise self._lib[].error("sound config set_engine_node failed", code)
         self._node = node.copy()
         self._group = None
 
-    def clear_attachment(mut self) raises:
+    def clear_attachment(mut self) raises MaError:
         """Back to the default: attach straight to the engine's endpoint."""
         var code = raw.sound_config_set_initial_attachment_node(
             self._lib[], self._ptr, null_handle(), UInt32(0)
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("sound config clear_attachment failed", code))
+            raise self._lib[].error("sound config clear_attachment failed", code)
         self._group = None
         self._node = None
 
-    def set_flags(mut self, flags: UInt32) raises:
+    def set_flags(mut self, flags: UInt32) raises MaError:
         """`SOUND_FLAG_*` values OR-ed together."""
         var code = raw.sound_config_set_flags(self._lib[], self._ptr, flags)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("sound config set_flags failed", code))
+            raise self._lib[].error("sound config set_flags failed", code)
 
     def set_channels(
         mut self, channels_in: UInt32, channels_out: UInt32 = UInt32(0)
-    ) raises:
+    ) raises MaError:
         """0 means the engine's channel count; `channels_out` may also be
         `SOUND_SOURCE_CHANNEL_COUNT` to follow the data source."""
         var code = raw.sound_config_set_channels(
             self._lib[], self._ptr, channels_in, channels_out
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("sound config set_channels failed", code))
+            raise self._lib[].error("sound config set_channels failed", code)
 
-    def set_volume_smooth_time(mut self, frames: UInt32) raises:
+    def set_volume_smooth_time(mut self, frames: UInt32) raises MaError:
         """Frames over which volume changes are smoothed (0 for none)."""
         var code = raw.sound_config_set_volume_smooth_time(self._lib[], self._ptr, frames)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("sound config set_volume_smooth_time failed", code))
+            raise self._lib[].error("sound config set_volume_smooth_time failed", code)
 
-    def set_mono_expansion_mode(mut self, mode: Int) raises:
+    def set_mono_expansion_mode(mut self, mode: Int) raises MaError:
         """An ma_mono_expansion_mode code (0 duplicate, 1 average, 2 stereo-only)."""
         var code = raw.sound_config_set_mono_expansion_mode(self._lib[], self._ptr, mode)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("sound config set_mono_expansion_mode failed", code))
+            raise self._lib[].error("sound config set_mono_expansion_mode failed", code)
 
-    def set_initial_seek_point(mut self, frame: UInt64) raises:
+    def set_initial_seek_point(mut self, frame: UInt64) raises MaError:
         """Where in the source (in frames) playback starts."""
         var code = raw.sound_config_set_initial_seek_point(self._lib[], self._ptr, frame)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("sound config set_initial_seek_point failed", code))
+            raise self._lib[].error("sound config set_initial_seek_point failed", code)
 
-    def set_range(mut self, beg: UInt64, end: UInt64 = FRAME_RANGE_END) raises:
+    def set_range(mut self, beg: UInt64, end: UInt64 = FRAME_RANGE_END) raises MaError:
         """The slice of the source to play; `end` defaults to the end of the source."""
         var code = raw.sound_config_set_range(self._lib[], self._ptr, beg, end)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("sound config set_range failed", code))
+            raise self._lib[].error("sound config set_range failed", code)
 
-    def set_loop_point(mut self, beg: UInt64, end: UInt64 = FRAME_RANGE_END) raises:
+    def set_loop_point(mut self, beg: UInt64, end: UInt64 = FRAME_RANGE_END) raises MaError:
         """Where a looping sound jumps back from (`end`) and to (`beg`)."""
         var code = raw.sound_config_set_loop_point(self._lib[], self._ptr, beg, end)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("sound config set_loop_point failed", code))
+            raise self._lib[].error("sound config set_loop_point failed", code)
 
     def __deinit__(deinit self):
         if self._ptr != null_handle():

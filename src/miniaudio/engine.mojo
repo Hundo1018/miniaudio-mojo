@@ -31,7 +31,7 @@ from the next period on; pull whole periods when you read it yourself (`read`).
 from std.memory import ArcPointer
 
 from miniaudio._lib import MaLib, null_handle
-from miniaudio.result import MA_SUCCESS
+from miniaudio.result import MaResult, MaError, MA_SUCCESS
 from miniaudio._ffi.sound_raw import Vec3, MaCone
 import miniaudio._ffi.engine_raw as raw
 
@@ -49,40 +49,40 @@ struct Engine(Movable):
         self._ptr = ptr
 
     @staticmethod
-    def create(lib: ArcPointer[MaLib], *, use_null_backend: Bool = False) raises -> Self:
+    def create(lib: ArcPointer[MaLib], *, use_null_backend: Bool = False) raises MaError -> Self:
         """Initialises an engine (auto-started). `use_null_backend` for tests."""
         var ptr = raw.engine_alloc(lib[])
         if ptr == null_handle():
-            raise Error("engine_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "engine_alloc failed (out of memory)")
         var code = raw.engine_init(lib[], ptr, use_null_backend)
         if code != MA_SUCCESS:
             raw.engine_free(lib[], ptr)
-            raise Error(lib[].describe("engine init failed", code))
+            raise lib[].error("engine init failed", code)
         return Self(lib.copy(), ptr)
 
-    def start(mut self) raises:
+    def start(mut self) raises MaError:
         var code = raw.engine_start(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("engine start failed", code))
+            raise self._lib[].error("engine start failed", code)
 
-    def stop(mut self) raises:
+    def stop(mut self) raises MaError:
         var code = raw.engine_stop(self._lib[], self._ptr)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("engine stop failed", code))
+            raise self._lib[].error("engine stop failed", code)
 
-    def play_sound(mut self, path: String) raises:
+    def play_sound(mut self, path: String) raises MaError:
         """Fire-and-forget: loads and plays `path` to the engine's endpoint."""
         var code = raw.engine_play_sound(self._lib[], self._ptr, path)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("engine play_sound failed", code))
+            raise self._lib[].error("engine play_sound failed", code)
 
-    def play_sound_ex(mut self, path: String) raises:
+    def play_sound_ex(mut self, path: String) raises MaError:
         """Fire-and-forget play attached to the engine endpoint (node == NULL)."""
         var code = raw.engine_play_sound_ex(self._lib[], self._ptr, path)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("engine play_sound_ex failed", code))
+            raise self._lib[].error("engine play_sound_ex failed", code)
 
-    def read(mut self, mut out: List[Float32], frame_count: UInt64) raises -> UInt64:
+    def read(mut self, mut out: List[Float32], frame_count: UInt64) raises MaError -> UInt64:
         """Reads up to frame_count frames from the node graph into `out`.
 
         `out` is sized to frames_read * channels (interleaved f32). Returns the
@@ -91,12 +91,12 @@ struct Engine(Movable):
         """
         var ch = Int(self.channels())
         if ch == 0:
-            raise Error("engine has unknown channel count")
+            raise MaError(MaResult.INVALID_DATA, "engine has unknown channel count")
         out.resize(Int(frame_count) * ch, Float32(0))
         var c = raw.engine_read_pcm_frames(self._lib[], self._ptr, out, frame_count)
         if c.result != MA_SUCCESS:
             out.resize(0, Float32(0))
-            raise Error(self._lib[].describe("engine read failed", c.result))
+            raise self._lib[].error("engine read failed", c.result)
         out.resize(Int(c.value) * ch, Float32(0))
         return c.value
 
@@ -106,18 +106,18 @@ struct Engine(Movable):
     def channels(self) -> UInt32:
         return raw.engine_get_channels(self._lib[], self._ptr)
 
-    def set_volume(mut self, volume: Float32) raises:
+    def set_volume(mut self, volume: Float32) raises MaError:
         var code = raw.engine_set_volume(self._lib[], self._ptr, volume)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("engine set_volume failed", code))
+            raise self._lib[].error("engine set_volume failed", code)
 
     def volume(self) -> Float32:
         return raw.engine_get_volume(self._lib[], self._ptr)
 
-    def set_gain_db(mut self, gain_db: Float32) raises:
+    def set_gain_db(mut self, gain_db: Float32) raises MaError:
         var code = raw.engine_set_gain_db(self._lib[], self._ptr, gain_db)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("engine set_gain_db failed", code))
+            raise self._lib[].error("engine set_gain_db failed", code)
 
     def gain_db(self) -> Float32:
         return raw.engine_get_gain_db(self._lib[], self._ptr)
@@ -130,17 +130,15 @@ struct Engine(Movable):
     def time_in_milliseconds(self) -> UInt64:
         return raw.engine_get_time_in_milliseconds(self._lib[], self._ptr)
 
-    def set_time_in_frames(mut self, global_time: UInt64) raises:
+    def set_time_in_frames(mut self, global_time: UInt64) raises MaError:
         var code = raw.engine_set_time_in_pcm_frames(self._lib[], self._ptr, global_time)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("engine set_time_in_frames failed", code))
+            raise self._lib[].error("engine set_time_in_frames failed", code)
 
-    def set_time_in_milliseconds(mut self, global_time: UInt64) raises:
+    def set_time_in_milliseconds(mut self, global_time: UInt64) raises MaError:
         var code = raw.engine_set_time_in_milliseconds(self._lib[], self._ptr, global_time)
         if code != MA_SUCCESS:
-            raise Error(
-                self._lib[].describe("engine set_time_in_milliseconds failed", code)
-            )
+            raise self._lib[].error("engine set_time_in_milliseconds failed", code)
 
     # ---- listeners (index-based spatialization) ----
 

@@ -18,7 +18,7 @@ time and can overshoot the target. The following call is settled and exact.
 from std.memory import ArcPointer
 
 from miniaudio._lib import MaLib, null_handle
-from miniaudio.result import MA_SUCCESS
+from miniaudio.result import MaResult, MaError, MA_SUCCESS
 import miniaudio._ffi.effect_raw as raw
 
 comptime PanModeBalance: Int = raw.PAN_MODE_BALANCE
@@ -66,58 +66,58 @@ struct Delay(Movable):
         sample_rate: UInt32,
         delay_in_frames: UInt32,
         decay: Float32 = 0.0,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """decay must be in [0, 1]; channels and delay_in_frames must be > 0."""
         var ptr = raw.delay_alloc(lib[])
         if ptr == null_handle():
-            raise Error("delay_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "delay_alloc failed (out of memory)")
         var code = raw.delay_init(lib[], ptr, channels, sample_rate, delay_in_frames, decay)
         if code != MA_SUCCESS:
             raw.delay_free(lib[], ptr)
-            raise Error(lib[].describe("delay init failed", code))
+            raise lib[].error("delay init failed", code)
         return Self(lib.copy(), ptr, channels)
 
-    def process(mut self, input: List[Float32]) raises -> List[Float32]:
+    def process(mut self, input: List[Float32]) raises MaError -> List[Float32]:
         """Run every frame of `input` through the delay; frame count is unchanged."""
         var buf = _zeros(len(input))
         var code = raw.delay_process(
             self._lib[], self._ptr, buf, input, UInt32(_frames_of(input, self._channels))
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("delay process failed", code))
+            raise self._lib[].error("delay process failed", code)
         return buf^
 
-    def set_wet(mut self, value: Float32) raises:
+    def set_wet(mut self, value: Float32) raises MaError:
         var code = raw.delay_set_wet(self._lib[], self._ptr, value)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("delay set_wet failed", code))
+            raise self._lib[].error("delay set_wet failed", code)
 
-    def wet(self) raises -> Float32:
+    def wet(self) raises MaError -> Float32:
         var rc = raw.delay_get_wet(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("delay wet failed", rc.result))
+            raise self._lib[].error("delay wet failed", rc.result)
         return rc.value
 
-    def set_dry(mut self, value: Float32) raises:
+    def set_dry(mut self, value: Float32) raises MaError:
         var code = raw.delay_set_dry(self._lib[], self._ptr, value)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("delay set_dry failed", code))
+            raise self._lib[].error("delay set_dry failed", code)
 
-    def dry(self) raises -> Float32:
+    def dry(self) raises MaError -> Float32:
         var rc = raw.delay_get_dry(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("delay dry failed", rc.result))
+            raise self._lib[].error("delay dry failed", rc.result)
         return rc.value
 
-    def set_decay(mut self, value: Float32) raises:
+    def set_decay(mut self, value: Float32) raises MaError:
         var code = raw.delay_set_decay(self._lib[], self._ptr, value)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("delay set_decay failed", code))
+            raise self._lib[].error("delay set_decay failed", code)
 
-    def decay(self) raises -> Float32:
+    def decay(self) raises MaError -> Float32:
         var rc = raw.delay_get_decay(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("delay decay failed", rc.result))
+            raise self._lib[].error("delay decay failed", rc.result)
         return rc.value
 
     def __deinit__(deinit self):
@@ -149,61 +149,61 @@ struct Gainer(Movable):
         channels: UInt32,
         smooth_time_in_frames: UInt32 = 0,
         preallocated: Bool = False,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         """preallocated=True takes the get_heap_size + init_preallocated path."""
         var ptr = raw.gainer_alloc(lib[])
         if ptr == null_handle():
-            raise Error("gainer_alloc failed (out of memory)")
-        var code: Int
+            raise MaError(MaResult.OUT_OF_MEMORY, "gainer_alloc failed (out of memory)")
+        var code: MaResult
         if preallocated:
             code = raw.gainer_init_preallocated(lib[], ptr, channels, smooth_time_in_frames)
         else:
             code = raw.gainer_init(lib[], ptr, channels, smooth_time_in_frames)
         if code != MA_SUCCESS:
             raw.gainer_free(lib[], ptr)
-            raise Error(lib[].describe("gainer init failed", code))
+            raise lib[].error("gainer init failed", code)
         return Self(lib.copy(), ptr, channels)
 
     @staticmethod
     def heap_size(
         lib: ArcPointer[MaLib], channels: UInt32, smooth_time_in_frames: UInt32 = 0
-    ) raises -> UInt64:
+    ) raises MaError -> UInt64:
         """Bytes ma_gainer needs for this configuration."""
         var rc = raw.gainer_get_heap_size(lib[], channels, smooth_time_in_frames)
         if rc.result != MA_SUCCESS:
-            raise Error(lib[].describe("gainer heap_size failed", rc.result))
+            raise lib[].error("gainer heap_size failed", rc.result)
         return rc.value
 
-    def process(mut self, input: List[Float32]) raises -> List[Float32]:
+    def process(mut self, input: List[Float32]) raises MaError -> List[Float32]:
         var buf = _zeros(len(input))
         var code = raw.gainer_process(
             self._lib[], self._ptr, buf, input, _frames_of(input, self._channels)
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("gainer process failed", code))
+            raise self._lib[].error("gainer process failed", code)
         return buf^
 
-    def set_gain(mut self, gain: Float32) raises:
+    def set_gain(mut self, gain: Float32) raises MaError:
         """Set the same target gain on every channel."""
         var code = raw.gainer_set_gain(self._lib[], self._ptr, gain)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("gainer set_gain failed", code))
+            raise self._lib[].error("gainer set_gain failed", code)
 
-    def set_gains(mut self, gains: List[Float32]) raises:
+    def set_gains(mut self, gains: List[Float32]) raises MaError:
         """Set one target gain per channel; len(gains) must equal channels."""
         var code = raw.gainer_set_gains(self._lib[], self._ptr, gains)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("gainer set_gains failed", code))
+            raise self._lib[].error("gainer set_gains failed", code)
 
-    def set_master_volume(mut self, volume: Float32) raises:
+    def set_master_volume(mut self, volume: Float32) raises MaError:
         var code = raw.gainer_set_master_volume(self._lib[], self._ptr, volume)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("gainer set_master_volume failed", code))
+            raise self._lib[].error("gainer set_master_volume failed", code)
 
-    def master_volume(self) raises -> Float32:
+    def master_volume(self) raises MaError -> Float32:
         var rc = raw.gainer_get_master_volume(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("gainer master_volume failed", rc.result))
+            raise self._lib[].error("gainer master_volume failed", rc.result)
         return rc.value
 
     def __deinit__(deinit self):
@@ -240,45 +240,45 @@ struct Panner(Movable):
         channels: UInt32 = 2,
         mode: Int = PanModeBalance,
         pan: Float32 = 0.0,
-    ) raises -> Self:
+    ) raises MaError -> Self:
         var ptr = raw.panner_alloc(lib[])
         if ptr == null_handle():
-            raise Error("panner_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "panner_alloc failed (out of memory)")
         var code = raw.panner_init(lib[], ptr, _FORMAT_F32, channels, mode, pan)
         if code != MA_SUCCESS:
             raw.panner_free(lib[], ptr)
-            raise Error(lib[].describe("panner init failed", code))
+            raise lib[].error("panner init failed", code)
         return Self(lib.copy(), ptr, channels)
 
-    def process(mut self, input: List[Float32]) raises -> List[Float32]:
+    def process(mut self, input: List[Float32]) raises MaError -> List[Float32]:
         var buf = _zeros(len(input))
         var code = raw.panner_process(
             self._lib[], self._ptr, buf, input, _frames_of(input, self._channels)
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("panner process failed", code))
+            raise self._lib[].error("panner process failed", code)
         return buf^
 
-    def set_mode(mut self, mode: Int) raises:
+    def set_mode(mut self, mode: Int) raises MaError:
         var code = raw.panner_set_mode(self._lib[], self._ptr, mode)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("panner set_mode failed", code))
+            raise self._lib[].error("panner set_mode failed", code)
 
-    def mode(self) raises -> Int:
+    def mode(self) raises MaError -> Int:
         var rc = raw.panner_get_mode(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("panner mode failed", rc.result))
+            raise self._lib[].error("panner mode failed", rc.result)
         return Int(rc.value)
 
-    def set_pan(mut self, pan: Float32) raises:
+    def set_pan(mut self, pan: Float32) raises MaError:
         var code = raw.panner_set_pan(self._lib[], self._ptr, pan)
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("panner set_pan failed", code))
+            raise self._lib[].error("panner set_pan failed", code)
 
-    def pan(self) raises -> Float32:
+    def pan(self) raises MaError -> Float32:
         var rc = raw.panner_get_pan(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("panner pan failed", rc.result))
+            raise self._lib[].error("panner pan failed", rc.result)
         return rc.value
 
     def __deinit__(deinit self):
@@ -306,23 +306,23 @@ struct Fader(Movable):
     @staticmethod
     def create(
         lib: ArcPointer[MaLib], *, channels: UInt32, sample_rate: UInt32
-    ) raises -> Self:
+    ) raises MaError -> Self:
         var ptr = raw.fader_alloc(lib[])
         if ptr == null_handle():
-            raise Error("fader_alloc failed (out of memory)")
+            raise MaError(MaResult.OUT_OF_MEMORY, "fader_alloc failed (out of memory)")
         var code = raw.fader_init(lib[], ptr, _FORMAT_F32, channels, sample_rate)
         if code != MA_SUCCESS:
             raw.fader_free(lib[], ptr)
-            raise Error(lib[].describe("fader init failed", code))
+            raise lib[].error("fader init failed", code)
         return Self(lib.copy(), ptr, channels)
 
-    def process(mut self, input: List[Float32]) raises -> List[Float32]:
+    def process(mut self, input: List[Float32]) raises MaError -> List[Float32]:
         var buf = _zeros(len(input))
         var code = raw.fader_process(
             self._lib[], self._ptr, buf, input, _frames_of(input, self._channels)
         )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("fader process failed", code))
+            raise self._lib[].error("fader process failed", code)
         return buf^
 
     def set_fade(
@@ -331,13 +331,13 @@ struct Fader(Movable):
         volume_end: Float32,
         length_in_frames: UInt64,
         start_offset_in_frames: Int64 = 0,
-    ) raises:
+    ) raises MaError:
         """Ramp from volume_beg to volume_end over length_in_frames.
 
         A negative volume_beg starts from the current volume. A positive
         start_offset_in_frames delays the ramp by that many frames.
         """
-        var code: Int
+        var code: MaResult
         if start_offset_in_frames == 0:
             code = raw.fader_set_fade(
                 self._lib[], self._ptr, volume_beg, volume_end, length_in_frames
@@ -352,24 +352,24 @@ struct Fader(Movable):
                 start_offset_in_frames,
             )
         if code != MA_SUCCESS:
-            raise Error(self._lib[].describe("fader set_fade failed", code))
+            raise self._lib[].error("fader set_fade failed", code)
 
-    def current_volume(self) raises -> Float32:
+    def current_volume(self) raises MaError -> Float32:
         var rc = raw.fader_get_current_volume(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("fader current_volume failed", rc.result))
+            raise self._lib[].error("fader current_volume failed", rc.result)
         return rc.value
 
-    def channels(self) raises -> UInt32:
+    def channels(self) raises MaError -> UInt32:
         var rc = raw.fader_get_data_format(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("fader data_format failed", rc.result))
+            raise self._lib[].error("fader data_format failed", rc.result)
         return rc.channels
 
-    def sample_rate(self) raises -> UInt32:
+    def sample_rate(self) raises MaError -> UInt32:
         var rc = raw.fader_get_data_format(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
-            raise Error(self._lib[].describe("fader data_format failed", rc.result))
+            raise self._lib[].error("fader data_format failed", rc.result)
         return rc.sample_rate
 
     def __deinit__(deinit self):

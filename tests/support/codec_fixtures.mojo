@@ -33,9 +33,7 @@ comptime TWO_PI = 6.283185307179586
 comptime MP3_ENCODER_DELAY = 1105
 
 # ma_result codes the tests assert beyond the ones in miniaudio.result.
-comptime MA_ERROR = Int(-1)
-comptime MA_INVALID_FILE = Int(-10)
-comptime MA_NO_BACKEND = Int(-203)
+from miniaudio.result import MA_ERROR, MA_INVALID_FILE, MA_NO_BACKEND
 
 # ma_channel codes.
 comptime MA_CHANNEL_FRONT_LEFT = UInt8(2)
