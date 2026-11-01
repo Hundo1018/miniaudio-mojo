@@ -63,6 +63,24 @@ comptime SAMPLE_FORMAT_S32 = SampleFormat.S32
 comptime SAMPLE_FORMAT_F32 = SampleFormat.F32
 
 
+@fieldwise_init
+struct DataFormat(Equatable, ImplicitlyCopyable, Movable, Writable):
+    """A stream's PCM format: sample format, channel count and sample rate.
+
+    One type for every `data_format()` (data source, sound, resource manager, wav / flac / mp3)."""
+
+    var format: SampleFormat
+    var channels: UInt32
+    var sample_rate: UInt32
+
+    def __eq__(self, other: Self) -> Bool:
+        return (
+            self.format == other.format
+            and self.channels == other.channels
+            and self.sample_rate == other.sample_rate
+        )
+
+
 struct Decoder(Movable):
     var _lib: ArcPointer[MaLib]
     var _ptr: OpaquePointer[MutUntrackedOrigin]

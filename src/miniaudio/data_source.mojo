@@ -15,6 +15,7 @@ node is alive; `__deinit__` uninits the node first.
 from std.memory import ArcPointer
 
 from miniaudio._lib import MaLib, null_handle
+from miniaudio.decoder import SampleFormat, DataFormat
 from miniaudio.result import MaResult, MaError, MA_SUCCESS, MA_AT_END
 from miniaudio.engine import Engine
 import miniaudio._ffi.data_source_raw as raw
@@ -26,15 +27,6 @@ struct FrameRange(Copyable, Movable):
 
     var beg: UInt64
     var end: UInt64
-
-
-@fieldwise_init
-struct DataFormat(Copyable, Movable):
-    """A data source's output format (ma_format code, channels, sample rate)."""
-
-    var format: Int
-    var channels: UInt32
-    var sample_rate: UInt32
 
 
 struct DataSource(Movable):
@@ -153,7 +145,7 @@ struct DataSource(Movable):
         var rc = raw.data_source_get_data_format(self._lib[], self._ptr)
         if rc.result != MA_SUCCESS:
             raise self._lib[].error("data source data_format failed", rc.result)
-        return DataFormat(rc.format, rc.channels, rc.sample_rate)
+        return DataFormat(SampleFormat(rc.format), rc.channels, rc.sample_rate)
 
     def cursor_frames(self) raises MaError -> UInt64:
         var rc = raw.data_source_get_cursor_in_pcm_frames(self._lib[], self._ptr)

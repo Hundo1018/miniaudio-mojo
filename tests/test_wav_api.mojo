@@ -45,7 +45,7 @@ def test_data_format_matches_fixture() raises:
     assert_equal(d.length_in_frames(), UInt64(WAV_FRAMES))
     assert_equal(d.cursor(), UInt64(0))
     var f = d.data_format()
-    assert_equal(f.format, SAMPLE_FORMAT_F32.code)
+    assert_equal(f.format, SAMPLE_FORMAT_F32)
     assert_equal(f.channels, UInt32(2))
     assert_equal(f.sample_rate, UInt32(WAV_RATE))
 

@@ -19,7 +19,7 @@ from std.memory import ArcPointer
 
 from miniaudio._lib import MaLib, null_handle
 from miniaudio.result import MaResult, MaError, MA_SUCCESS
-from miniaudio.decoder import SampleFormat
+from miniaudio.decoder import SampleFormat, DataFormat
 from miniaudio.engine import Engine
 from miniaudio.data_source import DataSource
 from miniaudio.sound_group import SoundGroup
@@ -51,15 +51,6 @@ from miniaudio._sound_types import (
 from miniaudio._ffi.sound_raw import Vec3, MaCone, MaDataFormat
 import miniaudio._ffi.sound_raw as raw
 import miniaudio._ffi.data_source_raw as dsraw
-
-
-@fieldwise_init
-struct DataFormat(ImplicitlyCopyable, Movable):
-    """Resolved output data format of a sound (format/channels/sample_rate)."""
-
-    var format: SampleFormat
-    var channels: UInt32
-    var sample_rate: UInt32
 
 
 struct Sound(Movable):

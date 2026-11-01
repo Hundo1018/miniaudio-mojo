@@ -16,6 +16,7 @@ from miniaudio.result import (
 )
 from miniaudio.decoder import (
     Decoder,
+    DataFormat,
     SampleFormat,
     SAMPLE_FORMAT_UNKNOWN,
     SAMPLE_FORMAT_U8,
@@ -69,7 +70,6 @@ from miniaudio.sound_group import SoundGroup, SoundGroupConfig
 from miniaudio.data_source import (
     DataSource,
     DataSourceNode,
-    DataFormat,
     FrameRange,
 )
 from miniaudio.audio_buffer import (
@@ -107,7 +107,6 @@ from miniaudio.resource_manager import (
     ResourceDataBuffer,
     ResourceDataStream,
     ResourceDataSource,
-    DataFormat,
     RESOURCE_FLAG_STREAM,
     RESOURCE_FLAG_DECODE,
     RESOURCE_FLAG_ASYNC,

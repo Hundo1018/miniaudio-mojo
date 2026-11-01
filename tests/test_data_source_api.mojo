@@ -11,6 +11,7 @@ from std.testing import assert_equal, assert_true, assert_false, assert_raises, 
 
 from miniaudio._lib import MaLib
 from miniaudio.data_source import DataSource, DataSourceNode
+from miniaudio.decoder import SAMPLE_FORMAT_F32
 from miniaudio.engine import Engine
 
 
@@ -172,7 +173,7 @@ def test_data_format_reports_construction_parameters() raises:
     var fmt = ds.data_format()
     assert_equal(fmt.channels, CHANNELS)
     assert_equal(fmt.sample_rate, SAMPLE_RATE)
-    assert_equal(fmt.format, 5)  # ma_format_f32
+    assert_equal(fmt.format, SAMPLE_FORMAT_F32)
 
 
 def test_source_owns_its_samples() raises:

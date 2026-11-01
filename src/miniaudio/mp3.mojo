@@ -20,8 +20,7 @@ from std.memory import ArcPointer
 
 from miniaudio._lib import MaLib, null_handle
 from miniaudio.result import MaResult, MaError, MA_SUCCESS, MA_AT_END
-from miniaudio.decoder import SampleFormat, SAMPLE_FORMAT_F32, SAMPLE_FORMAT_S16
-from miniaudio.data_source import DataFormat
+from miniaudio.decoder import SampleFormat, DataFormat, SAMPLE_FORMAT_F32, SAMPLE_FORMAT_S16
 import miniaudio._ffi.mp3_raw as raw
 
 
@@ -79,10 +78,10 @@ struct Mp3Decoder(Movable):
         var f = raw.mp3_get_data_format(self._lib[], self._ptr)
         if f.result != MA_SUCCESS:
             raise self._lib[].error("mp3 data format query failed", f.result)
-        return DataFormat(f.format, f.channels, f.sample_rate)
+        return DataFormat(SampleFormat(f.format), f.channels, f.sample_rate)
 
     def format(self) raises MaError -> SampleFormat:
-        return SampleFormat(self.data_format().format)
+        return self.data_format().format
 
     def channels(self) raises MaError -> UInt32:
         return self.data_format().channels
@@ -123,7 +122,7 @@ struct Mp3Decoder(Movable):
         stream's format is not f32 (use `read_s16`, or open with f32).
         """
         var f = self.data_format()
-        if f.format != SAMPLE_FORMAT_F32.code:
+        if f.format != SAMPLE_FORMAT_F32:
             raise MaError(MaResult.INVALID_OPERATION, "mp3 read: stream format is not f32; open with format=f32 or use read_s16")
         var ch = Int(f.channels)
         out.resize(Int(frame_count) * ch, Float32(0))
@@ -137,7 +136,7 @@ struct Mp3Decoder(Movable):
     def read_s16(mut self, mut out: List[Int16], frame_count: UInt64) raises MaError -> UInt64:
         """As `read`, for a stream opened with format=s16."""
         var f = self.data_format()
-        if f.format != SAMPLE_FORMAT_S16.code:
+        if f.format != SAMPLE_FORMAT_S16:
             raise MaError(MaResult.INVALID_OPERATION, "mp3 read_s16: stream format is not s16; open with format=s16")
         var ch = Int(f.channels)
         out.resize(Int(frame_count) * ch, Int16(0))

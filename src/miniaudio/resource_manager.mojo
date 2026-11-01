@@ -32,7 +32,7 @@ Every data object keeps its manager alive for as long as it exists.
 from std.memory import ArcPointer
 
 from miniaudio._lib import MaLib, null_handle
-from miniaudio.decoder import SampleFormat, SAMPLE_FORMAT_F32
+from miniaudio.decoder import SampleFormat, DataFormat, SAMPLE_FORMAT_F32
 from miniaudio.engine import Engine
 from miniaudio.result import MaResult, MaError, MA_SUCCESS, MA_AT_END
 import miniaudio._ffi.resource_manager_raw as raw
@@ -43,15 +43,6 @@ comptime RESOURCE_FLAG_DECODE = UInt32(2)
 comptime RESOURCE_FLAG_ASYNC = UInt32(4)
 comptime RESOURCE_FLAG_WAIT_INIT = UInt32(8)
 comptime RESOURCE_FLAG_LOOPING = UInt32(16)
-
-
-@fieldwise_init
-struct DataFormat(Copyable, Movable):
-    """The format a loaded sound decodes to."""
-
-    var format: SampleFormat
-    var channels: UInt32
-    var sample_rate: UInt32
 
 
 struct ResourceManager(Movable):
