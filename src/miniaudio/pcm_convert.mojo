@@ -36,14 +36,7 @@ Upstream behaviour worth knowing, pinned by tests/test_pcm_convert_api.mojo:
 from std.memory import ArcPointer
 
 from miniaudio._lib import MaLib
-from miniaudio.decoder import (
-    SampleFormat,
-    SAMPLE_FORMAT_U8,
-    SAMPLE_FORMAT_S16,
-    SAMPLE_FORMAT_S24,
-    SAMPLE_FORMAT_S32,
-    SAMPLE_FORMAT_F32,
-)
+from miniaudio.decoder import SampleFormat
 from miniaudio.result import MA_SUCCESS
 import miniaudio._ffi.pcm_convert_raw as raw
 
@@ -58,15 +51,17 @@ comptime DITHER_MODE_TRIANGLE = Int(2)
 
 def bytes_per_sample(format: SampleFormat) raises -> Int:
     """Bytes one sample of `format` occupies. Raises for an unknown format."""
-    if format == SAMPLE_FORMAT_U8:
-        return 1
-    if format == SAMPLE_FORMAT_S16:
-        return 2
-    if format == SAMPLE_FORMAT_S24:
-        return 3
-    if format == SAMPLE_FORMAT_S32 or format == SAMPLE_FORMAT_F32:
-        return 4
-    raise Error("unknown sample format " + String(format.code))
+    match format:
+        case .U8:
+            return 1
+        case .S16:
+            return 2
+        case .S24:
+            return 3
+        case .S32 | .F32:
+            return 4
+        case _:
+            raise Error("unknown sample format " + String(format.code))
 
 
 def clip_source_bytes_per_sample(format: SampleFormat) raises -> Int:
@@ -74,15 +69,15 @@ def clip_source_bytes_per_sample(format: SampleFormat) raises -> Int:
 
     u8 clips from s16, s16 from s32, s24 and s32 from s64, and f32 from f32.
     """
-    if format == SAMPLE_FORMAT_U8:
-        return 2
-    if format == SAMPLE_FORMAT_S16:
-        return 4
-    if format == SAMPLE_FORMAT_S24 or format == SAMPLE_FORMAT_S32:
-        return 8
-    if format == SAMPLE_FORMAT_F32:
-        return 4
-    raise Error("unknown sample format " + String(format.code))
+    match format:
+        case .U8:
+            return 2
+        case .S16 | .F32:
+            return 4
+        case .S24 | .S32:
+            return 8
+        case _:
+            raise Error("unknown sample format " + String(format.code))
 
 
 def _zeroed(count: Int) -> List[UInt8]:

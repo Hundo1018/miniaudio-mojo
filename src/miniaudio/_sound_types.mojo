@@ -6,58 +6,124 @@ that can route it into a `SoundGroup`, and a `SoundGroup` shares these enums).
 `miniaudio.sound` re-exports every name here, so existing imports keep working.
 """
 
+from std.builtin.variadics import TypeList
+
 
 @fieldwise_init
-struct AttenuationModel(ImplicitlyCopyable, Movable, Equatable):
+struct AttenuationModel(EnumLike, Equatable, ImplicitlyCopyable, Movable, Writable):
     """Spatial distance attenuation model. Codes match ma_attenuation_model."""
 
     var code: UInt32
 
+    comptime NONE = Self(0)
+    comptime INVERSE = Self(1)
+    comptime LINEAR = Self(2)
+    comptime EXPONENTIAL = Self(3)
+
+    # EnumLike: the case index is the code, so `match` takes `case .NONE:` and
+    # print shows `AttenuationModel.EXPONENTIAL`. Not exhaustive: `code` can hold any
+    # value C hands back, so a `match` needs a `case _`.
+    comptime _enum_case_names = ParameterList.of[
+        "NONE".value,
+        "INVERSE".value,
+        "LINEAR".value,
+        "EXPONENTIAL".value,
+    ].values
+    comptime _enum_case_types = TypeList.splat[
+        ParameterList[Self._enum_case_names].size, NoneType
+    ].values
+    comptime _enum_is_exhaustive = False
+
+    def _get_enum_discriminant(self) -> Int:
+        return Int(self.code)
+
+    def _unsafe_get_enum_payload[
+        id: Int
+    ](ref self) -> ref[self] TypeList[Trait=AnyType, Self._enum_case_types]()[id]:
+        comptime assert False, "AttenuationModel cases have no payload"
+
     def __eq__(self, other: Self) -> Bool:
         return self.code == other.code
 
-    def __ne__(self, other: Self) -> Bool:
-        return self.code != other.code
 
-
-comptime ATTENUATION_NONE = AttenuationModel(0)
-comptime ATTENUATION_INVERSE = AttenuationModel(1)
-comptime ATTENUATION_LINEAR = AttenuationModel(2)
-comptime ATTENUATION_EXPONENTIAL = AttenuationModel(3)
+comptime ATTENUATION_NONE = AttenuationModel.NONE
+comptime ATTENUATION_INVERSE = AttenuationModel.INVERSE
+comptime ATTENUATION_LINEAR = AttenuationModel.LINEAR
+comptime ATTENUATION_EXPONENTIAL = AttenuationModel.EXPONENTIAL
 
 
 @fieldwise_init
-struct Positioning(ImplicitlyCopyable, Movable, Equatable):
+struct Positioning(EnumLike, Equatable, ImplicitlyCopyable, Movable, Writable):
     """Spatial positioning mode. Codes match ma_positioning."""
 
     var code: UInt32
 
+    comptime ABSOLUTE = Self(0)
+    comptime RELATIVE = Self(1)
+
+    # EnumLike: the case index is the code, so `match` takes `case .ABSOLUTE:` and
+    # print shows `Positioning.RELATIVE`. Not exhaustive: `code` can hold any
+    # value C hands back, so a `match` needs a `case _`.
+    comptime _enum_case_names = ParameterList.of[
+        "ABSOLUTE".value,
+        "RELATIVE".value,
+    ].values
+    comptime _enum_case_types = TypeList.splat[
+        ParameterList[Self._enum_case_names].size, NoneType
+    ].values
+    comptime _enum_is_exhaustive = False
+
+    def _get_enum_discriminant(self) -> Int:
+        return Int(self.code)
+
+    def _unsafe_get_enum_payload[
+        id: Int
+    ](ref self) -> ref[self] TypeList[Trait=AnyType, Self._enum_case_types]()[id]:
+        comptime assert False, "Positioning cases have no payload"
+
     def __eq__(self, other: Self) -> Bool:
         return self.code == other.code
 
-    def __ne__(self, other: Self) -> Bool:
-        return self.code != other.code
 
-
-comptime POSITIONING_ABSOLUTE = Positioning(0)
-comptime POSITIONING_RELATIVE = Positioning(1)
+comptime POSITIONING_ABSOLUTE = Positioning.ABSOLUTE
+comptime POSITIONING_RELATIVE = Positioning.RELATIVE
 
 
 @fieldwise_init
-struct PanMode(ImplicitlyCopyable, Movable, Equatable):
+struct PanMode(EnumLike, Equatable, ImplicitlyCopyable, Movable, Writable):
     """Stereo pan mode. Codes match ma_pan_mode."""
 
     var code: UInt32
 
+    comptime BALANCE = Self(0)
+    comptime PAN = Self(1)
+
+    # EnumLike: the case index is the code, so `match` takes `case .BALANCE:` and
+    # print shows `PanMode.PAN`. Not exhaustive: `code` can hold any
+    # value C hands back, so a `match` needs a `case _`.
+    comptime _enum_case_names = ParameterList.of[
+        "BALANCE".value,
+        "PAN".value,
+    ].values
+    comptime _enum_case_types = TypeList.splat[
+        ParameterList[Self._enum_case_names].size, NoneType
+    ].values
+    comptime _enum_is_exhaustive = False
+
+    def _get_enum_discriminant(self) -> Int:
+        return Int(self.code)
+
+    def _unsafe_get_enum_payload[
+        id: Int
+    ](ref self) -> ref[self] TypeList[Trait=AnyType, Self._enum_case_types]()[id]:
+        comptime assert False, "PanMode cases have no payload"
+
     def __eq__(self, other: Self) -> Bool:
         return self.code == other.code
 
-    def __ne__(self, other: Self) -> Bool:
-        return self.code != other.code
 
-
-comptime PAN_MODE_BALANCE = PanMode(0)
-comptime PAN_MODE_PAN = PanMode(1)
+comptime PAN_MODE_BALANCE = PanMode.BALANCE
+comptime PAN_MODE_PAN = PanMode.PAN
 
 
 # ---- ma_sound_flags: OR them together for `flags=` ----

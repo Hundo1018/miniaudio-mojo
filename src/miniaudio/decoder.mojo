@@ -6,6 +6,7 @@
 `bridge` argument is ever threaded through.
 """
 
+from std.builtin.variadics import TypeList
 from std.memory import ArcPointer
 
 from miniaudio._lib import MaLib, null_handle
@@ -14,24 +15,52 @@ import miniaudio._ffi.decoder_raw as raw
 
 
 @fieldwise_init
-struct SampleFormat(ImplicitlyCopyable, Movable, Equatable):
+struct SampleFormat(EnumLike, Equatable, ImplicitlyCopyable, Movable, Writable):
     """Output sample format. Codes match miniaudio's ma_format enum."""
 
     var code: Int
 
+    comptime UNKNOWN = Self(0)
+    comptime U8 = Self(1)
+    comptime S16 = Self(2)
+    comptime S24 = Self(3)
+    comptime S32 = Self(4)
+    comptime F32 = Self(5)
+
+    # EnumLike: the case index is the code, so `match` takes `case .UNKNOWN:` and
+    # print shows `SampleFormat.F32`. Not exhaustive: `code` can hold any
+    # value C hands back, so a `match` needs a `case _`.
+    comptime _enum_case_names = ParameterList.of[
+        "UNKNOWN".value,
+        "U8".value,
+        "S16".value,
+        "S24".value,
+        "S32".value,
+        "F32".value,
+    ].values
+    comptime _enum_case_types = TypeList.splat[
+        ParameterList[Self._enum_case_names].size, NoneType
+    ].values
+    comptime _enum_is_exhaustive = False
+
+    def _get_enum_discriminant(self) -> Int:
+        return Int(self.code)
+
+    def _unsafe_get_enum_payload[
+        id: Int
+    ](ref self) -> ref[self] TypeList[Trait=AnyType, Self._enum_case_types]()[id]:
+        comptime assert False, "SampleFormat cases have no payload"
+
     def __eq__(self, other: Self) -> Bool:
         return self.code == other.code
 
-    def __ne__(self, other: Self) -> Bool:
-        return self.code != other.code
 
-
-comptime SAMPLE_FORMAT_UNKNOWN = SampleFormat(0)
-comptime SAMPLE_FORMAT_U8 = SampleFormat(1)
-comptime SAMPLE_FORMAT_S16 = SampleFormat(2)
-comptime SAMPLE_FORMAT_S24 = SampleFormat(3)
-comptime SAMPLE_FORMAT_S32 = SampleFormat(4)
-comptime SAMPLE_FORMAT_F32 = SampleFormat(5)
+comptime SAMPLE_FORMAT_UNKNOWN = SampleFormat.UNKNOWN
+comptime SAMPLE_FORMAT_U8 = SampleFormat.U8
+comptime SAMPLE_FORMAT_S16 = SampleFormat.S16
+comptime SAMPLE_FORMAT_S24 = SampleFormat.S24
+comptime SAMPLE_FORMAT_S32 = SampleFormat.S32
+comptime SAMPLE_FORMAT_F32 = SampleFormat.F32
 
 
 struct Decoder(Movable):

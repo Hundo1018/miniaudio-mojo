@@ -137,9 +137,10 @@ def test_lookup_contains_and_find() raises:
     var m = ChannelMap.standard(lib, 6)
     assert_true(m.contains(ChannelLfe))
     assert_false(m.contains(ChannelBackCenter))
-    var lfe = m.find(ChannelLfe)
-    assert_true(Bool(lfe))
-    assert_equal(lfe.value(), UInt32(3))
+    if case .Some(index) = m.find(ChannelLfe):
+        assert_equal(index, UInt32(3))
+    else:
+        assert_true(False, "find(ChannelLfe) returned None")
     assert_false(Bool(m.find(ChannelBackCenter)))
     assert_equal(m.channel(9), ChannelNone)  # past the end
 

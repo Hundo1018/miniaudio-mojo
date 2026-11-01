@@ -18,6 +18,7 @@ a rate change means those two numbers differ. `ChannelConverter.process` keeps
 the frame count and just returns the frames.
 """
 
+from std.builtin.variadics import TypeList
 from std.memory import ArcPointer
 
 from miniaudio._lib import MaLib, null_handle
@@ -27,38 +28,80 @@ import miniaudio._ffi.converter_raw as raw
 
 
 @fieldwise_init
-struct ResampleAlgorithm(ImplicitlyCopyable, Movable, Equatable):
+struct ResampleAlgorithm(EnumLike, Equatable, ImplicitlyCopyable, Movable, Writable):
     """Resampling algorithm. Codes match miniaudio's ma_resample_algorithm."""
 
     var code: Int
 
+    comptime LINEAR = Self(0)
+    comptime CUSTOM = Self(1)
+
+    # EnumLike: the case index is the code, so `match` takes `case .LINEAR:` and
+    # print shows `ResampleAlgorithm.CUSTOM`. Not exhaustive: `code` can hold any
+    # value C hands back, so a `match` needs a `case _`.
+    comptime _enum_case_names = ParameterList.of[
+        "LINEAR".value,
+        "CUSTOM".value,
+    ].values
+    comptime _enum_case_types = TypeList.splat[
+        ParameterList[Self._enum_case_names].size, NoneType
+    ].values
+    comptime _enum_is_exhaustive = False
+
+    def _get_enum_discriminant(self) -> Int:
+        return Int(self.code)
+
+    def _unsafe_get_enum_payload[
+        id: Int
+    ](ref self) -> ref[self] TypeList[Trait=AnyType, Self._enum_case_types]()[id]:
+        comptime assert False, "ResampleAlgorithm cases have no payload"
+
     def __eq__(self, other: Self) -> Bool:
         return self.code == other.code
 
-    def __ne__(self, other: Self) -> Bool:
-        return self.code != other.code
 
-
-comptime RESAMPLE_ALGORITHM_LINEAR = ResampleAlgorithm(0)
-comptime RESAMPLE_ALGORITHM_CUSTOM = ResampleAlgorithm(1)
+comptime RESAMPLE_ALGORITHM_LINEAR = ResampleAlgorithm.LINEAR
+comptime RESAMPLE_ALGORITHM_CUSTOM = ResampleAlgorithm.CUSTOM
 
 
 @fieldwise_init
-struct ChannelMixMode(ImplicitlyCopyable, Movable, Equatable):
+struct ChannelMixMode(EnumLike, Equatable, ImplicitlyCopyable, Movable, Writable):
     """Channel mixing mode. Codes match miniaudio's ma_channel_mix_mode."""
 
     var code: Int
 
+    comptime RECTANGULAR = Self(0)
+    comptime SIMPLE = Self(1)
+    comptime CUSTOM_WEIGHTS = Self(2)
+
+    # EnumLike: the case index is the code, so `match` takes `case .RECTANGULAR:` and
+    # print shows `ChannelMixMode.CUSTOM_WEIGHTS`. Not exhaustive: `code` can hold any
+    # value C hands back, so a `match` needs a `case _`.
+    comptime _enum_case_names = ParameterList.of[
+        "RECTANGULAR".value,
+        "SIMPLE".value,
+        "CUSTOM_WEIGHTS".value,
+    ].values
+    comptime _enum_case_types = TypeList.splat[
+        ParameterList[Self._enum_case_names].size, NoneType
+    ].values
+    comptime _enum_is_exhaustive = False
+
+    def _get_enum_discriminant(self) -> Int:
+        return Int(self.code)
+
+    def _unsafe_get_enum_payload[
+        id: Int
+    ](ref self) -> ref[self] TypeList[Trait=AnyType, Self._enum_case_types]()[id]:
+        comptime assert False, "ChannelMixMode cases have no payload"
+
     def __eq__(self, other: Self) -> Bool:
         return self.code == other.code
 
-    def __ne__(self, other: Self) -> Bool:
-        return self.code != other.code
 
-
-comptime CHANNEL_MIX_MODE_RECTANGULAR = ChannelMixMode(0)
-comptime CHANNEL_MIX_MODE_SIMPLE = ChannelMixMode(1)
-comptime CHANNEL_MIX_MODE_CUSTOM_WEIGHTS = ChannelMixMode(2)
+comptime CHANNEL_MIX_MODE_RECTANGULAR = ChannelMixMode.RECTANGULAR
+comptime CHANNEL_MIX_MODE_SIMPLE = ChannelMixMode.SIMPLE
+comptime CHANNEL_MIX_MODE_CUSTOM_WEIGHTS = ChannelMixMode.CUSTOM_WEIGHTS
 
 
 @fieldwise_init

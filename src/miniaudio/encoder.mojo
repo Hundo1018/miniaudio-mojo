@@ -7,6 +7,7 @@ loaded library is shared via `ArcPointer[MaLib]` — no `bridge` argument is
 threaded through. Mirrors the decoder slice (decoder.mojo).
 """
 
+from std.builtin.variadics import TypeList
 from std.memory import ArcPointer
 
 from miniaudio._lib import MaLib, null_handle
@@ -16,20 +17,50 @@ import miniaudio._ffi.encoder_raw as raw
 
 
 @fieldwise_init
-struct EncodingFormat(ImplicitlyCopyable, Movable, Equatable):
-    """Container encoding format. Codes match miniaudio's ma_encoding_format."""
+struct EncodingFormat(EnumLike, Equatable, ImplicitlyCopyable, Movable, Writable):
+    """Container encoding format. Codes match miniaudio's ma_encoding_format.
+
+    Every ma_encoding_format value is a case, but ma_encoder only writes WAV:
+    `Encoder` raises for any other format.
+    """
 
     var code: Int
+
+    comptime UNKNOWN = Self(0)
+    comptime WAV = Self(1)
+    comptime FLAC = Self(2)
+    comptime MP3 = Self(3)
+    comptime VORBIS = Self(4)
+
+    # EnumLike: the case index is the code, so `match` takes `case .UNKNOWN:` and
+    # print shows `EncodingFormat.VORBIS`. Not exhaustive: `code` can hold any
+    # value C hands back, so a `match` needs a `case _`.
+    comptime _enum_case_names = ParameterList.of[
+        "UNKNOWN".value,
+        "WAV".value,
+        "FLAC".value,
+        "MP3".value,
+        "VORBIS".value,
+    ].values
+    comptime _enum_case_types = TypeList.splat[
+        ParameterList[Self._enum_case_names].size, NoneType
+    ].values
+    comptime _enum_is_exhaustive = False
+
+    def _get_enum_discriminant(self) -> Int:
+        return Int(self.code)
+
+    def _unsafe_get_enum_payload[
+        id: Int
+    ](ref self) -> ref[self] TypeList[Trait=AnyType, Self._enum_case_types]()[id]:
+        comptime assert False, "EncodingFormat cases have no payload"
 
     def __eq__(self, other: Self) -> Bool:
         return self.code == other.code
 
-    def __ne__(self, other: Self) -> Bool:
-        return self.code != other.code
 
-
-comptime ENCODING_FORMAT_UNKNOWN = EncodingFormat(0)
-comptime ENCODING_FORMAT_WAV = EncodingFormat(1)
+comptime ENCODING_FORMAT_UNKNOWN = EncodingFormat.UNKNOWN
+comptime ENCODING_FORMAT_WAV = EncodingFormat.WAV
 
 
 struct Encoder(Movable):
