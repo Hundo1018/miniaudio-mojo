@@ -266,7 +266,12 @@ def test_codec_seek_goes_through_the_user_stream() raises:
     # what the library asked for: absolute positions from the start, inside the file
     var log = dec.stream[Spooled]().seek_log.copy()
     assert_true(len(log) >= 2)
-    assert_true(len(data) > 0)
+    # `_stats` hands the stream an untracked pointer into `counters`, so Mojo would free
+    # `counters` after its last use above and the stream's destructor would then write into
+    # freed memory. Drop the decoder first and read `counters` after it.
+    _ = dec^
+    _ = mem^
+    assert_equal(counters[DESTROYED], 1)
 
 
 # ---- the stream is yours again --------------------------------------------------

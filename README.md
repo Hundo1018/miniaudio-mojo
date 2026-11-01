@@ -4,8 +4,8 @@ Mojo bindings for [miniaudio](https://miniaud.io) (vendored 0.11.25): playback, 
 the engine / sound / node graph, decoding and encoding (WAV, FLAC, MP3), filters and effects,
 resampling and format conversion, the resource manager, and the low-level utilities.
 
-**Coverage:** 990 of miniaudio's 1,027 core `MA_API` functions are bound and tested. That is
-every bindable one; the 37 exclusions are listed with their reasons in
+**Coverage:** 996 of miniaudio's 1,027 core `MA_API` functions are bound and tested. That is
+every bindable one; the 31 exclusions are listed with their reasons in
 `docs/coverage-exclusions.json` (see `docs/binding-coverage.md`). The project is pre-1.0, and the
 API can still change.
 
@@ -63,6 +63,27 @@ except e:
 miniaudio would use (`INVALID_ARGS`, `INVALID_OPERATION`, `OUT_OF_MEMORY`, ...). In a `try` that
 reads `e.result`, call only functions that raise `MaError`. A plain `raises` call in the same
 block (an `assert_*`, for example) widens `e` to `Error`.
+
+## Your own I/O and callbacks
+
+Decoders and the encoder can read from, or write to, a type you implement:
+
+```mojo
+from miniaudio.stream import ReadSeekStream
+
+struct MyStream(ReadSeekStream):
+    ...
+    def read(mut self, buffer: Span[UInt8, MutAnyOrigin]) raises -> Int: ...
+    def seek(mut self, offset: Int64, origin: Int) raises: ...
+
+var dec = Decoder.from_stream(lib, MyStream(...))   # also WavDecoder / FlacDecoder / Mp3Decoder
+var enc = Encoder.to_stream(lib, MySink(...), channels=2, sample_rate=48000)
+```
+
+The decoder owns the stream until it is dropped; `dec.stream[MyStream]()` gives it back. A
+`read`, `seek` or `write` that raises is reported to miniaudio as an I/O error.
+`Sound.set_end_callback(handler)` runs a `SoundEndHandler` when a sound plays to its end. It runs
+on the audio thread, so keep it short and non-blocking.
 
 ## Layout
 

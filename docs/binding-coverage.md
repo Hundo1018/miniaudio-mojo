@@ -13,8 +13,8 @@ Coverage is tracked against the **complete miniaudio public API** as the denomin
   wraps
 - **Gates**: `pixi run coverage-binding` (structural checker) + `pixi run coverage-shim` (gcov
   aggregate line-coverage ≥ 95% across `ma_shim*.c`)
-- **Status**: 990 / 1,027 (96.4%) bound, which is 990/990 bindable (100%) once the 37 exclusions
-  are set aside. The 37 are deliberate and listed under "Exclusions (37)" below.
+- **Status**: 996 / 1,027 (97.0%) bound, which is 996/996 bindable (100%) once the 31 exclusions
+  are set aside. The 31 are deliberate and listed under "Exclusions (31)" below.
 
 ## Coverage Levels (DoD scale)
 
@@ -57,8 +57,8 @@ then switched to:
 
 **Outcome.** Every one of the 57 inventory families is bound out: 56 are `complete` (every
 non-excluded function bound and tested to L3) and `core`, now only `ma_result_description`, is
-bound. What remains is the 37 exclusions, 6 of which became bindable with Mojo 1.1.0 (roadmap
-step 18, paused). The last stretch: the
+bound. The 6 user-callback functions that Mojo 1.1.0 made bindable landed in roadmap step 18,
+leaving 31 exclusions, all by policy or platform. The last stretch before that: the
 `core` bucket (98 functions) was split by prefix into 13 named families (`frame_util`,
 `channel_map`, `vec3f`, `wav`, `flac`, `mp3`, `decode_util`, `alloc`, `crt_util`, `dl`,
 `spinlock`, `duplex_rb`, `runtime_info`) that were bound one by one beside `pcm_convert`; then 22
@@ -76,11 +76,11 @@ bindable figure. Run `pixi run coverage-binding` for live numbers.
 
 | Family | Denominator | Bound | % | DoD Target | Status |
 |--------|-------------|-------|---|------------|--------|
-| decoder | 16 | 13 | 81% | L3 | **complete** — L1+L2+L3, init_file/memory/default(native)/vfs + read/seek + length/cursor/available queries (18 binding + 14 API tests). 3 excluded: init (callback ctor), init_file_w/init_vfs_w (wchar). |
-| encoder | 10 | 5 | 50% | L3 | **complete** — L1+L2+L3, WAV output config_init/init_file/init_vfs/write/uninit (11 binding + 7 API tests). 5 excluded: init (callback ctor), init__internal/preinit (internal), init_file_w/init_vfs_w (wchar). |
+| decoder | 16 | 14 | 88% | L3 | **complete** — L1+L2+L3, init_file/memory/default(native)/vfs + read/seek + length/cursor/available queries, and `ma_decoder_init` as `Decoder.from_stream` over a user `ReadSeekStream` (25 binding + 14 API tests). 2 excluded: init_file_w/init_vfs_w (wchar). |
+| encoder | 10 | 6 | 60% | L3 | **complete** — L1+L2+L3, WAV output config_init/init_file/init_vfs/write/uninit, and `ma_encoder_init` as `Encoder.to_stream` into a user `WriteSeekStream` (19 binding + 7 API tests). 4 excluded: init__internal/preinit (internal), init_file_w/init_vfs_w (wchar). |
 | device | 25 | 24 | 96% | L3 | **complete** — L1+L2+L3, playback lifecycle (init/init_ex/start/stop) + offline pump, state, master volume (linear+dB), name, info snapshot + native-data-formats, id_equal, context/log queries, and the job-thread family via a `DeviceJobThread` RAII type (35 binding + 11 API tests). 1 excluded: post_init (custom-backend authoring hook, 'Unsafe'). `Device.of_engine` is a borrowed view of the engine's playback device. |
 | engine | 44 | 42 | 95% | L3 | **complete** — L1+L2+L3, all 42 bindable bound. Lifecycle/play_sound(_ex)/volume/gain/read/clock, listener spatialization, and the five `ma_engine_get_*` accessors (node_graph, endpoint, log, device, resource_manager). Those return pointers into objects the engine owns, so each is a borrowed view built on the owning family's Mojo type (`NodeGraph.of_engine`, `EndpointNode.of_engine`, `Log.of_engine`, `Device.of_engine`, `ResourceManager.of_engine`): a view holds the engine alive, never uninitialises what it points at, and answers `MA_INVALID_ARGS` once the engine is gone. The five `ma_engine_node_*` are `EngineNode`, group flavour only (a sound-flavoured node's callback reinterprets the node as the enclosing `ma_sound`), including the preallocated path. Channel counts above `MA_MAX_CHANNELS` are refused up front since miniaudio would abort. The engine renders a whole 480-frame period at a time, so tests read whole periods (48 binding + 38 API tests). 2 excluded: get_time/set_time (deprecated, superseded by the `_in_pcm_frames` variants). |
-| sound | 84 | 81 | 96% | L3 | **complete** — L1+L2+L3, all 81 bindable bound. Full control/spatialization/fade/scheduling/seconds-API/init_copy, plus `Sound.from_data_source`, `Sound.engine()`, `Sound.data_source()` (a borrowed `DataSource` view that fails with `MA_INVALID_ARGS` once the sound is gone and is refused anywhere miniaudio would keep the pointer) and `SoundConfig` + `Sound.from_config` for `ma_sound_config_init`/`_2` and `ma_sound_init_ex` (the config keeps what it points at alive until the sound is built) (34 binding + 31 API tests). 3 excluded: set_end_callback (function pointer; the `at_end()` poll is the stand-in), init_from_file_w (wchar), init_from_file_internal (internal; relies on state the static `ma_sound_preinit` sets up). |
+| sound | 84 | 82 | 98% | L3 | **complete** — L1+L2+L3, all 82 bindable bound. Full control/spatialization/fade/scheduling/seconds-API/init_copy, plus `Sound.from_data_source`, `Sound.engine()`, `Sound.data_source()` (a borrowed `DataSource` view that fails with `MA_INVALID_ARGS` once the sound is gone and is refused anywhere miniaudio would keep the pointer) and `SoundConfig` + `Sound.from_config` for `ma_sound_config_init`/`_2` and `ma_sound_init_ex` (the config keeps what it points at alive until the sound is built), and `Sound.set_end_callback[H: SoundEndHandler]` / `clear_end_callback` (the handler runs on the audio thread under a spinlock that set / clear / drop also take) (38 binding + 44 API tests). 2 excluded: init_from_file_w (wchar), init_from_file_internal (internal; relies on state the static `ma_sound_preinit` sets up). |
 | sound_group | 57 | 57 | 100% | L3 | **complete** — L1+L2+L3, all 57 bound with 0 exclusions. Full control/spatialization/fade/scheduling, `SoundGroup.engine()`, and `SoundGroupConfig` + `SoundGroup.from_config` (flags, parent group, channels, volume smoothing). Nested groups, `NO_PITCH` removing the group's resampler latency and a channel mismatch refusing a sound are asserted (18 binding + 15 API tests). |
 | resource_manager | 64 | 56 | 88% | L3 | **complete** — L1+L2+L3, all 56 bindable bound; the 8 `_w` wide-char variants are excluded. The manager, its job queue, and all three data types via `ResourceManager` / `ResourceDataBuffer` / `ResourceDataStream` / `ResourceDataSource`. Driven with zero job threads and the queue pumped explicitly, so an asynchronous family stays deterministic. `get_log` binds as presence; the job queue binds through a shim-owned job slot. `data_source_map` / `_unmap` are exported but absent from miniaudio's public header, so the shim declares them. Pins four behaviours: streams need a job thread (uninit always waits on a free job), the non-blocking flag is only valid with zero threads, `next_job` labels a quit job with `MA_CANCELLED` and that job is sticky, and mapping is streaming-only (17 binding + 9 API tests). `ResourceManager.of_engine` is a borrowed view of the engine's manager. |
 | node | 23 | 23 | 100% | L3 | **complete** — L1+L2+L3, all 23 bound with 0 exclusions. `ma_node_init` takes a caller-supplied vtable, so the shim owns a concrete node — an *offset node* that adds a constant to its input, flagged `CONTINUOUS_PROCESSING | ALLOW_NULL_INPUT` so it keeps producing with nothing attached and can act as a source. Every node handle is one tagged-union allocation, so a node can be attached to any other family without casting handle types. `get_node_graph` binds as an identity question (12 binding + 10 API tests). `EndpointNode.of_engine` is a borrowed view of the engine's endpoint and `EngineNode` wraps `ma_engine_node` (group flavour). |
@@ -118,9 +118,9 @@ bindable figure. Run `pixi run coverage-binding` for live numbers.
 | panner | 7 | 7 | 100% | L3 | **complete** — L1+L2+L3, all 7 bound with 0 exclusions. Stereo balance and true pan via `Panner`: balance attenuates the far side, pan folds it into the near one, pan is clamped to [-1, 1], mono passes through (6 binding + 5 API tests). |
 | fader | 7 | 7 | 100% | L3 | **complete** — L1+L2+L3, all 7 bound with 0 exclusions. Linear volume ramp via `Fader` (f32 only), asserted sample-exact, continuing across calls, delayed by a start offset, and resuming from the current volume when the begin volume is negative (5 binding + 5 API tests). |
 | pulsewave | 9 | 9 | 100% | L3 | **complete** — L1+L2+L3, all 9 bound with 0 exclusions. Square wave with a duty cycle via `PulseWave` (in `waveform.mojo`); the share of high samples tracks the duty cycle and every sample is exactly ±amplitude. Pins that a zero-frame read returns `MA_INVALID_ARGS` (5 binding + 4 API tests). |
-| wav | 10 | 8 | 80% | L3 | **complete** — L1+L2+L3, all 8 bindable bound. miniaudio's built-in WAV backend used directly via `WavDecoder`, with no `ma_decoder`. `ma_wav` is defined only inside miniaudio's implementation section, so the handle embeds fixed-size aligned storage (1024 B against a sizeof of 520) and the prototypes are declared locally; `pixi run check-codec-layout` static-asserts the storage still fits. Samples equal the generated sine exactly; pins that dr_wav clamps a seek past the end (19 binding + 13 API tests). 2 excluded: init (read/seek/tell callbacks), init_file_w (wchar). |
-| flac | 10 | 8 | 80% | L3 | **complete** — L1+L2+L3, all 8 bindable bound. `FlacDecoder`, same opaque-storage approach as wav (256 B against 120). miniaudio cannot encode FLAC, so tests use the committed fixture `tests/fixtures/sine_440_stereo_44100.flac`; the lossless decode equals the generator's sine exactly, and dr_flac clamps a seek past the end (19 binding + 13 API tests). 2 excluded: init (callbacks), init_file_w (wchar). |
-| mp3 | 10 | 8 | 80% | L3 | **complete** — L1+L2+L3, all 8 bindable bound. `Mp3Decoder`, same opaque-storage approach (40960 B against 32504, since `ma_mp3` embeds the whole dr_mp3 state); tests use the committed fixture `tests/fixtures/sine_440_stereo_44100.mp3`. Pins dr_mp3 0.7.3 behaviour: length is gapless but the cursor still counts the 1105-frame encoder delay, a seek past the end fails with `MA_ERROR` (wav and flac clamp), and only f32 and s16 output are honoured (21 binding + 16 API tests). 2 excluded: init (callbacks), init_file_w (wchar). |
+| wav | 10 | 9 | 90% | L3 | **complete** — L1+L2+L3, all 9 bindable bound, including `ma_wav_init` as `.from_stream` over a user `ReadSeekTellStream`. miniaudio's built-in WAV backend used directly via `WavDecoder`, with no `ma_decoder`. `ma_wav` is defined only inside miniaudio's implementation section, so the handle embeds fixed-size aligned storage (1024 B against a sizeof of 520) and the prototypes are declared locally; `pixi run check-codec-layout` static-asserts the storage still fits. Samples equal the generated sine exactly; pins that dr_wav clamps a seek past the end (27 binding + 13 API tests). 1 excluded: init_file_w (wchar). |
+| flac | 10 | 9 | 90% | L3 | **complete** — L1+L2+L3, all 9 bindable bound, including `ma_flac_init` as `.from_stream` over a user `ReadSeekTellStream`. `FlacDecoder`, same opaque-storage approach as wav (256 B against 120). miniaudio cannot encode FLAC, so tests use the committed fixture `tests/fixtures/sine_440_stereo_44100.flac`; the lossless decode equals the generator's sine exactly, and dr_flac clamps a seek past the end (27 binding + 13 API tests). 1 excluded: init_file_w (wchar). |
+| mp3 | 10 | 9 | 90% | L3 | **complete** — L1+L2+L3, all 9 bindable bound, including `ma_mp3_init` as `.from_stream` over a user `ReadSeekTellStream`. `Mp3Decoder`, same opaque-storage approach (40960 B against 32504, since `ma_mp3` embeds the whole dr_mp3 state); tests use the committed fixture `tests/fixtures/sine_440_stereo_44100.mp3`. Pins dr_mp3 0.7.3 behaviour: length is gapless but the cursor still counts the 1105-frame encoder delay, a seek past the end fails with `MA_ERROR` (wav and flac clamp), and only f32 and s16 output are honoured (29 binding + 16 API tests). 1 excluded: init_file_w (wchar). |
 | decode_util | 4 | 4 | 100% | L3 | **complete** — L1+L2+L3, all 4 bound with 0 exclusions. One-shot `ma_decode_file` / `_memory` / `_from_vfs` and `ma_decoding_backend_config_init` as free functions returning an RAII `DecodedAudio`. miniaudio allocates the output, so the shim exposes `ma_free` and `DecodedAudio` releases it (tests watch resident pages over repeated decodes). The three paths decode identically, and the same samples come out of the format-specific decoders (17 binding + 12 API tests). |
 | channel_map | 12 | 12 | 100% | L3 | **complete** — L1+L2+L3, all 12 bound with 0 exclusions. Speaker layouts via the `ChannelMap` value type over a byte list; every buffer crosses the ABI with its length, and an empty list means the default map. Asserts the default layouts for 1/2/4/6/8/10/33 channels, that ALSA, Vorbis and FLAC orderings differ, and that `to_string` returns the full length even when truncated and drops whole names rather than cutting them (24 binding + 11 API tests). |
 | vec3f | 12 | 12 | 100% | L3 | **complete** — L1+L2+L3, all 12 bound with 0 exclusions. `Vec3f` and a heap-handle `AtomicVec3f`; `ma_vec3f` crosses the ABI as three floats in and three out. Exported without a public prototype, so the shim declares them. Pins that `normalize` uses `rsqrtss`: unit length only to ~1e-3 ((3,0,4) -> (0.59995, 0, 0.79993)). No multi-thread tearing test, since this toolchain has no Mojo thread helper (12 binding + 6 API tests). |
@@ -133,14 +133,14 @@ bindable figure. Run `pixi run coverage-binding` for live numbers.
 | pcm_convert | 64 | 63 | 98% | L3 | **complete** — L1+L2+L3, all 63 bindable bound. Stateless PCM conversion as free functions: the 25 format-pair converters, five interleave/deinterleave pairs, `ma_pcm_convert`, `ma_convert_pcm_frames_format`, `ma_convert_frames(_ex)`, the copy / volume / volume-and-clip / per-channel-gain helpers, blend, mix, decibel conversions and `ma_copy_string`. Deinterleave and interleave take an array of per-channel pointers that Mojo cannot hold, so the shim builds it over one flat buffer of planes. The shim rejects what miniaudio uses unchecked (a format outside u8..f32, NULL buffers, zero or more than 254 channels, volumes beyond ±128 for the integer volume-and-clip variants). Quirks pinned: u8 128 is 0 in s16 but 1/255 in f32, an overdriven negative f32 lands on -32767 or -32768 depending on the SIMD path versus the scalar tail, and the linear resampler lags its input by one frame (34 binding + 68 API tests). 1 excluded: copy_string_w (wchar). |
 | frame_util | 6 | 6 | 100% | L3 | **complete** — L1+L2+L3, all 6 bound with 0 exclusions. Interleave, deinterleave, silence, both offset helpers and the debug sine fill, as free functions over the same flat plane buffer as `pcm_convert`; the offset pointer comes back through an out-parameter as an address. u8 silence is 128 while the other formats are zero (12 binding + 16 API tests). |
 | core | 1 | 1 | 100% | — | infrastructure — `ma_result_description` only (`MaLib.result_description`). The rest of what was `core` (97 functions) now lives in the 13 families above. |
-| **TOTAL** | **1,027** | **990** | **96.4%** (bindable 990/990 = 100%) | — | 56 families `complete` + `core`; 37 exclusions |
+| **TOTAL** | **1,027** | **996** | **97.0%** (bindable 996/996 = 100%) | — | 56 families `complete` + `core`; 31 exclusions |
 
 > The gates ensure **everything implemented is complete and tested**, and every function left
 > unbound is named in `docs/coverage-exclusions.json` with a rationale. Coverage was monotonic
 > as families were migrated; with no bindable function left unbound, the percentage can now only
 > move if the inventory itself changes (a miniaudio update) or an exclusion is lifted.
 
-## Exclusions (37)
+## Exclusions (31)
 
 Functions deliberately outside the bindable set, from `docs/coverage-exclusions.json`. The checker
 typo-guards every name against the inventory, so an exclusion cannot silently drift.
@@ -148,7 +148,6 @@ typo-guards every name against the inventory, so an exclusion cannot silently dr
 | Category | Count | Functions | Reason |
 |----------|-------|-----------|--------|
 | `wchar_w_variants` | 21 | `_w` variants of the decoder (2), encoder (2), wav, flac, mp3, sound, vfs (3) and resource_manager (8) path calls; `ma_copy_string_w`, `ma_wfopen` | Windows `wchar_t` path APIs. The project is linux-64 only; the UTF-8 `*_file` / `*_vfs` / `*_memory` siblings cover the need. |
-| `custom_callback_or_vtable_ctor` | 6 | `ma_decoder_init`, `ma_encoder_init`, `ma_wav_init`, `ma_flac_init`, `ma_mp3_init`, `ma_sound_set_end_callback` | Take user-supplied function pointers. Excluded because the 2026-05 Mojo nightly could not pass a function value across the FFI; **bindable since Mojo 1.1.0** (probe 2026-10-08) and kept here only until roadmap step 18 lands, so the families' `complete` flags stay true. |
 | `internal_preinit` | 3 | `ma_encoder_init__internal`, `ma_encoder_preinit`, `ma_sound_init_from_file_internal` | Non-public steps of an init path; the public init functions are bound instead. `ma_sound_init_from_file_internal` relies on state the static `ma_sound_preinit` sets up, so calling it directly leaves the sound half-initialised. |
 | `win32_only_not_exported` | 3 | `ma_strcmp_WCHAR`, `ma_strcpy_s_WCHAR`, `ma_strlen_WCHAR` | Compiled only under `MA_WIN32`; `nm -D` on the linux-64 shim shows no such symbol, so there is nothing to bind. The portable `wchar_t` helpers (`ma_wcslen`, `ma_wcscmp`, `ma_wcscpy_s`) are bound. |
 | `deprecated_superseded` | 2 | `ma_engine_get_time`, `ma_engine_set_time` | Deprecated aliases slated for removal in miniaudio 0.12; the `_in_pcm_frames` replacements are bound. |
@@ -226,53 +225,31 @@ done; per-family detail is in the matrix above, and only the notes it does not c
     `SoundGroupConfig` structs and preallocated noise. `ma_node_init`'s stale exclusion was also
     dropped, since the node family already binds it.
 
-**Steps 1–17 are finished:** 990 / 990 functions bindable under the exclusion list are bound.
-Two follow-ups remain, both enabled by the Mojo 1.1.0 callback result below.
+**Steps 1–18 are finished:** 996 / 996 functions bindable under the exclusion list are bound.
+One candidate follow-up remains (step 19).
 
-18. **User callbacks (6 functions) — paused 2026-10-09, mostly written.** The
-    `custom_callback_or_vtable_ctor` exclusions rested on the 2026-05 nightly finding that a Mojo
-    function value cannot cross `OwnedDLHandle.call`. A probe on Mojo 1.1.0 (2026-10-08) showed:
-    - a plain `def`, a function value, and a generic instance `tramp[S]` all pass as C function
-      pointers; C may store them and call them later, also from a C-spawned thread, and each
-      instance dispatches to its own `S`;
-    - end to end, `ma_decoder_init` driven by Mojo read/seek trampolines over an in-memory stream
-      decoded the test WAV bit-identically to `ma_decoder_init_file` at frame 0 and after a seek.
+18. **User callbacks (6 functions) — done 2026-11-01.** These had been excluded on the 2026-05
+    nightly finding that a Mojo function value cannot cross `OwnedDLHandle.call`. A probe on
+    Mojo 1.1.0 (2026-10-08, `pixi run probe-ffi-callback`, `tools/probes/ffi_callback/`) showed
+    that a plain `def`, a function value and a generic instance `tramp[S]` all pass as C function
+    pointers that C may store and call later, also from a C-spawned thread; and `ma_decoder_init`
+    driven by Mojo read/seek trampolines over an in-memory stream decoded the test WAV
+    bit-identically to `ma_decoder_init_file`.
 
-    Plan: a stream trait (read / seek / tell; write / seek for the encoder) implemented by user
-    types; non-raising generic trampolines; C trampolines in the shim that adapt miniaudio's
-    `(ma_decoder*, ...)` signatures to a uniform `(user, ...)` shape; the Mojo owner keeps the
-    stream on the heap until after uninit. `ma_sound_set_end_callback` fires on the audio thread,
-    so the shim registers one C trampoline that calls the Mojo handler under a spinlock, and
-    set / clear swap the handler under the same lock before the old one is freed.
+    Shape: user types implement `ReadSeekStream` / `ReadSeekTellStream` / `WriteSeekStream`
+    (`src/miniaudio/stream.mojo`; plain `raises`, so an implementation may raise anything); the
+    shim (`ma_shim_stream.c`) adapts miniaudio's `(ma_decoder*, ...)` callbacks to a uniform
+    `(user, ...)` shape and calls non-raising generic trampolines, which map a raise to
+    `MA_IO_ERROR` / `MA_BAD_SEEK`; the RAII owner keeps the stream on the heap until after uninit,
+    destroys it exactly once, and hands it back through `stream[S]()`. `ma_sound_set_end_callback`
+    fires on the audio thread, so one C trampoline calls the Mojo `SoundEndHandler` under a
+    spinlock that set / clear / drop also take before the old handler is freed.
 
-    **Status at pause (2026-10-09).** All work is on one local, unpushed branch,
-    `wip/user-callbacks` (~40 files, based on a61e536). The probes are on main under
-    `tools/probes/ffi_callback/` (`pixi run probe-ffi-callback`). Measured on the branch before
-    the pause:
-    - shim builds with no warnings; all six functions carry `@binds` (996 / 1,027 once landed);
-    - passing: decoder 25+14, encoder 19+7, wav 27+13, flac 27+13, mp3 29+16 (binding + API
-      tests), `tests/test_stream_binding.mojo` 24/24, sound 34+45.
-
-    **Unfinished, in this order:**
-    1. `tests/test_stream_api.mojo` crashes (`mojo: error: execution crashed`, stack in
-       `libAsyncRTRuntimeGlobals.so`, no test line printed first). Find the crashing test (run
-       them one at a time) and fix the root cause. Suspects: stream/encoder lifetime vs the
-       pointer C still holds, or the device-thread read
-       (`test_a_stream_is_read_from_the_device_thread`).
-    2. Wire `tests/test_stream_{binding,api}.mojo` as a `test-stream` pixi task and append it to
-       the `test` aggregate.
-    3. `coverage-binding` fails once: raw `sound_clear_end_callback` is not referenced by any
-       test. The branch's last commit adds raw set/clear contract tests to
-       `tests/test_sound_binding.mojo` and shortens the audio-thread tests, but was never run.
-    4. `tests/test_sound_api.mojo` took 548 s (about 9 min more gate time). Make the audio-thread
-       tests (`test_the_end_callback_runs_on_the_audio_thread_of_a_running_engine`,
-       `test_swapping_the_handler_while_the_audio_thread_ends_the_sound_is_safe`) cheaper
-       without losing what they prove.
-    5. Then remove the six names from `coverage-exclusions.json` (dropping the category), update
-       the decoder / encoder / wav / flac / mp3 / sound notes in `coverage-targets.json`, check
-       per-file shim coverage ≥ 95%, and merge only with `pixi run gate` green.
-
-    Target: 996 / 1,027 (97.0%), 31 exclusions left.
+    Finishing it fixed one test bug: `test_codec_seek_goes_through_the_user_stream` gave the
+    stream an untracked pointer into a `counters` list that Mojo freed after its last use, so the
+    stream's destructor wrote into freed memory and the whole suite crashed. (`TestSuite` prints
+    times in milliseconds; the "548 s" sound suite noted at the pause was 0.55 s.)
+    Result: 996 / 1,027 (97.0%), 31 exclusions.
 
 19. **User callbacks where the shim owns the C side today (candidate).** Not a denominator
     change, an API one: the device data callback (step 3), the data-source next-callback
@@ -280,7 +257,7 @@ Two follow-ups remain, both enabled by the Mojo 1.1.0 callback result below.
     Mojo code using the same trampoline pattern. Decide per family after step 18 shows the
     pattern holds up in the gate.
 
-After step 18 the remaining 31 exclusions are by policy or platform: `wchar_t` path variants
+The remaining 31 exclusions are by policy or platform: `wchar_t` path variants
 (21), internal init steps (3), Win32-only symbols (3), deprecated functions (3) and custom-backend
 authoring (1). The count otherwise changes only with a miniaudio update (`pixi run
 gen-api-inventory`) or if one of those becomes bindable.
