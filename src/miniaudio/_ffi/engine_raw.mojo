@@ -9,6 +9,7 @@ from miniaudio._lib import MaLib
 from miniaudio.result import MaResult
 from miniaudio._ffi.sound_raw import Vec3, MaCone
 from miniaudio._ffi.decoder_raw import MaCount
+from miniaudio._ffi.spatializer_raw import MaU32
 
 
 def engine_alloc(lib: MaLib) -> OpaquePointer[MutUntrackedOrigin]:
@@ -29,6 +30,32 @@ def engine_init(
             eng, Int32(1) if use_null_backend else Int32(0)
         )
     )
+
+
+def engine_init_offline(
+    lib: MaLib,
+    eng: OpaquePointer[MutUntrackedOrigin],
+    channels: UInt32,
+    sample_rate: UInt32,
+    threaded: Bool,
+) -> MaResult:
+    """A device-less engine (noDevice); without `threaded` it gets a NO_THREADING resource manager."""
+    return MaResult(
+        lib.call["ma_shim_engine_init_offline", Int32](
+            eng, channels, sample_rate, Int32(1) if threaded else Int32(0)
+        )
+    )
+
+
+def engine_process_jobs(
+    lib: MaLib, eng: OpaquePointer[MutUntrackedOrigin], max_jobs: UInt32
+) -> MaU32:
+    """Runs up to `max_jobs` queued resource-manager jobs; `value` is how many ran."""
+    var holder = [UInt32(0)]
+    var code = MaResult(
+        lib.call["ma_shim_engine_process_jobs", Int32](eng, max_jobs, holder.unsafe_ptr())
+    )
+    return MaU32(code, holder[0])
 
 
 def engine_uninit(lib: MaLib, eng: OpaquePointer[MutUntrackedOrigin]) -> MaResult:

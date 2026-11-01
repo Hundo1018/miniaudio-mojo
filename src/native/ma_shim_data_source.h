@@ -32,6 +32,10 @@ void  ma_shim_data_source_free(void* handle);
 
 /* Initialise as a buffer data source over a copy of `frames`
  * (frame_count * channels interleaved f32 samples). */
+int ma_shim_data_source_init_user(
+    void* handle, unsigned int channels, unsigned int sample_rate,
+    void* read, void* seek, void* length, void* drop, void* user, unsigned long long tag);
+void* ma_shim_data_source_user(void* handle, unsigned long long tag);
 int ma_shim_data_source_init_buffer(
     void* handle,
     const float* frames,

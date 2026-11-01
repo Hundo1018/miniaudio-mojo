@@ -61,6 +61,10 @@ void* ma_shim_node_alloc(void);
 void  ma_shim_node_free(void* handle);
 
 /* `offset` is the constant this node adds to its input. */
+int ma_shim_node_init_user(
+    void* handle, void* graph_handle, unsigned int channels, unsigned int input_bus_count,
+    void* process, void* drop, void* user);
+void* ma_shim_node_user(void* handle);
 int ma_shim_node_init(
     void*        handle,
     void*        graph_handle,

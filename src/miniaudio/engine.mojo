@@ -60,6 +60,45 @@ struct Engine(Movable):
             raise lib[].error("engine init failed", code)
         return Self(lib.copy(), ptr)
 
+    @staticmethod
+    def create_offline(
+        lib: ArcPointer[MaLib],
+        *,
+        channels: UInt32 = 2,
+        sample_rate: UInt32 = 48000,
+        threaded: Bool = False,
+    ) raises MaError -> Self:
+        """An engine with no device: nothing plays it, `read` pulls mixed frames.
+
+        This is the engine for host-driven output (a browser AudioWorklet, a file,
+        a test): call `render` for each block you need. Without `threaded` its
+        resource manager starts no thread (MA_RESOURCE_MANAGER_FLAG_NO_THREADING),
+        which is also how a build without threads (WebAssembly) behaves.
+        """
+        var ptr = raw.engine_alloc(lib[])
+        if ptr == null_handle():
+            raise MaError(MaResult.OUT_OF_MEMORY, "engine_alloc failed (out of memory)")
+        var code = raw.engine_init_offline(lib[], ptr, channels, sample_rate, threaded)
+        if code != MA_SUCCESS:
+            raw.engine_free(lib[], ptr)
+            raise lib[].error("engine offline init failed", code)
+        return Self(lib.copy(), ptr)
+
+    def process_jobs(mut self, max_jobs: UInt32 = UInt32.MAX) raises MaError -> UInt32:
+        """Runs queued resource-manager jobs on this thread, up to `max_jobs`;
+        returns how many ran. Call it once per block next to `render`.
+
+        Only for `create_offline(threaded=False)`; any other engine raises
+        MA_INVALID_OPERATION, since its job threads own the queue. Without threads
+        miniaudio loads synchronously (an `ASYNC` sound is ready when its
+        constructor returns), so this is usually 0; it drains whatever a
+        non-blocking flow left queued.
+        """
+        var rc = raw.engine_process_jobs(self._lib[], self._ptr, max_jobs)
+        if rc.result != MA_SUCCESS:
+            raise self._lib[].error("engine process_jobs failed", rc.result)
+        return rc.value
+
     def start(mut self) raises MaError:
         var code = raw.engine_start(self._lib[], self._ptr)
         if code != MA_SUCCESS:
@@ -81,6 +120,21 @@ struct Engine(Movable):
         var code = raw.engine_play_sound_ex(self._lib[], self._ptr, path)
         if code != MA_SUCCESS:
             raise self._lib[].error("engine play_sound_ex failed", code)
+
+    def render(mut self, mut out: List[Float32], frame_count: UInt64) raises MaError:
+        """Mixes exactly `frame_count` frames into `out` (interleaved f32, resized to
+        frame_count * channels): what plays, then silence where nothing does.
+
+        The call to make once per output block on a `create_offline` engine; unlike
+        `read` it never comes back short, so a host buffer is always filled.
+        """
+        var ch = Int(self.channels())
+        if ch == 0:
+            raise MaError(MaResult.INVALID_DATA, "engine has unknown channel count")
+        out.resize(Int(frame_count) * ch, Float32(0))
+        var c = raw.engine_read_pcm_frames(self._lib[], self._ptr, out, frame_count)
+        if c.result != MA_SUCCESS:
+            raise self._lib[].error("engine render failed", c.result)
 
     def read(mut self, mut out: List[Float32], frame_count: UInt64) raises MaError -> UInt64:
         """Reads up to frame_count frames from the node graph into `out`.

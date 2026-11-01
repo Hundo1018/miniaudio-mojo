@@ -409,6 +409,7 @@ int ma_shim_runtime_version(
     return MA_SUCCESS;
 }
 
+#ifndef MA_NO_DEVICE_IO   /* backend queries exist only with device IO */
 /* miniaudio answers FALSE for a code outside ma_backend; the shim calls it
  * invalid instead. */
 static int backend_valid(int backend) {
@@ -430,3 +431,4 @@ int ma_shim_runtime_is_loopback_supported(int backend, int* out_supported) {
     *out_supported = ma_is_loopback_supported((ma_backend)backend) ? 1 : 0;
     return MA_SUCCESS;
 }
+#endif /* MA_NO_DEVICE_IO */

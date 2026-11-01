@@ -10,7 +10,7 @@ from miniaudio.result import MaResult
 from std.time import sleep
 
 from miniaudio._lib import MaLib, null_handle
-from miniaudio.result import MA_SUCCESS, MA_INVALID_ARGS
+from miniaudio.result import MA_SUCCESS, MA_INVALID_ARGS, MA_INVALID_OPERATION
 import miniaudio._ffi.engine_raw as raw
 import miniaudio._ffi.node_raw as nraw
 import miniaudio._ffi.sound_raw as sraw
@@ -1124,6 +1124,24 @@ def test_listener_calls_on_an_uninitialised_engine_are_quiet_no_ops() raises:
     _expect_quiet_listener_calls(lib, eng)
     raw.engine_free(lib, eng)
 
+
+
+def test_offline_init_and_job_pump_contracts() raises:
+    var lib = _lib()
+    assert_equal(raw.engine_init_offline(lib, null_handle(), 2, 48000, False), MA_INVALID_ARGS)
+    var eng = raw.engine_alloc(lib)
+    assert_equal(raw.engine_init_offline(lib, eng, 0, 48000, False), MA_INVALID_ARGS)
+    assert_equal(raw.engine_init_offline(lib, eng, 2, 0, False), MA_INVALID_ARGS)
+    assert_equal(raw.engine_process_jobs(lib, eng, 4).result, MA_INVALID_ARGS)  # not initialised
+    assert_equal(raw.engine_init_offline(lib, eng, 2, 48000, False), MA_SUCCESS)
+    var rc = raw.engine_process_jobs(lib, eng, 4)
+    assert_equal(rc.result, MA_SUCCESS)
+    assert_equal(rc.value, UInt32(0))  # nothing queued
+    assert_equal(raw.engine_process_jobs(lib, null_handle(), 4).result, MA_INVALID_ARGS)
+    assert_equal(raw.engine_init_offline(lib, eng, 1, 44100, True), MA_SUCCESS)  # re-init
+    assert_equal(raw.engine_get_channels(lib, eng), UInt32(1))
+    assert_equal(raw.engine_process_jobs(lib, eng, 4).result, MA_INVALID_OPERATION)
+    raw.engine_free(lib, eng)
 
 def main() raises:
     TestSuite.discover_tests[__functions_in_module()]().run()

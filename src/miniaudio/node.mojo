@@ -45,6 +45,8 @@ from std.memory import ArcPointer
 from miniaudio._lib import MaLib, null_handle
 from miniaudio.engine import Engine
 from miniaudio.result import MaResult, MaError, MA_SUCCESS
+from miniaudio.processor import NodeProcessor
+from miniaudio._ffi.stream_raw import stream_leak, stream_reclaim
 import miniaudio._ffi.node_raw as raw
 
 
@@ -257,6 +259,16 @@ struct OffsetNode(Movable):
         """Feed this node's output into a splitter node's input."""
         self._attach(other._ptr, output_bus, other_input_bus)
 
+    def attach_to[Q: NodeProcessor](
+        mut self,
+        other: UserNode[Q],
+        *,
+        output_bus: UInt32 = 0,
+        other_input_bus: UInt32 = 0,
+    ) raises MaError:
+        """Feed this node's output into a user effect node's input."""
+        self._attach(other._ptr, output_bus, other_input_bus)
+
     def attach_to(
         mut self,
         other: EngineNode,
@@ -419,6 +431,156 @@ struct OffsetNode(Movable):
             raw.node_free(self._lib[], self._ptr)
         # Fields not named above are dropped before the body runs; release the
         # keep-alive references only after the handle is freed.
+        _ = self._graph^
+
+
+struct UserNode[P: NodeProcessor](Movable):
+    """A node whose processing is Mojo code: `P.process` (RAII).
+
+    `input=False` (the default) makes a source with no input bus -- a
+    synthesizer; `input=True` an effect with one input bus. Either has one output
+    bus, `channels` wide. The node takes the processor, keeps it on the heap
+    where `processor()` reaches it, and destroys it once, after the node is
+    uninitialised. See `miniaudio.processor` for what `process` may do.
+
+        var graph = NodeGraph.of_engine(engine)
+        var tone = UserNode.create(graph, Saw(0))
+        tone.attach_to(EndpointNode.of_engine(engine))
+    """
+
+    var _lib: ArcPointer[MaLib]
+    var _graph: ArcPointer[NodeGraph]
+    var _ptr: OpaquePointer[MutUntrackedOrigin]
+
+    def __init__(
+        out self,
+        var lib: ArcPointer[MaLib],
+        var graph: ArcPointer[NodeGraph],
+        ptr: OpaquePointer[MutUntrackedOrigin],
+    ):
+        self._lib = lib^
+        self._graph = graph^
+        self._ptr = ptr
+
+    @staticmethod
+    def create(
+        graph: ArcPointer[NodeGraph],
+        var processor: Self.P,
+        *,
+        channels: UInt32 = 2,
+        input: Bool = False,
+    ) raises MaError -> Self:
+        var lib = graph[]._lib.copy()
+        var user = stream_leak(processor^)
+        var ptr = raw.node_alloc(lib[])
+        if ptr == null_handle():
+            stream_reclaim(user)
+            raise MaError(MaResult.OUT_OF_MEMORY, "node_alloc failed (out of memory)")
+        # The shim takes the processor over whether or not init succeeds.
+        var code = raw.node_init_user(
+            lib[], ptr, graph[]._ptr, channels, UInt32(1) if input else UInt32(0), user
+        )
+        if code != MA_SUCCESS:
+            raw.node_free(lib[], ptr)
+            raise lib[].error("user node init failed", code)
+        return Self(lib^, graph.copy(), ptr)
+
+    def processor(mut self) raises MaError -> ref[self] Self.P:
+        """The processor, to read or change its state between reads of the graph.
+        Do not hold the reference across a graph read on another thread."""
+        var user = raw.node_user(self._lib[], self._ptr)
+        if user == null_handle():
+            raise MaError(MaResult.INVALID_OPERATION, "user node has been uninitialised")
+        return user.unsafe_bitcast[Self.P]().unsafe_origin_cast[origin_of(self)]()[]
+
+    def _attach(
+        mut self,
+        other: OpaquePointer[MutUntrackedOrigin],
+        output_bus: UInt32,
+        other_input_bus: UInt32,
+    ) raises MaError:
+        var code = raw.node_attach_output_bus(
+            self._lib[], self._ptr, output_bus, other, other_input_bus
+        )
+        if code != MA_SUCCESS:
+            raise self._lib[].error("node attach failed", code)
+
+    def attach_to(mut self, other: OffsetNode, *, output_bus: UInt32 = 0, other_input_bus: UInt32 = 0) raises MaError:
+        self._attach(other._ptr, output_bus, other_input_bus)
+
+    def attach_to(mut self, other: DelayNode, *, output_bus: UInt32 = 0, other_input_bus: UInt32 = 0) raises MaError:
+        self._attach(other._ptr, output_bus, other_input_bus)
+
+    def attach_to(mut self, other: SplitterNode, *, output_bus: UInt32 = 0, other_input_bus: UInt32 = 0) raises MaError:
+        self._attach(other._ptr, output_bus, other_input_bus)
+
+    def attach_to(mut self, other: EngineNode, *, output_bus: UInt32 = 0, other_input_bus: UInt32 = 0) raises MaError:
+        self._attach(other._ptr, output_bus, other_input_bus)
+
+    def attach_to(mut self, other: EndpointNode, *, output_bus: UInt32 = 0, other_input_bus: UInt32 = 0) raises MaError:
+        self._attach(other._ptr, output_bus, other_input_bus)
+
+    def attach_to[Q: NodeProcessor](mut self, other: UserNode[Q], *, output_bus: UInt32 = 0, other_input_bus: UInt32 = 0) raises MaError:
+        """Feed this node into another user node (an effect)."""
+        self._attach(other._ptr, output_bus, other_input_bus)
+
+    def attach_to_endpoint(mut self, *, output_bus: UInt32 = 0, endpoint_input_bus: UInt32 = 0) raises MaError:
+        """Feed this node's output straight into the graph's endpoint."""
+        var code = raw.node_attach_to_endpoint(
+            self._lib[], self._ptr, output_bus, self._graph[]._ptr, endpoint_input_bus
+        )
+        if code != MA_SUCCESS:
+            raise self._lib[].error("node attach to endpoint failed", code)
+
+    def detach(mut self, *, output_bus: UInt32 = 0) raises MaError:
+        var code = raw.node_detach_output_bus(self._lib[], self._ptr, output_bus)
+        if code != MA_SUCCESS:
+            raise self._lib[].error("node detach failed", code)
+
+    def set_volume(mut self, volume: Float32, *, output_bus: UInt32 = 0) raises MaError:
+        var code = raw.node_set_output_bus_volume(self._lib[], self._ptr, output_bus, volume)
+        if code != MA_SUCCESS:
+            raise self._lib[].error("node set volume failed", code)
+
+    def volume(self, *, output_bus: UInt32 = 0) raises MaError -> Float32:
+        var rc = raw.node_get_output_bus_volume(self._lib[], self._ptr, output_bus)
+        if rc.result != MA_SUCCESS:
+            raise self._lib[].error("node volume failed", rc.result)
+        return rc.value
+
+    def input_bus_count(self) raises MaError -> UInt32:
+        var rc = raw.node_get_input_bus_count(self._lib[], self._ptr)
+        if rc.result != MA_SUCCESS:
+            raise self._lib[].error("node input bus count failed", rc.result)
+        return rc.value
+
+    def output_channels(self, *, bus: UInt32 = 0) raises MaError -> UInt32:
+        var rc = raw.node_get_output_channels(self._lib[], self._ptr, bus)
+        if rc.result != MA_SUCCESS:
+            raise self._lib[].error("node output channels failed", rc.result)
+        return rc.value
+
+    def set_state(mut self, state: Int) raises MaError:
+        """NODE_STATE_STARTED or NODE_STATE_STOPPED."""
+        var code = raw.node_set_state(self._lib[], self._ptr, state)
+        if code != MA_SUCCESS:
+            raise self._lib[].error("node set state failed", code)
+
+    def state(self) raises MaError -> Int:
+        var rc = raw.node_get_state(self._lib[], self._ptr)
+        if rc.result != MA_SUCCESS:
+            raise self._lib[].error("node state failed", rc.result)
+        return rc.value
+
+    def uninit(mut self) raises MaError:
+        """Detach and release the node early, destroying the processor."""
+        var code = raw.node_uninit(self._lib[], self._ptr)
+        if code != MA_SUCCESS:
+            raise self._lib[].error("node uninit failed", code)
+
+    def __deinit__(deinit self):
+        if self._ptr != null_handle():
+            raw.node_free(self._lib[], self._ptr)
         _ = self._graph^
 
 

@@ -18,6 +18,8 @@ from miniaudio._lib import MaLib
 from miniaudio.result import MaResult
 from miniaudio._ffi.decoder_raw import MaCount
 from miniaudio._ffi.device_raw import MaUInt, MaBool
+from miniaudio._ffi.stream_raw import StreamPtr, stream_destroy
+from miniaudio.processor import NodeProcessor
 
 
 @fieldwise_init
@@ -150,6 +152,76 @@ def node_get_heap_size(
         )
     )
     return MaCount(code, holder[0])
+
+
+# ---- user node: processing written in Mojo ----
+
+
+def user_node_process_tramp[
+    P: NodeProcessor
+](
+    user: OpaquePointer[MutUntrackedOrigin],
+    input: OpaquePointer[MutUntrackedOrigin],
+    input_frames: UInt32,
+    output: OpaquePointer[MutUntrackedOrigin],
+    output_frames: UInt32,
+    channels: UInt32,
+):
+    """The shim's process callback for a node whose processor is a `P`."""
+    var ch = Int(channels)
+    var in_len = Int(input_frames) * ch if input != OpaquePointer[MutUntrackedOrigin](unsafe_from_address=Int(0)) else 0
+    var in_span = Span[Float32, ImmutAnyOrigin](
+        unsafe_ptr=input.unsafe_bitcast[Float32]().unsafe_origin_cast[MutAnyOrigin](), length=in_len
+    )
+    var out_span = Span[Float32, MutAnyOrigin](
+        unsafe_ptr=output.unsafe_bitcast[Float32]().unsafe_origin_cast[MutAnyOrigin](),
+        length=Int(output_frames) * ch,
+    )
+    user.unsafe_bitcast[P]()[].process(in_span, out_span, Int(output_frames), ch)
+
+
+def node_init_user[
+    P: NodeProcessor
+](
+    lib: MaLib,
+    n: OpaquePointer[MutUntrackedOrigin],
+    g: OpaquePointer[MutUntrackedOrigin],
+    channels: UInt32,
+    input_bus_count: UInt32,
+    user: StreamPtr[P],
+) -> MaResult:
+    """A node whose processing is `P.process` on the processor at `user` (a heap
+    cell from `stream_leak`). The shim ALWAYS takes `user` over: it destroys it after
+    the node is uninitialised, or at once if init fails."""
+    return MaResult(
+        lib.call["ma_shim_node_init_user", Int32](
+            n, g, channels, input_bus_count, user_node_process_tramp[P], stream_destroy[P], user
+        )
+    )
+
+
+def node_init_user_ptrs(
+    lib: MaLib,
+    n: OpaquePointer[MutUntrackedOrigin],
+    g: OpaquePointer[MutUntrackedOrigin],
+    channels: UInt32,
+    input_bus_count: UInt32,
+    process: OpaquePointer[MutUntrackedOrigin],
+    drop: OpaquePointer[MutUntrackedOrigin],
+    user: OpaquePointer[MutUntrackedOrigin],
+) -> MaResult:
+    """The same shim call with every pointer bare, NULLs included: only for the
+    argument checks."""
+    return MaResult(
+        lib.call["ma_shim_node_init_user", Int32](n, g, channels, input_bus_count, process, drop, user)
+    )
+
+
+def node_user(
+    lib: MaLib, n: OpaquePointer[MutUntrackedOrigin]
+) -> OpaquePointer[MutUntrackedOrigin]:
+    """The processor pointer of a user node, or NULL for any other node."""
+    return lib.call["ma_shim_node_user", OpaquePointer[MutUntrackedOrigin]](n)
 
 
 def node_init(

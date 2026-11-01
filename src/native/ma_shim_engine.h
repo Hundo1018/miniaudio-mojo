@@ -17,6 +17,9 @@ void* ma_shim_engine_alloc(void);
 void  ma_shim_engine_free(void* handle);
 
 int   ma_shim_engine_init(void* handle, int use_null_backend);
+int   ma_shim_engine_init_offline(
+    void* handle, unsigned int channels, unsigned int sample_rate, int threaded);
+int   ma_shim_engine_process_jobs(void* handle, unsigned int max_jobs, unsigned int* out_processed);
 int   ma_shim_engine_uninit(void* handle);
 int   ma_shim_engine_start(void* handle);
 int   ma_shim_engine_stop(void* handle);

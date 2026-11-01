@@ -213,6 +213,56 @@ static ma_node_vtable g_offset_node_vtable = {
     MA_NODE_FLAG_CONTINUOUS_PROCESSING | MA_NODE_FLAG_ALLOW_NULL_INPUT
 };
 
+/* ================= a node implemented by the caller (Mojo) =================
+ *
+ * miniaudio calls onProcess with the node; the shim forwards to `process` with the
+ * caller's own `user` pointer and plain buffers. `drop` destroys `user`, exactly
+ * once: after ma_node_uninit, so it never runs while `process` can. A node has
+ * 0 input buses (a source, e.g. a synthesizer) or 1 (an effect), and 1 output
+ * bus; every bus is `channels` wide, f32 interleaved. */
+typedef void (*ma_shim_user_node_process_proc)(
+    void* user, const float* input, unsigned int input_frames,
+    float* output, unsigned int output_frames, unsigned int channels);
+typedef void (*ma_shim_user_node_drop_proc)(void* user);
+
+typedef struct ma_shim_user_node {
+    ma_node_base                   base;
+    void*                          user;
+    ma_shim_user_node_process_proc process;
+    ma_shim_user_node_drop_proc    drop;
+    ma_uint32                      channels;
+} ma_shim_user_node;
+
+static void user_node_process(
+    ma_node*      pNode,
+    const float** ppFramesIn,
+    ma_uint32*    pFrameCountIn,
+    float**       ppFramesOut,
+    ma_uint32*    pFrameCountOut
+) {
+    ma_shim_user_node* node = (ma_shim_user_node*)pNode;
+    const float*       in = (ppFramesIn != NULL) ? ppFramesIn[0] : NULL;
+    ma_uint32          in_frames = (in != NULL && pFrameCountIn != NULL) ? *pFrameCountIn : 0;
+
+    node->process(node->user, in, in_frames, ppFramesOut[0], *pFrameCountOut, node->channels);
+    /* All input offered was consumed; the output buffer was filled. */
+    if (pFrameCountIn != NULL) {
+        *pFrameCountIn = in_frames;
+    }
+}
+
+/* A source: no input bus, so miniaudio calls it whenever its output is pulled. */
+static ma_node_vtable g_user_source_vtable = {
+    user_node_process, NULL, 0, 1, 0
+};
+
+/* An effect: one input bus. Like the offset node it keeps processing with nothing
+ * attached (the input pointer is then NULL), so a tail can ring out. */
+static ma_node_vtable g_user_effect_vtable = {
+    user_node_process, NULL, 1, 1,
+    MA_NODE_FLAG_CONTINUOUS_PROCESSING | MA_NODE_FLAG_ALLOW_NULL_INPUT
+};
+
 /* Every node handle in this shim is the same allocation: a kind tag plus a
  * union of the payloads. Each payload starts with a ma_node_base, so `ma_node*`
  * for any of them is the address of the union — which is what lets one node be
@@ -225,6 +275,7 @@ static ma_node_vtable g_offset_node_vtable = {
  * the address of the union but is looked up from the engine on every use. */
 typedef enum ma_shim_node_kind {
     MA_SHIM_NODE_KIND_OFFSET = 0,
+    MA_SHIM_NODE_KIND_USER,
     MA_SHIM_NODE_KIND_DELAY,
     MA_SHIM_NODE_KIND_SPLITTER,
     MA_SHIM_NODE_KIND_ENGINE,
@@ -237,6 +288,7 @@ typedef struct ma_shim_any_node {
     void*             heap;   /* non-NULL when the preallocated path was used */
     union {
         ma_shim_offset_node offset;
+        ma_shim_user_node   user;
         ma_delay_node       delay;
         ma_splitter_node    splitter;
         ma_engine_node      engine_node;
@@ -279,6 +331,10 @@ static void node_teardown(ma_shim_node_state* h) {
                 break;
             case MA_SHIM_NODE_KIND_ENDPOINT:
                 break;
+            case MA_SHIM_NODE_KIND_USER:
+                ma_node_uninit((ma_node*)&h->payload.user, NULL);
+                h->payload.user.drop(h->payload.user.user);   /* after uninit: process is done */
+                break;
             default:
                 ma_node_uninit((ma_node*)&h->payload.offset, NULL);
                 break;
@@ -299,6 +355,7 @@ static ma_node* node_ready(void* handle) {
         return NULL;
     }
     if (h->kind != MA_SHIM_NODE_KIND_OFFSET
+        && h->kind != MA_SHIM_NODE_KIND_USER
         && h->kind != MA_SHIM_NODE_KIND_ENGINE
         && h->kind != MA_SHIM_NODE_KIND_ENDPOINT) {
         return NULL;
@@ -1074,4 +1131,58 @@ int ma_shim_splitter_node_attach_to_endpoint(
         return MA_INVALID_ARGS;
     }
     return (int)ma_node_attach_output_bus((ma_node*)&h->payload.splitter, (ma_uint32)output_bus, endpoint, 0);
+}
+
+
+/* A node whose processing is the caller's `process` (see ma_shim_user_node). The
+ * shim takes `user` over whether or not this succeeds: `drop(user)` runs when the
+ * node is torn down, or here and now if init fails (bad arguments included).
+ * `input_bus_count` is 0 (a source) or 1 (an effect). */
+/* @binds ma_node_config_init, ma_node_init */
+int ma_shim_node_init_user(
+    void* handle, void* graph_handle, unsigned int channels, unsigned int input_bus_count,
+    void* process, void* drop, void* user
+) {
+    ma_shim_node_state* h = (ma_shim_node_state*)handle;
+    ma_node_graph*      g = node_graph_ptr(graph_handle);
+    ma_uint32           ch = (ma_uint32)channels;
+    ma_node_config      config;
+    ma_result           result;
+
+    if (drop == NULL) {
+        return MA_INVALID_ARGS;   /* nothing could ever free `user` */
+    }
+    if (h == NULL || g == NULL || process == NULL || user == NULL || ch == 0 || input_bus_count > 1) {
+        ((ma_shim_user_node_drop_proc)drop)(user);
+        return MA_INVALID_ARGS;
+    }
+    node_teardown(h);
+
+    h->kind = MA_SHIM_NODE_KIND_USER;
+    h->payload.user.user = user;
+    h->payload.user.process = (ma_shim_user_node_process_proc)process;
+    h->payload.user.drop = (ma_shim_user_node_drop_proc)drop;
+    h->payload.user.channels = ch;
+
+    config = ma_node_config_init();
+    config.vtable = (input_bus_count == 0) ? &g_user_source_vtable : &g_user_effect_vtable;
+    config.pInputChannels = (input_bus_count == 0) ? NULL : &ch;
+    config.pOutputChannels = &ch;
+    result = ma_node_init(g, &config, NULL, (ma_node*)&h->payload.user);
+    if (result == MA_SUCCESS) {
+        h->initialized = 1;
+    } else {
+        h->kind = MA_SHIM_NODE_KIND_OFFSET;   /* nothing to tear down */
+        ((ma_shim_user_node_drop_proc)drop)(user);
+    }
+    return (int)result;
+}
+
+/* The `user` pointer of a node built by ma_shim_node_init_user, else NULL. */
+void* ma_shim_node_user(void* handle) {
+    ma_shim_node_state* h = (ma_shim_node_state*)handle;
+    if (h == NULL || !h->initialized || h->kind != MA_SHIM_NODE_KIND_USER) {
+        return NULL;
+    }
+    return h->payload.user.user;
 }

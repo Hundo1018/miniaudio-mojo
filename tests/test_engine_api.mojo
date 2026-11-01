@@ -16,7 +16,7 @@ from miniaudio.node import NodeGraph, OffsetNode, EndpointNode, EngineNode, NODE
 from miniaudio.sync import Log
 from miniaudio.device import Device, DEVICE_STATE_STARTED, DEVICE_STATE_STOPPED
 from miniaudio.resource_manager import ResourceManager, ResourceDataBuffer
-from miniaudio.sound import Sound, SOUND_FLAG_NO_PITCH, SOUND_FLAG_NO_SPATIALIZATION
+from miniaudio.sound import Sound, SOUND_FLAG_NO_PITCH, SOUND_FLAG_NO_SPATIALIZATION, SOUND_FLAG_ASYNC, SOUND_FLAG_DECODE
 
 
 comptime WAV_PATH = "./build/test_assets/sine_440_stereo.wav"
@@ -583,6 +583,86 @@ def test_engine_node_keeps_the_engine_alive() raises:
 def _engine_node_of_a_vanished_engine() raises -> EngineNode:
     return EngineNode.create(_stopped_engine(), flags=PASS_THROUGH)
 
+
+
+# ---- offline (device-less) engine -------------------------------------------------
+
+
+def _rms(buf: List[Float32]) -> Float64:
+    var acc = 0.0
+    for x in buf:
+        acc += Float64(x) * Float64(x)
+    return (acc / Float64(len(buf))) ** 0.5 if len(buf) > 0 else 0.0
+
+
+def _render(lib: ArcPointer[MaLib], frames: UInt64) raises -> List[Float32]:
+    var eng = ArcPointer(Engine.create_offline(lib, channels=2, sample_rate=48000))
+    var snd = Sound.from_file(eng, WAV_PATH, flags=SOUND_FLAG_NO_SPATIALIZATION)
+    snd.start()
+    var out = List[Float32]()
+    eng[].render(out, frames)
+    _ = snd^  # a sound dropped after start() stops playing; keep it to the end
+    return out^
+
+
+def test_an_offline_engine_renders_a_sound_on_demand() raises:
+    var lib = _lib()
+    var eng = ArcPointer(Engine.create_offline(lib, channels=2, sample_rate=48000))
+    assert_equal(eng[].channels(), UInt32(2))
+    assert_equal(eng[].sample_rate(), UInt32(48000))
+    var out = List[Float32]()
+    eng[].render(out, 480)
+    assert_equal(len(out), 960)  # always the full block...
+    assert_equal(_rms(out), 0.0)  # ...of silence while nothing plays
+    var short = List[Float32]()
+    assert_equal(eng[].read(short, 480), UInt64(0))  # `read` reports what was produced
+    var snd = Sound.from_file(eng, WAV_PATH, flags=SOUND_FLAG_NO_SPATIALIZATION)
+    snd.start()
+    eng[].render(out, 4800)
+    assert_equal(len(out), 9600)
+    assert_true(_rms(out) > 0.05, String(_rms(out)))  # the 440 Hz sine, mixed
+    assert_equal(snd.cursor(), UInt64(5120))  # whole 1024-frame decode chunks pulled through the mixer
+
+
+def test_offline_rendering_is_deterministic() raises:
+    var lib = _lib()
+    var a = _render(lib, 9600)
+    var b = _render(lib, 9600)
+    assert_equal(len(a), len(b))
+    for i in range(len(a)):
+        if a[i] != b[i]:
+            assert_true(False, "sample " + String(i) + " differs")
+
+
+def test_without_threads_an_async_sound_is_ready_at_once() raises:
+    # miniaudio drops ASYNC when the resource manager has no threads and loads inline.
+    var lib = _lib()
+    var eng = ArcPointer(Engine.create_offline(lib, channels=2, sample_rate=48000))
+    var snd = Sound.from_file(eng, WAV_PATH, flags=SOUND_FLAG_ASYNC | SOUND_FLAG_DECODE | SOUND_FLAG_NO_SPATIALIZATION)
+    snd.start()
+    var out = List[Float32]()
+    eng[].render(out, 4800)
+    assert_true(_rms(out) > 0.05, String(_rms(out)))
+    assert_equal(eng[].process_jobs(), UInt32(0))  # nothing left queued
+    _ = snd^
+
+
+def test_process_jobs_needs_a_thread_free_engine() raises:
+    var lib = _lib()
+    var threaded = Engine.create_offline(lib, threaded=True)
+    with assert_raises(contains="MA_INVALID_OPERATION"):
+        _ = threaded.process_jobs()
+    var device = Engine.create(lib, use_null_backend=True)
+    with assert_raises(contains="MA_INVALID_OPERATION"):
+        _ = device.process_jobs()
+
+
+def test_offline_init_rejects_a_zero_format() raises:
+    var lib = _lib()
+    with assert_raises(contains="MA_INVALID_ARGS"):
+        _ = Engine.create_offline(lib, channels=0)
+    with assert_raises(contains="MA_INVALID_ARGS"):
+        _ = Engine.create_offline(lib, sample_rate=0)
 
 def main() raises:
     TestSuite.discover_tests[__functions_in_module()]().run()

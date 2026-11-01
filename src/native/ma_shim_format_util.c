@@ -193,6 +193,7 @@ int ma_shim_calculate_frame_count_after_resampling(
     return MA_SUCCESS;
 }
 
+#ifndef MA_NO_DEVICE_IO   /* device descriptors exist only with device IO */
 /* @binds ma_calculate_buffer_size_in_frames_from_descriptor */
 int ma_shim_calculate_buffer_size_in_frames_from_descriptor(
     int           format,
@@ -219,6 +220,8 @@ int ma_shim_calculate_buffer_size_in_frames_from_descriptor(
         (ma_performance_profile)performance_profile);
     return MA_SUCCESS;
 }
+
+#endif /* MA_NO_DEVICE_IO */
 
 /* ---- name and priority tables ---- */
 
@@ -247,6 +250,7 @@ int ma_shim_get_format_priority_index(int format, unsigned int* out_index) {
     return MA_SUCCESS;
 }
 
+#ifndef MA_NO_DEVICE_IO   /* backend tables exist only with device IO */
 /* @binds ma_get_backend_name */
 int ma_shim_get_backend_name(int backend, char* out_text, unsigned int capacity) {
     const char* text;
@@ -295,3 +299,4 @@ int ma_shim_get_enabled_backends(
     *out_count = (unsigned int)count;
     return MA_SUCCESS;
 }
+#endif /* MA_NO_DEVICE_IO */

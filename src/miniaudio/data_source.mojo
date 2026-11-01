@@ -19,6 +19,8 @@ from miniaudio.decoder import SampleFormat, DataFormat
 from miniaudio.result import MaResult, MaError, MA_SUCCESS, MA_AT_END
 from miniaudio.engine import Engine
 import miniaudio._ffi.data_source_raw as raw
+from miniaudio.processor import UserDataSource
+from miniaudio._ffi.stream_raw import stream_leak, stream_reclaim, stream_tag
 
 
 @fieldwise_init
@@ -87,6 +89,42 @@ struct DataSource(Movable):
             raw.data_source_free(lib[], ptr)
             raise lib[].error("data source init failed", code)
         return Self(lib.copy(), ptr, channels)
+
+    @staticmethod
+    def from_user[
+        S: UserDataSource
+    ](
+        lib: ArcPointer[MaLib],
+        var source: S,
+        *,
+        channels: UInt32 = 2,
+        sample_rate: UInt32 = 48000,
+    ) raises MaError -> Self:
+        """A data source whose frames come from `source.read` (f32, interleaved).
+
+        Hand it to `Sound.from_data_source`, a `DataSourceNode` or a chain like
+        any other source. It takes `source` over, keeps it on the heap where
+        `user[S]()` reaches it, and destroys it once, after uninit.
+        """
+        var user = stream_leak(source^)
+        var ptr = raw.data_source_alloc(lib[])
+        if ptr == null_handle():
+            stream_reclaim(user)
+            raise MaError(MaResult.OUT_OF_MEMORY, "data_source_alloc failed (out of memory)")
+        # The shim takes the source over whether or not init succeeds.
+        var code = raw.data_source_init_user(lib[], ptr, channels, sample_rate, user)
+        if code != MA_SUCCESS:
+            raw.data_source_free(lib[], ptr)
+            raise lib[].error("user data source init failed", code)
+        return Self(lib.copy(), ptr, channels)
+
+    def user[S: UserDataSource](mut self) raises MaError -> ref[self] S:
+        """The source this was built from with `from_user`. Raises if it was not
+        built that way, or `S` is not its type."""
+        var user = raw.data_source_user(self._lib[], self._ptr, stream_tag[S]())
+        if user == null_handle():
+            raise MaError(MaResult.INVALID_OPERATION, "data source has no user source of the requested type")
+        return user.unsafe_bitcast[S]().unsafe_origin_cast[origin_of(self)]()[]
 
     # ---- read / seek --------------------------------------------------------
 

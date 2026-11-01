@@ -655,6 +655,7 @@ void* ma_shim_encoder_stream_user(void* handle, unsigned long long type_tag) {
     return shimint_stream_user(&h->stream, type_tag);
 }
 
+#ifndef MA_NO_DEVICE_IO   /* devices and the device job thread: not in a device-less (WebAssembly) build */
 /* ---- device (playback pulling from a decoder) ---- */
 
 /* miniaudio defines ma_device_info_add_native_data_format as MA_API (= extern)
@@ -1304,3 +1305,4 @@ int ma_shim_device_job_thread_next(void* handle, unsigned short* out_job_code) {
     }
     return (int)result;
 }
+#endif /* MA_NO_DEVICE_IO */

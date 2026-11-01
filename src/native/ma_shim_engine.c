@@ -14,10 +14,33 @@
  */
 typedef struct ma_shim_engine {
     ma_engine engine;
+#ifndef MA_NO_DEVICE_IO
     ma_context context;
     int has_context;
+#endif
+    ma_resource_manager resource_manager;   /* offline engines without job threads */
+    int has_resource_manager;
     int initialized;
 } ma_shim_engine;
+
+/* Uninit the engine first (it may still reference the context and the resource
+ * manager), then what it was built on. Idempotent. */
+static void engine_teardown(ma_shim_engine* h) {
+    if (h->initialized) {
+        ma_engine_uninit(&h->engine);
+        h->initialized = 0;
+    }
+#ifndef MA_NO_DEVICE_IO
+    if (h->has_context) {
+        ma_context_uninit(&h->context);
+        h->has_context = 0;
+    }
+#endif
+    if (h->has_resource_manager) {
+        ma_resource_manager_uninit(&h->resource_manager);
+        h->has_resource_manager = 0;
+    }
+}
 
 /* Internal cross-family accessor (see ma_shim_internal.h). */
 ma_engine* shimint_engine_ptr(void* engine_handle) {
@@ -47,14 +70,7 @@ void ma_shim_engine_free(void* handle) {
     if (h == NULL) {
         return;
     }
-    if (h->initialized) {
-        ma_engine_uninit(&h->engine);
-        h->initialized = 0;
-    }
-    if (h->has_context) {
-        ma_context_uninit(&h->context);
-        h->has_context = 0;
-    }
+    engine_teardown(h);
     free(h);
 }
 
@@ -67,16 +83,13 @@ int ma_shim_engine_init(void* handle, int use_null_backend) {
     if (h == NULL) {
         return MA_INVALID_ARGS;
     }
-    if (h->initialized) {
-        ma_engine_uninit(&h->engine);
-        h->initialized = 0;
-    }
-    if (h->has_context) {
-        ma_context_uninit(&h->context);
-        h->has_context = 0;
-    }
+    engine_teardown(h);
 
     config = ma_engine_config_init();
+#ifdef MA_NO_DEVICE_IO
+    (void)use_null_backend;
+    return MA_NOT_IMPLEMENTED;   /* no devices in this build: use ma_shim_engine_init_offline */
+#else
     if (use_null_backend) {
         ma_backend backends[1];
         ma_context_config context_config = ma_context_config_init();
@@ -92,10 +105,92 @@ int ma_shim_engine_init(void* handle, int use_null_backend) {
     result = ma_engine_init(&config, &h->engine);
     if (result == MA_SUCCESS) {
         h->initialized = 1;
-    } else if (h->has_context) {
-        ma_context_uninit(&h->context);
-        h->has_context = 0;
+    } else {
+        engine_teardown(h);
     }
+    return (int)result;
+#endif
+}
+
+/* An engine with no device: nothing plays it, ma_engine_read_pcm_frames pulls
+ * mixed frames on demand (what a host-driven output -- an AudioWorklet, a file,
+ * a test -- needs). With `threaded` == 0 the engine gets its own resource
+ * manager with MA_RESOURCE_MANAGER_FLAG_NO_THREADING, so loading never starts a
+ * thread and its jobs run from ma_shim_engine_process_jobs; that is also what a
+ * MA_NO_THREADING build gets by default, so native and wasm behave the same. */
+/* @binds ma_engine_init, ma_engine_config_init, ma_resource_manager_init, ma_resource_manager_config_init */
+int ma_shim_engine_init_offline(
+    void* handle, unsigned int channels, unsigned int sample_rate, int threaded
+) {
+    ma_shim_engine* h = (ma_shim_engine*)handle;
+    ma_engine_config config;
+    ma_result result;
+
+    if (h == NULL || channels == 0 || sample_rate == 0) {
+        return MA_INVALID_ARGS;
+    }
+    engine_teardown(h);
+
+    if (!threaded) {
+        ma_resource_manager_config rm_config = ma_resource_manager_config_init();
+        rm_config.flags |= MA_RESOURCE_MANAGER_FLAG_NO_THREADING | MA_RESOURCE_MANAGER_FLAG_NON_BLOCKING;
+        rm_config.jobThreadCount = 0;
+        rm_config.decodedFormat = ma_format_f32;
+        rm_config.decodedChannels = (ma_uint32)channels;
+        rm_config.decodedSampleRate = (ma_uint32)sample_rate;
+        result = ma_resource_manager_init(&rm_config, &h->resource_manager);
+        if (result != MA_SUCCESS) {
+            return (int)result;
+        }
+        h->has_resource_manager = 1;
+    }
+
+    config = ma_engine_config_init();
+    config.noDevice = MA_TRUE;
+    config.channels = (ma_uint32)channels;
+    config.sampleRate = (ma_uint32)sample_rate;
+    if (h->has_resource_manager) {
+        config.pResourceManager = &h->resource_manager;
+    }
+    result = ma_engine_init(&config, &h->engine);
+    if (result == MA_SUCCESS) {
+        h->initialized = 1;
+    } else {
+        engine_teardown(h);
+    }
+    return (int)result;
+}
+
+/* Run up to `max_jobs` queued resource-manager jobs (async loads, page decodes)
+ * on the calling thread; `*out_processed` is how many ran. Only for an engine
+ * built offline without threads -- with job threads the queue is theirs. */
+/* @binds ma_engine_get_resource_manager, ma_resource_manager_process_next_job */
+int ma_shim_engine_process_jobs(void* handle, unsigned int max_jobs, unsigned int* out_processed) {
+    ma_shim_engine* h = (ma_shim_engine*)handle;
+    ma_resource_manager* rm;
+    unsigned int n = 0;
+    ma_result result = MA_SUCCESS;
+
+    if (out_processed != NULL) { *out_processed = 0; }
+    if (h == NULL || !h->initialized || out_processed == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    if (!h->has_resource_manager) {
+        return MA_INVALID_OPERATION;
+    }
+    rm = ma_engine_get_resource_manager(&h->engine);
+    while (n < max_jobs) {
+        result = ma_resource_manager_process_next_job(rm);
+        if (result == MA_NO_DATA_AVAILABLE) {
+            result = MA_SUCCESS;
+            break;
+        }
+        if (result != MA_SUCCESS) {
+            break;
+        }
+        n += 1;
+    }
+    *out_processed = n;
     return (int)result;
 }
 
@@ -108,12 +203,7 @@ int ma_shim_engine_uninit(void* handle) {
     if (!h->initialized) {
         return MA_SUCCESS;
     }
-    ma_engine_uninit(&h->engine);
-    h->initialized = 0;
-    if (h->has_context) {
-        ma_context_uninit(&h->context);
-        h->has_context = 0;
-    }
+    engine_teardown(h);
     return MA_SUCCESS;
 }
 

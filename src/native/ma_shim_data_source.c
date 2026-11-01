@@ -27,6 +27,13 @@ typedef struct ma_shim_data_source {
     ma_data_source* callback_next; /* what the shim-owned onGetNext returns */
     int          initialized;
     void*        view_sound;    /* non-NULL: borrowed view of this sound's data source */
+    /* A source implemented by the caller (ma_shim_data_source_init_user): */
+    void*        user;
+    unsigned long long (*user_read)(void* user, float* out, unsigned long long frames, unsigned int channels);
+    int          (*user_seek)(void* user, unsigned long long frame);
+    unsigned long long (*user_length)(void* user);
+    void         (*user_drop)(void* user);
+    unsigned long long user_tag;
 } ma_shim_data_source;
 
 typedef struct ma_shim_data_source_node {
@@ -161,6 +168,80 @@ static ma_result shimds_on_set_looping(ma_data_source* pDataSource, ma_bool32 is
     return MA_SUCCESS;
 }
 
+/* ---- caller-implemented source: read / seek / length forward to `user` ---- */
+
+static ma_result userds_on_read(
+    ma_data_source* pDataSource, void* pFramesOut, ma_uint64 frameCount, ma_uint64* pFramesRead
+) {
+    ma_shim_data_source* h = (ma_shim_data_source*)pDataSource;
+    ma_uint64 got;
+    float scratch[256];
+
+    if (h == NULL || pFramesRead == NULL || !h->initialized) {
+        return MA_INVALID_ARGS;
+    }
+    *pFramesRead = 0;
+    if (frameCount == 0) {
+        return MA_SUCCESS;
+    }
+    if (pFramesOut != NULL) {
+        got = h->user_read(h->user, (float*)pFramesOut, frameCount, h->channels);
+    } else {
+        /* A NULL output means "skip": read into scratch and drop it. */
+        ma_uint64 chunk = (ma_uint64)(256 / h->channels);
+        got = 0;
+        while (got < frameCount && chunk > 0) {
+            ma_uint64 want = frameCount - got;
+            ma_uint64 n;
+            if (want > chunk) { want = chunk; }
+            n = h->user_read(h->user, scratch, want, h->channels);
+            got += n;
+            if (n < want) { break; }
+        }
+    }
+    if (got > frameCount) {
+        got = frameCount;   /* a source claiming more than asked for is clamped */
+    }
+    h->cursor += got;
+    *pFramesRead = got;
+    return (got == frameCount) ? MA_SUCCESS : MA_AT_END;
+}
+
+static ma_result userds_on_seek(ma_data_source* pDataSource, ma_uint64 frameIndex) {
+    ma_shim_data_source* h = (ma_shim_data_source*)pDataSource;
+    if (h == NULL || !h->initialized) {
+        return MA_INVALID_ARGS;
+    }
+    if (!h->user_seek(h->user, frameIndex)) {
+        return MA_BAD_SEEK;
+    }
+    h->cursor = frameIndex;
+    return MA_SUCCESS;
+}
+
+static ma_result userds_on_get_length(ma_data_source* pDataSource, ma_uint64* pLength) {
+    ma_shim_data_source* h = (ma_shim_data_source*)pDataSource;
+    if (h == NULL || pLength == NULL || !h->initialized) {
+        return MA_INVALID_ARGS;
+    }
+    *pLength = h->user_length(h->user);
+    return (*pLength == 0) ? MA_NOT_IMPLEMENTED : MA_SUCCESS;   /* 0 = unknown length */
+}
+
+static ma_result shimds_on_get_data_format(ma_data_source*, ma_format*, ma_uint32*, ma_uint32*, ma_channel*, size_t);
+static ma_result shimds_on_get_cursor(ma_data_source*, ma_uint64*);
+static ma_result shimds_on_set_looping(ma_data_source*, ma_bool32);
+
+static const ma_data_source_vtable g_userds_vtable = {
+    userds_on_read,
+    userds_on_seek,
+    shimds_on_get_data_format,
+    shimds_on_get_cursor,
+    userds_on_get_length,
+    shimds_on_set_looping,
+    0
+};
+
 static const ma_data_source_vtable g_shimds_vtable = {
     shimds_on_read,
     shimds_on_seek,
@@ -221,12 +302,19 @@ static void shimds_drop_view(ma_shim_data_source* h) {
     }
 }
 
+/* Release what the source holds: its sample copy, or a caller-implemented
+ * source (always after ma_data_source_uninit, so it is never read again). */
 static void shimds_release_buffer(ma_shim_data_source* h) {
     if (h->frames != NULL) {
         free(h->frames);
         h->frames = NULL;
     }
     h->frame_count = 0;
+    if (h->user != NULL) {
+        void* user = h->user;
+        h->user = NULL;
+        h->user_drop(user);
+    }
 }
 
 /* ---- lifecycle ------------------------------------------------------------ */
@@ -858,4 +946,67 @@ int ma_shim_data_source_node_is_looping(void* handle) {
         return 0;
     }
     return (ma_data_source_node_is_looping(&h->node) != MA_FALSE) ? 1 : 0;
+}
+
+
+/* A data source whose frames come from the caller's `read` (f32, `channels` wide,
+ * at `sample_rate`): plays through a sound, a data-source node or a chain like
+ * any other. `read` returns frames written (fewer = the end), `seek` nonzero on
+ * success, `length` 0 when unknown. The shim takes `user` over whether or not
+ * this succeeds: `drop(user)` runs after the source is uninitialised, or here
+ * if init fails. `tag` identifies the user type for typed access later. */
+/* @binds ma_data_source_config_init, ma_data_source_init */
+int ma_shim_data_source_init_user(
+    void* handle, unsigned int channels, unsigned int sample_rate,
+    void* read, void* seek, void* length, void* drop, void* user, unsigned long long tag
+) {
+    ma_shim_data_source* h = (ma_shim_data_source*)handle;
+    ma_data_source_config config;
+    ma_result result;
+
+    if (drop == NULL) {
+        return MA_INVALID_ARGS;
+    }
+    if (h == NULL || read == NULL || seek == NULL || length == NULL || user == NULL
+        || channels == 0 || sample_rate == 0) {
+        ((void (*)(void*))drop)(user);
+        return MA_INVALID_ARGS;
+    }
+    shimds_drop_view(h);
+    if (h->initialized) {
+        ma_data_source_uninit((ma_data_source*)&h->base);
+        h->initialized = 0;
+    }
+    shimds_release_buffer(h);
+
+    config = ma_data_source_config_init();
+    config.vtable = &g_userds_vtable;
+    result = ma_data_source_init(&config, (ma_data_source*)&h->base);
+    if (result != MA_SUCCESS) {
+        ((void (*)(void*))drop)(user);
+        return (int)result;
+    }
+    h->user        = user;
+    h->user_read   = (unsigned long long (*)(void*, float*, unsigned long long, unsigned int))read;
+    h->user_seek   = (int (*)(void*, unsigned long long))seek;
+    h->user_length = (unsigned long long (*)(void*))length;
+    h->user_drop   = (void (*)(void*))drop;
+    h->user_tag    = tag;
+    h->channels    = (ma_uint32)channels;
+    h->sample_rate = (ma_uint32)sample_rate;
+    h->format      = ma_format_f32;
+    h->cursor      = 0;
+    h->looping     = 0;
+    h->callback_next = NULL;
+    h->initialized = 1;
+    return MA_SUCCESS;
+}
+
+/* The `user` pointer of a caller-implemented source if its tag is `tag`, else NULL. */
+void* ma_shim_data_source_user(void* handle, unsigned long long tag) {
+    ma_shim_data_source* h = (ma_shim_data_source*)handle;
+    if (h == NULL || !h->initialized || h->user == NULL || h->user_tag != tag) {
+        return NULL;
+    }
+    return h->user;
 }

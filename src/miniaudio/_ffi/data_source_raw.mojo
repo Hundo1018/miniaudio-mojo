@@ -13,6 +13,8 @@ from miniaudio._lib import MaLib
 from miniaudio.result import MaResult
 from miniaudio._ffi.decoder_raw import MaCount
 from miniaudio._ffi.device_raw import MaFloat, MaBool
+from miniaudio._ffi.stream_raw import StreamPtr, stream_destroy, stream_tag
+from miniaudio.processor import UserDataSource
 
 
 @fieldwise_init
@@ -443,3 +445,77 @@ def data_source_is_same(
         )
     )
     return MaBool(code, holder[0] != Int32(0))
+
+
+# ---- a data source implemented in Mojo ----
+
+
+def user_source_read_tramp[
+    S: UserDataSource
+](
+    user: OpaquePointer[MutUntrackedOrigin],
+    output: OpaquePointer[MutUntrackedOrigin],
+    frame_count: UInt64,
+    channels: UInt32,
+) -> UInt64:
+    var out = Span[Float32, MutAnyOrigin](
+        unsafe_ptr=output.unsafe_bitcast[Float32]().unsafe_origin_cast[MutAnyOrigin](),
+        length=Int(frame_count) * Int(channels),
+    )
+    var got = user.unsafe_bitcast[S]()[].read(out, Int(frame_count), Int(channels))
+    return UInt64(got) if got > 0 else UInt64(0)
+
+
+def user_source_seek_tramp[S: UserDataSource](user: OpaquePointer[MutUntrackedOrigin], frame: UInt64) -> Int32:
+    return Int32(1) if user.unsafe_bitcast[S]()[].seek(frame) else Int32(0)
+
+
+def user_source_length_tramp[S: UserDataSource](user: OpaquePointer[MutUntrackedOrigin]) -> UInt64:
+    return user.unsafe_bitcast[S]()[].length()
+
+
+def data_source_init_user[
+    S: UserDataSource
+](
+    lib: MaLib,
+    ds: OpaquePointer[MutUntrackedOrigin],
+    channels: UInt32,
+    sample_rate: UInt32,
+    user: StreamPtr[S],
+) -> MaResult:
+    """A data source over the `S` at `user` (a heap cell from `stream_leak`). The
+    shim ALWAYS takes `user` over: destroyed after uninit, or at once on failure."""
+    return MaResult(
+        lib.call["ma_shim_data_source_init_user", Int32](
+            ds, channels, sample_rate,
+            user_source_read_tramp[S], user_source_seek_tramp[S], user_source_length_tramp[S],
+            stream_destroy[S], user, stream_tag[S](),
+        )
+    )
+
+
+def data_source_init_user_ptrs(
+    lib: MaLib,
+    ds: OpaquePointer[MutUntrackedOrigin],
+    channels: UInt32,
+    sample_rate: UInt32,
+    on_read: OpaquePointer[MutUntrackedOrigin],
+    on_seek: OpaquePointer[MutUntrackedOrigin],
+    on_length: OpaquePointer[MutUntrackedOrigin],
+    on_drop: OpaquePointer[MutUntrackedOrigin],
+    user: OpaquePointer[MutUntrackedOrigin],
+    tag: UInt64,
+) -> MaResult:
+    """The same shim call with every pointer bare: only for the argument checks."""
+    return MaResult(
+        lib.call["ma_shim_data_source_init_user", Int32](
+            ds, channels, sample_rate, on_read, on_seek, on_length, on_drop, user, tag
+        )
+    )
+
+
+def data_source_user(
+    lib: MaLib, ds: OpaquePointer[MutUntrackedOrigin], tag: UInt64
+) -> OpaquePointer[MutUntrackedOrigin]:
+    """The user source of `ds` if its type tag is `tag`, else NULL."""
+    return lib.call["ma_shim_data_source_user", OpaquePointer[MutUntrackedOrigin]](ds, tag)
