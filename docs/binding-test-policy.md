@@ -9,52 +9,28 @@ Every new binding addition must include tests before implementation is finalized
 ## Minimum requirements per binding change
 
 1. Add at least one positive-path test.
-2. Add at least one negative-path test.
-3. Place Mojo test modules under `tests/` (do not mix test code into `src/api`).
-4. Wire tests into runnable tasks (`pixi.toml`).
-4. Update coverage tracking docs (`docs/binding-coverage.md`).
-5. Ensure no regression in existing smoke tasks.
+2. Add at least one negative-path test (bad argument, wrong state, or failing input), asserting the
+   `MaResult` the call returns or the `MaError.result` it raises.
+3. Put the tests in `tests/test_<family>_binding.mojo` (raw layer) and
+   `tests/test_<family>_api.mojo` (RAII layer); never in `src/`.
+4. Wire them into a `test-<family>` task in `pixi.toml` and add that task to the `test` aggregate.
+5. Mark the shim function with a single-line `/* @binds ma_... */` comment and update
+   `docs/coverage-targets.json` / `docs/binding-coverage.md`.
 
-## Native first safety gate
-
-Before editing wrapper internals for a new binding slice, run:
-
-```bash
-pixi run smoke-native-binding-suite
-```
-
-This suite is hardware-independent and validates key shim smoke helpers.
-
-## Coverage baseline gate
-
-After tests are added, regenerate baseline coverage:
+## Gate
 
 ```bash
-pixi run coverage-native-baseline
-pixi run coverage-native-summary
+pixi run gate
 ```
 
-If coverage regresses for binding-owned files, the change is not ready.
-
-For an urgent one-command gate, run:
-
-```bash
-pixi run gate-binding-test-first
-```
-
-This executes native binding suite first, then regenerates coverage summary.
-
-For Mojo-side binding verification, run:
-
-```bash
-pixi run gate-binding-test-first-mojo
-```
-
-This executes a deterministic Mojo suite with baseline playback smoke disabled.
+`gate` runs every `test-<family>` task on the null backend (no audio device needed), then
+`coverage-binding` (every shim export bound and referenced by a test, `@binds` and exclusions
+valid) and `coverage-shim` (gcov line coverage of `src/native/ma_shim*.c`, at least 95%). A change
+is done when `gate` is green.
 
 ## Review checklist
 
 - [ ] Positive and negative tests are present.
 - [ ] Tests are task-wired and reproducible.
-- [ ] Coverage artifacts are regenerated.
+- [ ] `pixi run gate` is green.
 - [ ] `docs/binding-coverage.md` reflects new test scope.

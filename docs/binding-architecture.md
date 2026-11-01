@@ -95,13 +95,8 @@ families were migrated in). Each domain's shim functions live in a `src/native/m
 (`ma_shim.c` itself holds the decoder, encoder and device slices), its raw module
 under `src/miniaudio/_ffi/`, its RAII type under `src/miniaudio/`, and its test files under `tests/`
 (wired into the `test` task). A new family, if the inventory grows, follows the same template.
-Retire the matching legacy `src/api` module and fat-shim section once a group is migrated; the
-final step removes `main.mojo`'s env-var dispatcher.
 
-## Note on the legacy code
-The legacy layers (`src/api`, `src/ffi`, `src/native/miniaudio_shim.*`,
-`main.mojo`) did **not** compile on the currently pinned Mojo nightly: 55 sites
-used `OpaquePointer[...](unsafe_from_address=0)`, now rejected. They were given
-the minimal mechanical fix (`unsafe_from_address=Int(0)`) so the legacy gate
-(`pixi run gate-binding-test-first-mojo`) builds and runs again as an
-integration smoke during migration. No legacy behaviour was otherwise changed.
+The pre-migration layers (`src/api`, `src/ffi`, the fat `src/native/miniaudio_shim.*`, the
+`main.mojo` env-var smoke dispatcher, the `tests/miniaudio_*_contract.mojo` suites and
+`examples/native_smoke.c`) were removed on 2026-11-01 once every group was migrated; they remain
+in git history. `examples/play_file.mojo` (`pixi run play`) replaces the playback smoke.

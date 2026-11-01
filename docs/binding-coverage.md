@@ -293,7 +293,6 @@ If the inventory grows, a new family follows the same steps:
 - Update `docs/coverage-targets.json`: `dod_met=true, dod_level=L2|L3` (and `complete=true` once
   every non-excluded function in the family is bound)
 - Run `pixi run gate` to green
-- Retire matching legacy `src/api/` module and fat-shim section
 
 ## Gate Commands
 
