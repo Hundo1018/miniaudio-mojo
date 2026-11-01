@@ -31,7 +31,7 @@ struct MaBackends(Movable):
 
 def apply_volume_factor_u8(lib: MaLib, mut samples: List[UInt8], factor: Float32) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_apply_volume_factor_u8", Int32](
+        lib.call["ma_shim_apply_volume_factor_u8", Int32](
             samples.unsafe_ptr(), UInt64(len(samples)), factor
         )
     )
@@ -39,7 +39,7 @@ def apply_volume_factor_u8(lib: MaLib, mut samples: List[UInt8], factor: Float32
 
 def apply_volume_factor_s16(lib: MaLib, mut samples: List[Int16], factor: Float32) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_apply_volume_factor_s16", Int32](
+        lib.call["ma_shim_apply_volume_factor_s16", Int32](
             samples.unsafe_ptr(), UInt64(len(samples)), factor
         )
     )
@@ -50,7 +50,7 @@ def apply_volume_factor_s24(
 ) -> MaResult:
     """s24 samples are three bytes each, so the count is passed separately."""
     return MaResult(
-        lib.handle.call["ma_shim_apply_volume_factor_s24", Int32](
+        lib.call["ma_shim_apply_volume_factor_s24", Int32](
             samples.unsafe_ptr(), sample_count, factor
         )
     )
@@ -58,7 +58,7 @@ def apply_volume_factor_s24(
 
 def apply_volume_factor_s32(lib: MaLib, mut samples: List[Int32], factor: Float32) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_apply_volume_factor_s32", Int32](
+        lib.call["ma_shim_apply_volume_factor_s32", Int32](
             samples.unsafe_ptr(), UInt64(len(samples)), factor
         )
     )
@@ -66,7 +66,7 @@ def apply_volume_factor_s32(lib: MaLib, mut samples: List[Int32], factor: Float3
 
 def apply_volume_factor_f32(lib: MaLib, mut samples: List[Float32], factor: Float32) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_apply_volume_factor_f32", Int32](
+        lib.call["ma_shim_apply_volume_factor_f32", Int32](
             samples.unsafe_ptr(), UInt64(len(samples)), factor
         )
     )
@@ -81,7 +81,7 @@ def apply_volume_factor_pcm_frames(
     factor: Float32,
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_apply_volume_factor_pcm_frames", Int32](
+        lib.call["ma_shim_apply_volume_factor_pcm_frames", Int32](
             frames.unsafe_ptr(), frame_count, Int32(format), channels, factor
         )
     )
@@ -92,7 +92,7 @@ def apply_volume_factor_pcm_frames_u8(
     factor: Float32,
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_apply_volume_factor_pcm_frames_u8", Int32](
+        lib.call["ma_shim_apply_volume_factor_pcm_frames_u8", Int32](
             frames.unsafe_ptr(), frame_count, channels, factor
         )
     )
@@ -103,7 +103,7 @@ def apply_volume_factor_pcm_frames_s16(
     factor: Float32,
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_apply_volume_factor_pcm_frames_s16", Int32](
+        lib.call["ma_shim_apply_volume_factor_pcm_frames_s16", Int32](
             frames.unsafe_ptr(), frame_count, channels, factor
         )
     )
@@ -114,7 +114,7 @@ def apply_volume_factor_pcm_frames_s24(
     factor: Float32,
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_apply_volume_factor_pcm_frames_s24", Int32](
+        lib.call["ma_shim_apply_volume_factor_pcm_frames_s24", Int32](
             frames.unsafe_ptr(), frame_count, channels, factor
         )
     )
@@ -125,7 +125,7 @@ def apply_volume_factor_pcm_frames_s32(
     factor: Float32,
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_apply_volume_factor_pcm_frames_s32", Int32](
+        lib.call["ma_shim_apply_volume_factor_pcm_frames_s32", Int32](
             frames.unsafe_ptr(), frame_count, channels, factor
         )
     )
@@ -136,7 +136,7 @@ def apply_volume_factor_pcm_frames_f32(
     factor: Float32,
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_apply_volume_factor_pcm_frames_f32", Int32](
+        lib.call["ma_shim_apply_volume_factor_pcm_frames_f32", Int32](
             frames.unsafe_ptr(), frame_count, channels, factor
         )
     )
@@ -150,7 +150,7 @@ def clip_samples_u8(
 ) -> MaResult:
     """s16 clipped down into u8."""
     return MaResult(
-        lib.handle.call["ma_shim_clip_samples_u8", Int32](
+        lib.call["ma_shim_clip_samples_u8", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), count
         )
     )
@@ -161,7 +161,7 @@ def clip_samples_s16(
 ) -> MaResult:
     """s32 clipped down into s16."""
     return MaResult(
-        lib.handle.call["ma_shim_clip_samples_s16", Int32](
+        lib.call["ma_shim_clip_samples_s16", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), count
         )
     )
@@ -172,7 +172,7 @@ def clip_samples_s24(
 ) -> MaResult:
     """s64 clipped down into packed 3-byte s24."""
     return MaResult(
-        lib.handle.call["ma_shim_clip_samples_s24", Int32](
+        lib.call["ma_shim_clip_samples_s24", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), count
         )
     )
@@ -183,7 +183,7 @@ def clip_samples_s32(
 ) -> MaResult:
     """s64 clipped down into s32."""
     return MaResult(
-        lib.handle.call["ma_shim_clip_samples_s32", Int32](
+        lib.call["ma_shim_clip_samples_s32", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), count
         )
     )
@@ -194,7 +194,7 @@ def clip_samples_f32(
 ) -> MaResult:
     """f32 clipped to [-1, 1]."""
     return MaResult(
-        lib.handle.call["ma_shim_clip_samples_f32", Int32](
+        lib.call["ma_shim_clip_samples_f32", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), count
         )
     )
@@ -209,7 +209,7 @@ def clip_pcm_frames(
     channels: UInt32,
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_clip_pcm_frames", Int32](
+        lib.call["ma_shim_clip_pcm_frames", Int32](
             dst.unsafe_ptr(), src.unsafe_ptr(), frame_count, Int32(format), channels
         )
     )
@@ -223,7 +223,7 @@ def calculate_buffer_size_in_frames_from_milliseconds(
 ) -> MaUInt:
     var holder = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call[
+        lib.call[
             "ma_shim_calculate_buffer_size_in_frames_from_milliseconds", Int32
         ](milliseconds, sample_rate, holder.unsafe_ptr())
     )
@@ -235,7 +235,7 @@ def calculate_buffer_size_in_milliseconds_from_frames(
 ) -> MaUInt:
     var holder = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call[
+        lib.call[
             "ma_shim_calculate_buffer_size_in_milliseconds_from_frames", Int32
         ](frames, sample_rate, holder.unsafe_ptr())
     )
@@ -247,7 +247,7 @@ def calculate_frame_count_after_resampling(
 ) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_calculate_frame_count_after_resampling", Int32](
+        lib.call["ma_shim_calculate_frame_count_after_resampling", Int32](
             sample_rate_out, sample_rate_in, frame_count_in, holder.unsafe_ptr()
         )
     )
@@ -267,7 +267,7 @@ def calculate_buffer_size_in_frames_from_descriptor(
     """The shim builds the ma_device_descriptor from these fields."""
     var holder = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call[
+        lib.call[
             "ma_shim_calculate_buffer_size_in_frames_from_descriptor", Int32
         ](
             Int32(format),
@@ -289,7 +289,7 @@ def calculate_buffer_size_in_frames_from_descriptor(
 def get_bytes_per_sample(lib: MaLib, format: Int) -> MaUInt:
     var holder = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_get_bytes_per_sample", Int32](
+        lib.call["ma_shim_get_bytes_per_sample", Int32](
             Int32(format), holder.unsafe_ptr()
         )
     )
@@ -300,7 +300,7 @@ def get_format_name(lib: MaLib, format: Int) -> MaText:
     var buf = List[UInt8](capacity=32)
     buf.resize(32, UInt8(0))
     var code = MaResult(
-        lib.handle.call["ma_shim_get_format_name", Int32](
+        lib.call["ma_shim_get_format_name", Int32](
             Int32(format), buf.unsafe_ptr(), UInt32(32)
         )
     )
@@ -311,7 +311,7 @@ def get_format_priority_index(lib: MaLib, format: Int) -> MaUInt:
     """Where this format sits in miniaudio's preference order."""
     var holder = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_get_format_priority_index", Int32](
+        lib.call["ma_shim_get_format_priority_index", Int32](
             Int32(format), holder.unsafe_ptr()
         )
     )
@@ -322,7 +322,7 @@ def get_backend_name(lib: MaLib, backend: Int) -> MaText:
     var buf = List[UInt8](capacity=32)
     buf.resize(32, UInt8(0))
     var code = MaResult(
-        lib.handle.call["ma_shim_get_backend_name", Int32](
+        lib.call["ma_shim_get_backend_name", Int32](
             Int32(backend), buf.unsafe_ptr(), UInt32(32)
         )
     )
@@ -334,7 +334,7 @@ def get_backend_from_name(lib: MaLib, name: String) -> MaUInt:
     var name_c = name + "\x00"
     var holder = [Int32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_get_backend_from_name", Int32](
+        lib.call["ma_shim_get_backend_from_name", Int32](
             name_c.as_bytes().unsafe_ptr(), holder.unsafe_ptr()
         )
     )
@@ -347,7 +347,7 @@ def get_enabled_backends(lib: MaLib, capacity: UInt32 = 16) -> MaBackends:
     buf.resize(Int(capacity), Int32(0))
     var holder = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_get_enabled_backends", Int32](
+        lib.call["ma_shim_get_enabled_backends", Int32](
             buf.unsafe_ptr(), capacity, holder.unsafe_ptr()
         )
     )

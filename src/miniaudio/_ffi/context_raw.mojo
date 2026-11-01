@@ -50,27 +50,27 @@ struct MaCursor(Copyable, Movable):
 
 
 def context_alloc(lib: MaLib) -> OpaquePointer[MutUntrackedOrigin]:
-    return lib.handle.call["ma_shim_context_alloc", OpaquePointer[MutUntrackedOrigin]]()
+    return lib.call["ma_shim_context_alloc", OpaquePointer[MutUntrackedOrigin]]()
 
 
 def context_free(lib: MaLib, c: OpaquePointer[MutUntrackedOrigin]):
-    lib.handle.call["ma_shim_context_free", NoneType](c)
+    lib.call["ma_shim_context_free", NoneType](c)
 
 
 def context_init(lib: MaLib, c: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
     """Initialises on the null backend, so enumeration is deterministic."""
-    return MaResult(lib.handle.call["ma_shim_context_init", Int32](c))
+    return MaResult(lib.call["ma_shim_context_init", Int32](c))
 
 
 def context_uninit(lib: MaLib, c: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_context_uninit", Int32](c))
+    return MaResult(lib.call["ma_shim_context_uninit", Int32](c))
 
 
 def context_sizeof(lib: MaLib) -> MaCount:
     """Size of an ma_context, which miniaudio reports without one existing."""
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_context_sizeof", Int32](holder.unsafe_ptr())
+        lib.call["ma_shim_context_sizeof", Int32](holder.unsafe_ptr())
     )
     return MaCount(code, holder[0])
 
@@ -78,7 +78,7 @@ def context_sizeof(lib: MaLib) -> MaCount:
 def context_has_log(lib: MaLib, c: OpaquePointer[MutUntrackedOrigin]) -> MaBool:
     var holder = [Int32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_context_has_log", Int32](c, holder.unsafe_ptr())
+        lib.call["ma_shim_context_has_log", Int32](c, holder.unsafe_ptr())
     )
     return MaBool(code, holder[0] != Int32(0))
 
@@ -88,7 +88,7 @@ def context_is_loopback_supported(
 ) -> MaBool:
     var holder = [Int32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_context_is_loopback_supported", Int32](
+        lib.call["ma_shim_context_is_loopback_supported", Int32](
             c, holder.unsafe_ptr()
         )
     )
@@ -101,7 +101,7 @@ def context_enumerate_devices(
     """Runs the enumeration and reports how many devices the callback saw."""
     var holder = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_context_enumerate_devices", Int32](
+        lib.call["ma_shim_context_enumerate_devices", Int32](
             c, holder.unsafe_ptr()
         )
     )
@@ -114,7 +114,7 @@ def context_get_devices(
     var playback = [UInt32(0)]
     var capture = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_context_get_devices", Int32](
+        lib.call["ma_shim_context_get_devices", Int32](
             c, playback.unsafe_ptr(), capture.unsafe_ptr()
         )
     )
@@ -128,7 +128,7 @@ def context_get_device_info(
     var name_length = [UInt32(0)]
     var formats = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_context_get_device_info", Int32](
+        lib.call["ma_shim_context_get_device_info", Int32](
             c, Int32(device_type), name_length.unsafe_ptr(), formats.unsafe_ptr()
         )
     )
@@ -139,15 +139,15 @@ def context_get_device_info(
 
 
 def vfs_alloc(lib: MaLib) -> OpaquePointer[MutUntrackedOrigin]:
-    return lib.handle.call["ma_shim_vfs_alloc", OpaquePointer[MutUntrackedOrigin]]()
+    return lib.call["ma_shim_vfs_alloc", OpaquePointer[MutUntrackedOrigin]]()
 
 
 def vfs_free(lib: MaLib, v: OpaquePointer[MutUntrackedOrigin]):
-    lib.handle.call["ma_shim_vfs_free", NoneType](v)
+    lib.call["ma_shim_vfs_free", NoneType](v)
 
 
 def vfs_init(lib: MaLib, v: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_vfs_init", Int32](v))
+    return MaResult(lib.call["ma_shim_vfs_init", Int32](v))
 
 
 def vfs_open(
@@ -155,14 +155,14 @@ def vfs_open(
 ) -> MaResult:
     var path_c = path + "\x00"
     return MaResult(
-        lib.handle.call["ma_shim_vfs_open", Int32](
+        lib.call["ma_shim_vfs_open", Int32](
             v, path_c.as_bytes().unsafe_ptr(), open_mode
         )
     )
 
 
 def vfs_close(lib: MaLib, v: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_vfs_close", Int32](v))
+    return MaResult(lib.call["ma_shim_vfs_close", Int32](v))
 
 
 def vfs_read(
@@ -173,7 +173,7 @@ def vfs_read(
 ) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_vfs_read", Int32](
+        lib.call["ma_shim_vfs_read", Int32](
             v, dst.unsafe_ptr(), size, holder.unsafe_ptr()
         )
     )
@@ -185,7 +185,7 @@ def vfs_write(
 ) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_vfs_write", Int32](
+        lib.call["ma_shim_vfs_write", Int32](
             v, src.unsafe_ptr(), UInt64(len(src)), holder.unsafe_ptr()
         )
     )
@@ -196,14 +196,14 @@ def vfs_seek(
     lib: MaLib, v: OpaquePointer[MutUntrackedOrigin], offset: Int64, origin: Int = 0
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_vfs_seek", Int32](v, offset, Int32(origin))
+        lib.call["ma_shim_vfs_seek", Int32](v, offset, Int32(origin))
     )
 
 
 def vfs_tell(lib: MaLib, v: OpaquePointer[MutUntrackedOrigin]) -> MaCursor:
     var holder = [Int64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_vfs_tell", Int32](v, holder.unsafe_ptr())
+        lib.call["ma_shim_vfs_tell", Int32](v, holder.unsafe_ptr())
     )
     return MaCursor(code, holder[0])
 
@@ -212,7 +212,7 @@ def vfs_info(lib: MaLib, v: OpaquePointer[MutUntrackedOrigin]) -> MaCount:
     """File size in bytes."""
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_vfs_info", Int32](v, holder.unsafe_ptr())
+        lib.call["ma_shim_vfs_info", Int32](v, holder.unsafe_ptr())
     )
     return MaCount(code, holder[0])
 
@@ -224,7 +224,7 @@ def vfs_open_and_read_file(
     var path_c = path + "\x00"
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_vfs_open_and_read_file", Int32](
+        lib.call["ma_shim_vfs_open_and_read_file", Int32](
             v, path_c.as_bytes().unsafe_ptr(), holder.unsafe_ptr()
         )
     )
@@ -237,14 +237,14 @@ def vfs_or_default_open(
     """The fallback path: a NULL VFS means "use the default"."""
     var path_c = path + "\x00"
     return MaResult(
-        lib.handle.call["ma_shim_vfs_or_default_open", Int32](
+        lib.call["ma_shim_vfs_or_default_open", Int32](
             v, path_c.as_bytes().unsafe_ptr(), open_mode
         )
     )
 
 
 def vfs_or_default_close(lib: MaLib, v: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_vfs_or_default_close", Int32](v))
+    return MaResult(lib.call["ma_shim_vfs_or_default_close", Int32](v))
 
 
 def vfs_or_default_read(
@@ -255,7 +255,7 @@ def vfs_or_default_read(
 ) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_vfs_or_default_read", Int32](
+        lib.call["ma_shim_vfs_or_default_read", Int32](
             v, dst.unsafe_ptr(), size, holder.unsafe_ptr()
         )
     )
@@ -267,7 +267,7 @@ def vfs_or_default_write(
 ) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_vfs_or_default_write", Int32](
+        lib.call["ma_shim_vfs_or_default_write", Int32](
             v, src.unsafe_ptr(), UInt64(len(src)), holder.unsafe_ptr()
         )
     )
@@ -278,7 +278,7 @@ def vfs_or_default_seek(
     lib: MaLib, v: OpaquePointer[MutUntrackedOrigin], offset: Int64, origin: Int = 0
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_vfs_or_default_seek", Int32](
+        lib.call["ma_shim_vfs_or_default_seek", Int32](
             v, offset, Int32(origin)
         )
     )
@@ -289,7 +289,7 @@ def vfs_or_default_tell(
 ) -> MaCursor:
     var holder = [Int64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_vfs_or_default_tell", Int32](v, holder.unsafe_ptr())
+        lib.call["ma_shim_vfs_or_default_tell", Int32](v, holder.unsafe_ptr())
     )
     return MaCursor(code, holder[0])
 
@@ -297,6 +297,6 @@ def vfs_or_default_tell(
 def vfs_or_default_info(lib: MaLib, v: OpaquePointer[MutUntrackedOrigin]) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_vfs_or_default_info", Int32](v, holder.unsafe_ptr())
+        lib.call["ma_shim_vfs_or_default_info", Int32](v, holder.unsafe_ptr())
     )
     return MaCount(code, holder[0])

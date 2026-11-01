@@ -40,23 +40,23 @@ struct MaState(Copyable, Movable):
 
 
 def node_graph_alloc(lib: MaLib) -> OpaquePointer[MutUntrackedOrigin]:
-    return lib.handle.call[
+    return lib.call[
         "ma_shim_node_graph_alloc", OpaquePointer[MutUntrackedOrigin]
     ]()
 
 
 def node_graph_free(lib: MaLib, g: OpaquePointer[MutUntrackedOrigin]):
-    lib.handle.call["ma_shim_node_graph_free", NoneType](g)
+    lib.call["ma_shim_node_graph_free", NoneType](g)
 
 
 def node_graph_init(
     lib: MaLib, g: OpaquePointer[MutUntrackedOrigin], channels: UInt32
 ) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_node_graph_init", Int32](g, channels))
+    return MaResult(lib.call["ma_shim_node_graph_init", Int32](g, channels))
 
 
 def node_graph_uninit(lib: MaLib, g: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_node_graph_uninit", Int32](g))
+    return MaResult(lib.call["ma_shim_node_graph_uninit", Int32](g))
 
 
 def node_graph_read(
@@ -68,7 +68,7 @@ def node_graph_read(
     """Pulls frame_count frames through the graph. Returns (code, frames_read)."""
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_node_graph_read", Int32](
+        lib.call["ma_shim_node_graph_read", Int32](
             g, dst.unsafe_ptr(), frame_count, holder.unsafe_ptr()
         )
     )
@@ -80,7 +80,7 @@ def node_graph_get_channels(
 ) -> MaUInt:
     var holder = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_node_graph_get_channels", Int32](
+        lib.call["ma_shim_node_graph_get_channels", Int32](
             g, holder.unsafe_ptr()
         )
     )
@@ -90,7 +90,7 @@ def node_graph_get_channels(
 def node_graph_get_time(lib: MaLib, g: OpaquePointer[MutUntrackedOrigin]) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_node_graph_get_time", Int32](g, holder.unsafe_ptr())
+        lib.call["ma_shim_node_graph_get_time", Int32](g, holder.unsafe_ptr())
     )
     return MaCount(code, holder[0])
 
@@ -99,7 +99,7 @@ def node_graph_set_time(
     lib: MaLib, g: OpaquePointer[MutUntrackedOrigin], global_time: UInt64
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_node_graph_set_time", Int32](g, global_time)
+        lib.call["ma_shim_node_graph_set_time", Int32](g, global_time)
     )
 
 
@@ -109,7 +109,7 @@ def node_graph_get_processing_size(
     """Frames the graph processes per internal pass."""
     var holder = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_node_graph_get_processing_size", Int32](
+        lib.call["ma_shim_node_graph_get_processing_size", Int32](
             g, holder.unsafe_ptr()
         )
     )
@@ -122,7 +122,7 @@ def node_graph_endpoint_input_bus_count(
     """The endpoint's input bus count — what the endpoint pointer can safely say."""
     var holder = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_node_graph_endpoint_input_bus_count", Int32](
+        lib.call["ma_shim_node_graph_endpoint_input_bus_count", Int32](
             g, holder.unsafe_ptr()
         )
     )
@@ -133,11 +133,11 @@ def node_graph_endpoint_input_bus_count(
 
 
 def node_alloc(lib: MaLib) -> OpaquePointer[MutUntrackedOrigin]:
-    return lib.handle.call["ma_shim_node_alloc", OpaquePointer[MutUntrackedOrigin]]()
+    return lib.call["ma_shim_node_alloc", OpaquePointer[MutUntrackedOrigin]]()
 
 
 def node_free(lib: MaLib, n: OpaquePointer[MutUntrackedOrigin]):
-    lib.handle.call["ma_shim_node_free", NoneType](n)
+    lib.call["ma_shim_node_free", NoneType](n)
 
 
 def node_get_heap_size(
@@ -145,7 +145,7 @@ def node_get_heap_size(
 ) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_node_get_heap_size", Int32](
+        lib.call["ma_shim_node_get_heap_size", Int32](
             g, channels, holder.unsafe_ptr()
         )
     )
@@ -161,7 +161,7 @@ def node_init(
 ) -> MaResult:
     """`offset` is the constant the shim's node adds to its input."""
     return MaResult(
-        lib.handle.call["ma_shim_node_init", Int32](n, g, channels, offset)
+        lib.call["ma_shim_node_init", Int32](n, g, channels, offset)
     )
 
 
@@ -173,14 +173,14 @@ def node_init_preallocated(
     offset: Float32,
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_node_init_preallocated", Int32](
+        lib.call["ma_shim_node_init_preallocated", Int32](
             n, g, channels, offset
         )
     )
 
 
 def node_uninit(lib: MaLib, n: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_node_uninit", Int32](n))
+    return MaResult(lib.call["ma_shim_node_uninit", Int32](n))
 
 
 def node_attach_output_bus(
@@ -191,7 +191,7 @@ def node_attach_output_bus(
     other_input_bus: UInt32,
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_node_attach_output_bus", Int32](
+        lib.call["ma_shim_node_attach_output_bus", Int32](
             n, output_bus, other, other_input_bus
         )
     )
@@ -205,7 +205,7 @@ def node_attach_to_endpoint(
     endpoint_input_bus: UInt32 = 0,
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_node_attach_to_endpoint", Int32](
+        lib.call["ma_shim_node_attach_to_endpoint", Int32](
             n, output_bus, g, endpoint_input_bus
         )
     )
@@ -215,14 +215,14 @@ def node_detach_output_bus(
     lib: MaLib, n: OpaquePointer[MutUntrackedOrigin], output_bus: UInt32
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_node_detach_output_bus", Int32](n, output_bus)
+        lib.call["ma_shim_node_detach_output_bus", Int32](n, output_bus)
     )
 
 
 def node_detach_all_output_buses(
     lib: MaLib, n: OpaquePointer[MutUntrackedOrigin]
 ) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_node_detach_all_output_buses", Int32](n))
+    return MaResult(lib.call["ma_shim_node_detach_all_output_buses", Int32](n))
 
 
 def node_set_output_bus_volume(
@@ -232,7 +232,7 @@ def node_set_output_bus_volume(
     volume: Float32,
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_node_set_output_bus_volume", Int32](
+        lib.call["ma_shim_node_set_output_bus_volume", Int32](
             n, output_bus, volume
         )
     )
@@ -243,7 +243,7 @@ def node_get_output_bus_volume(
 ) -> MaFloat:
     var holder = [Float32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_node_get_output_bus_volume", Int32](
+        lib.call["ma_shim_node_get_output_bus_volume", Int32](
             n, output_bus, holder.unsafe_ptr()
         )
     )
@@ -255,7 +255,7 @@ def node_get_input_bus_count(
 ) -> MaUInt:
     var holder = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_node_get_input_bus_count", Int32](
+        lib.call["ma_shim_node_get_input_bus_count", Int32](
             n, holder.unsafe_ptr()
         )
     )
@@ -267,7 +267,7 @@ def node_get_output_bus_count(
 ) -> MaUInt:
     var holder = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_node_get_output_bus_count", Int32](
+        lib.call["ma_shim_node_get_output_bus_count", Int32](
             n, holder.unsafe_ptr()
         )
     )
@@ -279,7 +279,7 @@ def node_get_input_channels(
 ) -> MaUInt:
     var holder = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_node_get_input_channels", Int32](
+        lib.call["ma_shim_node_get_input_channels", Int32](
             n, bus, holder.unsafe_ptr()
         )
     )
@@ -291,7 +291,7 @@ def node_get_output_channels(
 ) -> MaUInt:
     var holder = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_node_get_output_channels", Int32](
+        lib.call["ma_shim_node_get_output_channels", Int32](
             n, bus, holder.unsafe_ptr()
         )
     )
@@ -301,13 +301,13 @@ def node_get_output_channels(
 def node_set_state(
     lib: MaLib, n: OpaquePointer[MutUntrackedOrigin], state: Int
 ) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_node_set_state", Int32](n, Int32(state)))
+    return MaResult(lib.call["ma_shim_node_set_state", Int32](n, Int32(state)))
 
 
 def node_get_state(lib: MaLib, n: OpaquePointer[MutUntrackedOrigin]) -> MaState:
     var holder = [Int32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_node_get_state", Int32](n, holder.unsafe_ptr())
+        lib.call["ma_shim_node_get_state", Int32](n, holder.unsafe_ptr())
     )
     return MaState(code, Int(holder[0]))
 
@@ -319,7 +319,7 @@ def node_set_state_time(
     global_time: UInt64,
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_node_set_state_time", Int32](
+        lib.call["ma_shim_node_set_state_time", Int32](
             n, Int32(state), global_time
         )
     )
@@ -330,7 +330,7 @@ def node_get_state_time(
 ) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_node_get_state_time", Int32](
+        lib.call["ma_shim_node_get_state_time", Int32](
             n, Int32(state), holder.unsafe_ptr()
         )
     )
@@ -342,7 +342,7 @@ def node_get_state_by_time(
 ) -> MaState:
     var holder = [Int32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_node_get_state_by_time", Int32](
+        lib.call["ma_shim_node_get_state_by_time", Int32](
             n, global_time, holder.unsafe_ptr()
         )
     )
@@ -357,7 +357,7 @@ def node_get_state_by_time_range(
 ) -> MaState:
     var holder = [Int32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_node_get_state_by_time_range", Int32](
+        lib.call["ma_shim_node_get_state_by_time_range", Int32](
             n, begin, end, holder.unsafe_ptr()
         )
     )
@@ -367,7 +367,7 @@ def node_get_state_by_time_range(
 def node_get_time(lib: MaLib, n: OpaquePointer[MutUntrackedOrigin]) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_node_get_time", Int32](n, holder.unsafe_ptr())
+        lib.call["ma_shim_node_get_time", Int32](n, holder.unsafe_ptr())
     )
     return MaCount(code, holder[0])
 
@@ -375,7 +375,7 @@ def node_get_time(lib: MaLib, n: OpaquePointer[MutUntrackedOrigin]) -> MaCount:
 def node_set_time(
     lib: MaLib, n: OpaquePointer[MutUntrackedOrigin], local_time: UInt64
 ) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_node_set_time", Int32](n, local_time))
+    return MaResult(lib.call["ma_shim_node_set_time", Int32](n, local_time))
 
 
 def node_belongs_to_graph(
@@ -386,7 +386,7 @@ def node_belongs_to_graph(
     """get_node_graph, asked as an identity question Mojo can hold."""
     var holder = [Int32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_node_belongs_to_graph", Int32](
+        lib.call["ma_shim_node_belongs_to_graph", Int32](
             n, g, holder.unsafe_ptr()
         )
     )
@@ -397,13 +397,13 @@ def node_belongs_to_graph(
 
 
 def delay_node_alloc(lib: MaLib) -> OpaquePointer[MutUntrackedOrigin]:
-    return lib.handle.call[
+    return lib.call[
         "ma_shim_delay_node_alloc", OpaquePointer[MutUntrackedOrigin]
     ]()
 
 
 def delay_node_free(lib: MaLib, n: OpaquePointer[MutUntrackedOrigin]):
-    lib.handle.call["ma_shim_delay_node_free", NoneType](n)
+    lib.call["ma_shim_delay_node_free", NoneType](n)
 
 
 def delay_node_init(
@@ -416,14 +416,14 @@ def delay_node_init(
     decay: Float32,
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_delay_node_init", Int32](
+        lib.call["ma_shim_delay_node_init", Int32](
             n, g, channels, sample_rate, delay_in_frames, decay
         )
     )
 
 
 def delay_node_uninit(lib: MaLib, n: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_delay_node_uninit", Int32](n))
+    return MaResult(lib.call["ma_shim_delay_node_uninit", Int32](n))
 
 
 def delay_node_attach_to_endpoint(
@@ -432,20 +432,20 @@ def delay_node_attach_to_endpoint(
     g: OpaquePointer[MutUntrackedOrigin],
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_delay_node_attach_to_endpoint", Int32](n, g)
+        lib.call["ma_shim_delay_node_attach_to_endpoint", Int32](n, g)
     )
 
 
 def delay_node_set_wet(
     lib: MaLib, n: OpaquePointer[MutUntrackedOrigin], value: Float32
 ) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_delay_node_set_wet", Int32](n, value))
+    return MaResult(lib.call["ma_shim_delay_node_set_wet", Int32](n, value))
 
 
 def delay_node_get_wet(lib: MaLib, n: OpaquePointer[MutUntrackedOrigin]) -> MaFloat:
     var holder = [Float32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_delay_node_get_wet", Int32](n, holder.unsafe_ptr())
+        lib.call["ma_shim_delay_node_get_wet", Int32](n, holder.unsafe_ptr())
     )
     return MaFloat(code, holder[0])
 
@@ -453,13 +453,13 @@ def delay_node_get_wet(lib: MaLib, n: OpaquePointer[MutUntrackedOrigin]) -> MaFl
 def delay_node_set_dry(
     lib: MaLib, n: OpaquePointer[MutUntrackedOrigin], value: Float32
 ) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_delay_node_set_dry", Int32](n, value))
+    return MaResult(lib.call["ma_shim_delay_node_set_dry", Int32](n, value))
 
 
 def delay_node_get_dry(lib: MaLib, n: OpaquePointer[MutUntrackedOrigin]) -> MaFloat:
     var holder = [Float32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_delay_node_get_dry", Int32](n, holder.unsafe_ptr())
+        lib.call["ma_shim_delay_node_get_dry", Int32](n, holder.unsafe_ptr())
     )
     return MaFloat(code, holder[0])
 
@@ -467,7 +467,7 @@ def delay_node_get_dry(lib: MaLib, n: OpaquePointer[MutUntrackedOrigin]) -> MaFl
 def delay_node_set_decay(
     lib: MaLib, n: OpaquePointer[MutUntrackedOrigin], value: Float32
 ) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_delay_node_set_decay", Int32](n, value))
+    return MaResult(lib.call["ma_shim_delay_node_set_decay", Int32](n, value))
 
 
 def delay_node_get_decay(
@@ -475,7 +475,7 @@ def delay_node_get_decay(
 ) -> MaFloat:
     var holder = [Float32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_delay_node_get_decay", Int32](
+        lib.call["ma_shim_delay_node_get_decay", Int32](
             n, holder.unsafe_ptr()
         )
     )
@@ -486,13 +486,13 @@ def delay_node_get_decay(
 
 
 def splitter_node_alloc(lib: MaLib) -> OpaquePointer[MutUntrackedOrigin]:
-    return lib.handle.call[
+    return lib.call[
         "ma_shim_splitter_node_alloc", OpaquePointer[MutUntrackedOrigin]
     ]()
 
 
 def splitter_node_free(lib: MaLib, n: OpaquePointer[MutUntrackedOrigin]):
-    lib.handle.call["ma_shim_splitter_node_free", NoneType](n)
+    lib.call["ma_shim_splitter_node_free", NoneType](n)
 
 
 def splitter_node_init(
@@ -502,12 +502,12 @@ def splitter_node_init(
     channels: UInt32,
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_splitter_node_init", Int32](n, g, channels)
+        lib.call["ma_shim_splitter_node_init", Int32](n, g, channels)
     )
 
 
 def splitter_node_uninit(lib: MaLib, n: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_splitter_node_uninit", Int32](n))
+    return MaResult(lib.call["ma_shim_splitter_node_uninit", Int32](n))
 
 
 def splitter_node_attach_to_endpoint(
@@ -517,7 +517,7 @@ def splitter_node_attach_to_endpoint(
     g: OpaquePointer[MutUntrackedOrigin],
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_splitter_node_attach_to_endpoint", Int32](
+        lib.call["ma_shim_splitter_node_attach_to_endpoint", Int32](
             n, output_bus, g
         )
     )
@@ -533,7 +533,7 @@ def node_graph_borrow_engine(
 ) -> MaResult:
     """Make `g` a non-owning view of the engine's node graph (get_node_graph)."""
     return MaResult(
-        lib.handle.call["ma_shim_node_graph_borrow_engine", Int32](g, engine)
+        lib.call["ma_shim_node_graph_borrow_engine", Int32](g, engine)
     )
 
 
@@ -544,7 +544,7 @@ def node_borrow_engine_endpoint(
 ) -> MaResult:
     """Make `n` a non-owning view of the engine's endpoint node (get_endpoint)."""
     return MaResult(
-        lib.handle.call["ma_shim_node_borrow_engine_endpoint", Int32](n, engine)
+        lib.call["ma_shim_node_borrow_engine_endpoint", Int32](n, engine)
     )
 
 
@@ -556,7 +556,7 @@ def node_is_graph_endpoint(
     """get_endpoint, asked as an identity question Mojo can hold."""
     var holder = [Int32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_node_is_graph_endpoint", Int32](
+        lib.call["ma_shim_node_is_graph_endpoint", Int32](
             n, g, holder.unsafe_ptr()
         )
     )
@@ -567,13 +567,13 @@ def node_is_graph_endpoint(
 
 
 def engine_node_alloc(lib: MaLib) -> OpaquePointer[MutUntrackedOrigin]:
-    return lib.handle.call[
+    return lib.call[
         "ma_shim_engine_node_alloc", OpaquePointer[MutUntrackedOrigin]
     ]()
 
 
 def engine_node_free(lib: MaLib, n: OpaquePointer[MutUntrackedOrigin]):
-    lib.handle.call["ma_shim_engine_node_free", NoneType](n)
+    lib.call["ma_shim_engine_node_free", NoneType](n)
 
 
 def engine_node_get_heap_size(
@@ -586,7 +586,7 @@ def engine_node_get_heap_size(
 ) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_engine_node_get_heap_size", Int32](
+        lib.call["ma_shim_engine_node_get_heap_size", Int32](
             engine,
             flags,
             channels_in,
@@ -609,7 +609,7 @@ def engine_node_init(
     pinned_listener_index: UInt32,
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_engine_node_init", Int32](
+        lib.call["ma_shim_engine_node_init", Int32](
             n,
             engine,
             flags,
@@ -633,7 +633,7 @@ def engine_node_init_preallocated(
 ) -> MaResult:
     """Init through miniaudio's preallocated-heap path with a shim-owned block."""
     return MaResult(
-        lib.handle.call["ma_shim_engine_node_init_preallocated", Int32](
+        lib.call["ma_shim_engine_node_init_preallocated", Int32](
             n,
             engine,
             flags,
@@ -646,4 +646,4 @@ def engine_node_init_preallocated(
 
 
 def engine_node_uninit(lib: MaLib, n: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_engine_node_uninit", Int32](n))
+    return MaResult(lib.call["ma_shim_engine_node_uninit", Int32](n))

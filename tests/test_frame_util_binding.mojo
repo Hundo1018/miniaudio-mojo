@@ -10,7 +10,7 @@ work on raw bytes, so every format is driven through the same list type.
 from std.testing import assert_equal, assert_true, assert_almost_equal, TestSuite
 from miniaudio.result import MaResult
 
-from miniaudio._lib import MaLib
+from miniaudio._lib import MaLib, null_handle
 from miniaudio.result import MA_SUCCESS, MA_INVALID_ARGS
 import miniaudio._ffi.frame_util_raw as raw
 
@@ -270,53 +270,53 @@ def test_null_buffers_are_refused() raises:
     holder.append(7)
 
     assert_equal(
-        MaResult(lib.handle.call["ma_shim_interleave_pcm_frames", Int32](
-            Int32(FMT_S16), UInt32(2), UInt64(2), Int(0), UInt64(4), Int(0)
+        MaResult(lib.call["ma_shim_interleave_pcm_frames", Int32](
+            Int32(FMT_S16), UInt32(2), UInt64(2), null_handle(), UInt64(4), null_handle()
         )),
         MA_INVALID_ARGS,
     )
     assert_equal(
-        MaResult(lib.handle.call["ma_shim_deinterleave_pcm_frames", Int32](
-            Int32(FMT_S16), UInt32(2), UInt64(2), Int(0), Int(0), UInt64(4)
+        MaResult(lib.call["ma_shim_deinterleave_pcm_frames", Int32](
+            Int32(FMT_S16), UInt32(2), UInt64(2), null_handle(), null_handle(), UInt64(4)
         )),
         MA_INVALID_ARGS,
     )
     assert_equal(
-        MaResult(lib.handle.call["ma_shim_silence_pcm_frames", Int32](
-            Int(0), UInt64(2), Int32(FMT_S16), UInt32(2)
+        MaResult(lib.call["ma_shim_silence_pcm_frames", Int32](
+            null_handle(), UInt64(2), Int32(FMT_S16), UInt32(2)
         )),
         MA_INVALID_ARGS,
     )
     assert_equal(
-        MaResult(lib.handle.call["ma_shim_offset_pcm_frames_ptr", Int32](
-            Int(0), UInt64(2), Int32(FMT_S16), UInt32(2), holder.unsafe_ptr()
+        MaResult(lib.call["ma_shim_offset_pcm_frames_ptr", Int32](
+            null_handle(), UInt64(2), Int32(FMT_S16), UInt32(2), holder.unsafe_ptr()
         )),
         MA_INVALID_ARGS,
     )
     assert_equal(holder[0], 0)
     assert_equal(
-        MaResult(lib.handle.call["ma_shim_offset_pcm_frames_const_ptr", Int32](
-            Int(0), UInt64(2), Int32(FMT_S16), UInt32(2), holder.unsafe_ptr()
+        MaResult(lib.call["ma_shim_offset_pcm_frames_const_ptr", Int32](
+            null_handle(), UInt64(2), Int32(FMT_S16), UInt32(2), holder.unsafe_ptr()
         )),
         MA_INVALID_ARGS,
     )
     # a real buffer but nowhere to put the address
     var buf = _filled(16, UInt8(0))
     assert_equal(
-        MaResult(lib.handle.call["ma_shim_offset_pcm_frames_ptr", Int32](
-            buf.unsafe_ptr(), UInt64(2), Int32(FMT_S16), UInt32(2), Int(0)
+        MaResult(lib.call["ma_shim_offset_pcm_frames_ptr", Int32](
+            buf.unsafe_ptr(), UInt64(2), Int32(FMT_S16), UInt32(2), null_handle()
         )),
         MA_INVALID_ARGS,
     )
     assert_equal(
-        MaResult(lib.handle.call["ma_shim_offset_pcm_frames_const_ptr", Int32](
-            buf.unsafe_ptr(), UInt64(2), Int32(FMT_S16), UInt32(2), Int(0)
+        MaResult(lib.call["ma_shim_offset_pcm_frames_const_ptr", Int32](
+            buf.unsafe_ptr(), UInt64(2), Int32(FMT_S16), UInt32(2), null_handle()
         )),
         MA_INVALID_ARGS,
     )
     assert_equal(
-        MaResult(lib.handle.call["ma_shim_debug_fill_pcm_frames_with_sine_wave", Int32](
-            Int(0), UInt32(8), Int32(FMT_F32), UInt32(1), UInt32(48000)
+        MaResult(lib.call["ma_shim_debug_fill_pcm_frames_with_sine_wave", Int32](
+            null_handle(), UInt32(8), Int32(FMT_F32), UInt32(1), UInt32(48000)
         )),
         MA_INVALID_ARGS,
     )

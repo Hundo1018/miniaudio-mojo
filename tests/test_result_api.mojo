@@ -10,6 +10,7 @@ from std.memory import ArcPointer
 from std.testing import assert_equal, assert_true, assert_false, assert_raises, TestSuite
 
 from miniaudio import MaLib, MaResult, MaError
+from miniaudio._lib import LINK_STATIC
 from miniaudio.result import MA_SUCCESS, MA_AT_END, MA_CRC_MISMATCH, MA_FAILED_TO_STOP_BACKEND_DEVICE
 from miniaudio.noise import Noise
 from miniaudio.frame_util import silent_frames
@@ -93,7 +94,11 @@ def _result_of_loading(path: String) -> MaResult:
 
 
 def test_missing_library_is_does_not_exist() raises:
-    assert_equal(_result_of_loading("./build/no_such_library.so"), MaResult.DOES_NOT_EXIST)
+    comptime if LINK_STATIC:
+        # Statically linked: the shim is already in the binary and the path is ignored.
+        assert_equal(_result_of_loading("./build/no_such_library.so"), MaResult.SUCCESS)
+    else:
+        assert_equal(_result_of_loading("./build/no_such_library.so"), MaResult.DOES_NOT_EXIST)
 
 
 def _silent_frames_error(lib: ArcPointer[MaLib]) -> MaError:

@@ -58,13 +58,13 @@ struct MaNativeDataFormat(Copyable, Movable):
 
 
 def device_alloc(lib: MaLib) -> OpaquePointer[MutUntrackedOrigin]:
-    return lib.handle.call[
+    return lib.call[
         "ma_shim_device_alloc", OpaquePointer[MutUntrackedOrigin]
     ]()
 
 
 def device_free(lib: MaLib, dev: OpaquePointer[MutUntrackedOrigin]):
-    lib.handle.call["ma_shim_device_free", NoneType](dev)
+    lib.call["ma_shim_device_free", NoneType](dev)
 
 
 def device_init_playback_from_decoder(
@@ -75,7 +75,7 @@ def device_init_playback_from_decoder(
     use_null_backend: Bool,
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_device_init_playback_from_decoder", Int32](
+        lib.call["ma_shim_device_init_playback_from_decoder", Int32](
             dev,
             decoder,
             sample_rate_override,
@@ -85,33 +85,33 @@ def device_init_playback_from_decoder(
 
 
 def device_start(lib: MaLib, dev: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_device_start", Int32](dev))
+    return MaResult(lib.call["ma_shim_device_start", Int32](dev))
 
 
 def device_stop(lib: MaLib, dev: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_device_stop", Int32](dev))
+    return MaResult(lib.call["ma_shim_device_stop", Int32](dev))
 
 
 def device_uninit(lib: MaLib, dev: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_device_uninit", Int32](dev))
+    return MaResult(lib.call["ma_shim_device_uninit", Int32](dev))
 
 
 def device_get_channels(
     lib: MaLib, dev: OpaquePointer[MutUntrackedOrigin]
 ) -> UInt32:
-    return lib.handle.call["ma_shim_device_get_channels", UInt32](dev)
+    return lib.call["ma_shim_device_get_channels", UInt32](dev)
 
 
 def device_get_sample_rate(
     lib: MaLib, dev: OpaquePointer[MutUntrackedOrigin]
 ) -> UInt32:
-    return lib.handle.call["ma_shim_device_get_sample_rate", UInt32](dev)
+    return lib.call["ma_shim_device_get_sample_rate", UInt32](dev)
 
 
 def device_get_frames_processed(
     lib: MaLib, dev: OpaquePointer[MutUntrackedOrigin]
 ) -> UInt64:
-    return lib.handle.call["ma_shim_device_get_frames_processed", UInt64](dev)
+    return lib.call["ma_shim_device_get_frames_processed", UInt64](dev)
 
 
 def device_init_ex_playback_from_decoder(
@@ -126,7 +126,7 @@ def device_init_ex_playback_from_decoder(
     An empty `backends` means miniaudio's default priority order.
     """
     return MaResult(
-        lib.handle.call["ma_shim_device_init_ex_playback_from_decoder", Int32](
+        lib.call["ma_shim_device_init_ex_playback_from_decoder", Int32](
             dev,
             decoder,
             backends.unsafe_ptr(),
@@ -138,18 +138,18 @@ def device_init_ex_playback_from_decoder(
 
 def device_get_state(lib: MaLib, dev: OpaquePointer[MutUntrackedOrigin]) -> Int:
     """Returns an ma_device_state code; 0 (uninitialized) for a null handle."""
-    return Int(lib.handle.call["ma_shim_device_get_state", Int32](dev))
+    return Int(lib.call["ma_shim_device_get_state", Int32](dev))
 
 
 def device_is_started(lib: MaLib, dev: OpaquePointer[MutUntrackedOrigin]) -> Bool:
-    return lib.handle.call["ma_shim_device_is_started", Int32](dev) != Int32(0)
+    return lib.call["ma_shim_device_is_started", Int32](dev) != Int32(0)
 
 
 def device_set_master_volume(
     lib: MaLib, dev: OpaquePointer[MutUntrackedOrigin], volume: Float32
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_device_set_master_volume", Int32](dev, volume)
+        lib.call["ma_shim_device_set_master_volume", Int32](dev, volume)
     )
 
 
@@ -158,7 +158,7 @@ def device_get_master_volume(
 ) -> MaFloat:
     var holder = [Float32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_device_get_master_volume", Int32](
+        lib.call["ma_shim_device_get_master_volume", Int32](
             dev, holder.unsafe_ptr()
         )
     )
@@ -169,7 +169,7 @@ def device_set_master_volume_db(
     lib: MaLib, dev: OpaquePointer[MutUntrackedOrigin], gain_db: Float32
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_device_set_master_volume_db", Int32](dev, gain_db)
+        lib.call["ma_shim_device_set_master_volume_db", Int32](dev, gain_db)
     )
 
 
@@ -178,7 +178,7 @@ def device_get_master_volume_db(
 ) -> MaFloat:
     var holder = [Float32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_device_get_master_volume_db", Int32](
+        lib.call["ma_shim_device_get_master_volume_db", Int32](
             dev, holder.unsafe_ptr()
         )
     )
@@ -192,7 +192,7 @@ def device_get_name(
     buf.resize(NAME_CAP, UInt8(0))
     var len_holder = [UInt(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_device_get_name", Int32](
+        lib.call["ma_shim_device_get_name", Int32](
             dev,
             Int32(device_type),
             buf.unsafe_ptr(),
@@ -209,7 +209,7 @@ def device_info_load(
     lib: MaLib, dev: OpaquePointer[MutUntrackedOrigin], device_type: Int
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_device_info_load", Int32](dev, Int32(device_type))
+        lib.call["ma_shim_device_info_load", Int32](dev, Int32(device_type))
     )
 
 
@@ -218,7 +218,7 @@ def device_info_name(lib: MaLib, dev: OpaquePointer[MutUntrackedOrigin]) -> MaTe
     buf.resize(NAME_CAP, UInt8(0))
     var len_holder = [UInt(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_device_info_name", Int32](
+        lib.call["ma_shim_device_info_name", Int32](
             dev,
             buf.unsafe_ptr(),
             UInt(NAME_CAP),
@@ -235,7 +235,7 @@ def device_info_is_default(
 ) -> MaBool:
     var holder = [Int32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_device_info_is_default", Int32](
+        lib.call["ma_shim_device_info_is_default", Int32](
             dev, holder.unsafe_ptr()
         )
     )
@@ -247,7 +247,7 @@ def device_info_native_data_format_count(
 ) -> MaUInt:
     var holder = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_device_info_native_data_format_count", Int32](
+        lib.call["ma_shim_device_info_native_data_format_count", Int32](
             dev, holder.unsafe_ptr()
         )
     )
@@ -262,7 +262,7 @@ def device_info_native_data_format(
     var sample_rate = [UInt32(0)]
     var flags = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_device_info_native_data_format", Int32](
+        lib.call["ma_shim_device_info_native_data_format", Int32](
             dev,
             index,
             fmt.unsafe_ptr(),
@@ -285,7 +285,7 @@ def device_info_add_native_data_format(
     flags: UInt32,
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_device_info_add_native_data_format", Int32](
+        lib.call["ma_shim_device_info_add_native_data_format", Int32](
             dev, Int32(format), channels, sample_rate, flags
         )
     )
@@ -299,7 +299,7 @@ def device_id_equal(
 ) -> MaBool:
     var holder = [Int32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_device_id_equal", Int32](
+        lib.call["ma_shim_device_id_equal", Int32](
             dev_a, dev_b, Int32(device_type), holder.unsafe_ptr()
         )
     )
@@ -312,7 +312,7 @@ def device_get_context_backend(
     """Returns the ma_backend code of the context the device is running on."""
     var holder = [Int32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_device_get_context_backend", Int32](
+        lib.call["ma_shim_device_get_context_backend", Int32](
             dev, holder.unsafe_ptr()
         )
     )
@@ -322,7 +322,7 @@ def device_get_context_backend(
 def device_has_log(lib: MaLib, dev: OpaquePointer[MutUntrackedOrigin]) -> MaBool:
     var holder = [Int32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_device_has_log", Int32](dev, holder.unsafe_ptr())
+        lib.call["ma_shim_device_has_log", Int32](dev, holder.unsafe_ptr())
     )
     return MaBool(code, holder[0] != Int32(0))
 
@@ -335,7 +335,7 @@ def device_handle_backend_data_callback(
 ) -> MaResult:
     """Drives the data callback synchronously (caller pre-sizes `out`)."""
     return MaResult(
-        lib.handle.call["ma_shim_device_handle_backend_data_callback", Int32](
+        lib.call["ma_shim_device_handle_backend_data_callback", Int32](
             dev,
             out.unsafe_ptr(),
             null_handle(),
@@ -348,13 +348,13 @@ def device_handle_backend_data_callback(
 
 
 def device_job_thread_alloc(lib: MaLib) -> OpaquePointer[MutUntrackedOrigin]:
-    return lib.handle.call[
+    return lib.call[
         "ma_shim_device_job_thread_alloc", OpaquePointer[MutUntrackedOrigin]
     ]()
 
 
 def device_job_thread_free(lib: MaLib, jt: OpaquePointer[MutUntrackedOrigin]):
-    lib.handle.call["ma_shim_device_job_thread_free", NoneType](jt)
+    lib.call["ma_shim_device_job_thread_free", NoneType](jt)
 
 
 def device_job_thread_init(
@@ -365,7 +365,7 @@ def device_job_thread_init(
     job_queue_flags: UInt32,
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_device_job_thread_init", Int32](
+        lib.call["ma_shim_device_job_thread_init", Int32](
             jt,
             Int32(1) if no_thread else Int32(0),
             job_queue_capacity,
@@ -377,14 +377,14 @@ def device_job_thread_init(
 def device_job_thread_uninit(
     lib: MaLib, jt: OpaquePointer[MutUntrackedOrigin]
 ) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_device_job_thread_uninit", Int32](jt))
+    return MaResult(lib.call["ma_shim_device_job_thread_uninit", Int32](jt))
 
 
 def device_job_thread_post(
     lib: MaLib, jt: OpaquePointer[MutUntrackedOrigin], job_code: UInt16
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_device_job_thread_post", Int32](jt, job_code)
+        lib.call["ma_shim_device_job_thread_post", Int32](jt, job_code)
     )
 
 
@@ -395,7 +395,7 @@ def device_job_thread_next(
     queue was created with MA_JOB_QUEUE_FLAG_NON_BLOCKING."""
     var holder = [UInt16(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_device_job_thread_next", Int32](
+        lib.call["ma_shim_device_job_thread_next", Int32](
             jt, holder.unsafe_ptr()
         )
     )
@@ -408,4 +408,4 @@ def device_borrow_engine(
     engine: OpaquePointer[MutUntrackedOrigin],
 ) -> MaResult:
     """Make `dev` a non-owning view of the engine's playback device (get_device)."""
-    return MaResult(lib.handle.call["ma_shim_device_borrow_engine", Int32](dev, engine))
+    return MaResult(lib.call["ma_shim_device_borrow_engine", Int32](dev, engine))

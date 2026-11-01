@@ -37,13 +37,13 @@ struct MaSlot(Copyable, Movable):
 
 
 def paged_audio_buffer_alloc(lib: MaLib) -> OpaquePointer[MutUntrackedOrigin]:
-    return lib.handle.call[
+    return lib.call[
         "ma_shim_paged_audio_buffer_alloc", OpaquePointer[MutUntrackedOrigin]
     ]()
 
 
 def paged_audio_buffer_free(lib: MaLib, pab: OpaquePointer[MutUntrackedOrigin]):
-    lib.handle.call["ma_shim_paged_audio_buffer_free", NoneType](pab)
+    lib.call["ma_shim_paged_audio_buffer_free", NoneType](pab)
 
 
 # ---- the page list ----------------------------------------------------------
@@ -56,7 +56,7 @@ def paged_audio_buffer_data_init(
     channels: UInt32,
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_paged_audio_buffer_data_init", Int32](
+        lib.call["ma_shim_paged_audio_buffer_data_init", Int32](
             pab, Int32(format), channels
         )
     )
@@ -66,7 +66,7 @@ def paged_audio_buffer_data_uninit(
     lib: MaLib, pab: OpaquePointer[MutUntrackedOrigin]
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_paged_audio_buffer_data_uninit", Int32](pab)
+        lib.call["ma_shim_paged_audio_buffer_data_uninit", Int32](pab)
     )
 
 
@@ -76,7 +76,7 @@ def paged_audio_buffer_data_get_length(
     """Total frames across every appended page."""
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_paged_audio_buffer_data_get_length", Int32](
+        lib.call["ma_shim_paged_audio_buffer_data_get_length", Int32](
             pab, holder.unsafe_ptr()
         )
     )
@@ -90,7 +90,7 @@ def paged_audio_buffer_data_get_head(
     var size = [UInt64(0)]
     var has_pages = [Int32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_paged_audio_buffer_data_get_head", Int32](
+        lib.call["ma_shim_paged_audio_buffer_data_get_head", Int32](
             pab, size.unsafe_ptr(), has_pages.unsafe_ptr()
         )
     )
@@ -104,7 +104,7 @@ def paged_audio_buffer_data_get_tail(
     var size = [UInt64(0)]
     var is_head = [Int32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_paged_audio_buffer_data_get_tail", Int32](
+        lib.call["ma_shim_paged_audio_buffer_data_get_tail", Int32](
             pab, size.unsafe_ptr(), is_head.unsafe_ptr()
         )
     )
@@ -120,7 +120,7 @@ def paged_audio_buffer_data_allocate_page(
     """Allocate a page from `src` and park it in a handle slot."""
     var holder = [Int32(-1)]
     var code = MaResult(
-        lib.handle.call["ma_shim_paged_audio_buffer_data_allocate_page", Int32](
+        lib.call["ma_shim_paged_audio_buffer_data_allocate_page", Int32](
             pab, page_size_in_frames, src.unsafe_ptr(), holder.unsafe_ptr()
         )
     )
@@ -135,7 +135,7 @@ def paged_audio_buffer_data_allocate_page_silent(
     """Allocate an uninitialised page (NULL initial data)."""
     var holder = [Int32(-1)]
     var code = MaResult(
-        lib.handle.call["ma_shim_paged_audio_buffer_data_allocate_page", Int32](
+        lib.call["ma_shim_paged_audio_buffer_data_allocate_page", Int32](
             pab, page_size_in_frames, null_handle(), holder.unsafe_ptr()
         )
     )
@@ -146,7 +146,7 @@ def paged_audio_buffer_data_append_page(
     lib: MaLib, pab: OpaquePointer[MutUntrackedOrigin], slot: Int
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_paged_audio_buffer_data_append_page", Int32](
+        lib.call["ma_shim_paged_audio_buffer_data_append_page", Int32](
             pab, Int32(slot)
         )
     )
@@ -156,7 +156,7 @@ def paged_audio_buffer_data_free_page(
     lib: MaLib, pab: OpaquePointer[MutUntrackedOrigin], slot: Int
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_paged_audio_buffer_data_free_page", Int32](
+        lib.call["ma_shim_paged_audio_buffer_data_free_page", Int32](
             pab, Int32(slot)
         )
     )
@@ -169,7 +169,7 @@ def paged_audio_buffer_data_allocate_and_append_page(
     page_size_in_frames: UInt32,
 ) -> MaResult:
     return MaResult(
-        lib.handle.call[
+        lib.call[
             "ma_shim_paged_audio_buffer_data_allocate_and_append_page", Int32
         ](pab, page_size_in_frames, src.unsafe_ptr())
     )
@@ -181,13 +181,13 @@ def paged_audio_buffer_data_allocate_and_append_page(
 def paged_audio_buffer_init(
     lib: MaLib, pab: OpaquePointer[MutUntrackedOrigin]
 ) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_paged_audio_buffer_init", Int32](pab))
+    return MaResult(lib.call["ma_shim_paged_audio_buffer_init", Int32](pab))
 
 
 def paged_audio_buffer_uninit(
     lib: MaLib, pab: OpaquePointer[MutUntrackedOrigin]
 ) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_paged_audio_buffer_uninit", Int32](pab))
+    return MaResult(lib.call["ma_shim_paged_audio_buffer_uninit", Int32](pab))
 
 
 def paged_audio_buffer_read(
@@ -199,7 +199,7 @@ def paged_audio_buffer_read(
     """Reads up to frame_count frames. MA_AT_END means the pages ran out."""
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_paged_audio_buffer_read", Int32](
+        lib.call["ma_shim_paged_audio_buffer_read", Int32](
             pab, dst.unsafe_ptr(), frame_count, holder.unsafe_ptr()
         )
     )
@@ -210,7 +210,7 @@ def paged_audio_buffer_seek(
     lib: MaLib, pab: OpaquePointer[MutUntrackedOrigin], frame_index: UInt64
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_paged_audio_buffer_seek", Int32](pab, frame_index)
+        lib.call["ma_shim_paged_audio_buffer_seek", Int32](pab, frame_index)
     )
 
 
@@ -219,7 +219,7 @@ def paged_audio_buffer_get_cursor(
 ) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_paged_audio_buffer_get_cursor", Int32](
+        lib.call["ma_shim_paged_audio_buffer_get_cursor", Int32](
             pab, holder.unsafe_ptr()
         )
     )
@@ -231,7 +231,7 @@ def paged_audio_buffer_get_length(
 ) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_paged_audio_buffer_get_length", Int32](
+        lib.call["ma_shim_paged_audio_buffer_get_length", Int32](
             pab, holder.unsafe_ptr()
         )
     )

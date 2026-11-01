@@ -27,13 +27,13 @@ struct MaCount(Copyable, Movable):
 
 
 def decoder_alloc(lib: MaLib) -> OpaquePointer[MutUntrackedOrigin]:
-    return lib.handle.call[
+    return lib.call[
         "ma_shim_decoder_alloc", OpaquePointer[MutUntrackedOrigin]
     ]()
 
 
 def decoder_free(lib: MaLib, dec: OpaquePointer[MutUntrackedOrigin]):
-    lib.handle.call["ma_shim_decoder_free", NoneType](dec)
+    lib.call["ma_shim_decoder_free", NoneType](dec)
 
 
 def decoder_init_file(
@@ -46,7 +46,7 @@ def decoder_init_file(
 ) -> MaResult:
     var path_c = path + "\x00"
     return MaResult(
-        lib.handle.call["ma_shim_decoder_init_file", Int32](
+        lib.call["ma_shim_decoder_init_file", Int32](
             dec,
             path_c.as_bytes().unsafe_ptr(),
             Int32(format),
@@ -65,7 +65,7 @@ def decoder_init_memory(
     sample_rate: UInt32,
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_decoder_init_memory", Int32](
+        lib.call["ma_shim_decoder_init_memory", Int32](
             dec,
             data.unsafe_ptr(),
             len(data),
@@ -84,7 +84,7 @@ def decoder_init_file_default(
     """Init from a file with the default (native-format-preserving) config."""
     var path_c = path + "\x00"
     return MaResult(
-        lib.handle.call["ma_shim_decoder_init_file_default", Int32](
+        lib.call["ma_shim_decoder_init_file_default", Int32](
             dec,
             path_c.as_bytes().unsafe_ptr(),
         )
@@ -102,7 +102,7 @@ def decoder_init_file_vfs(
     """Init from a file path through the VFS API (default stdio VFS)."""
     var path_c = path + "\x00"
     return MaResult(
-        lib.handle.call["ma_shim_decoder_init_file_vfs", Int32](
+        lib.call["ma_shim_decoder_init_file_vfs", Int32](
             dec,
             path_c.as_bytes().unsafe_ptr(),
             Int32(format),
@@ -113,7 +113,7 @@ def decoder_init_file_vfs(
 
 
 def decoder_uninit(lib: MaLib, dec: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_decoder_uninit", Int32](dec))
+    return MaResult(lib.call["ma_shim_decoder_uninit", Int32](dec))
 
 
 def decoder_read_pcm_frames(
@@ -129,7 +129,7 @@ def decoder_read_pcm_frames(
     """
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_decoder_read_pcm_frames", Int32](
+        lib.call["ma_shim_decoder_read_pcm_frames", Int32](
             dec,
             out.unsafe_ptr(),
             frame_count,
@@ -143,7 +143,7 @@ def decoder_seek_to_pcm_frame(
     lib: MaLib, dec: OpaquePointer[MutUntrackedOrigin], frame_index: UInt64
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_decoder_seek_to_pcm_frame", Int32](
+        lib.call["ma_shim_decoder_seek_to_pcm_frame", Int32](
             dec, frame_index
         )
     )
@@ -154,7 +154,7 @@ def decoder_get_length_in_pcm_frames(
 ) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_decoder_get_length_in_pcm_frames", Int32](
+        lib.call["ma_shim_decoder_get_length_in_pcm_frames", Int32](
             dec, holder.unsafe_ptr()
         )
     )
@@ -166,7 +166,7 @@ def decoder_get_cursor_in_pcm_frames(
 ) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_decoder_get_cursor_in_pcm_frames", Int32](
+        lib.call["ma_shim_decoder_get_cursor_in_pcm_frames", Int32](
             dec, holder.unsafe_ptr()
         )
     )
@@ -179,7 +179,7 @@ def decoder_get_available_frames(
     """Frames still available to read from the current cursor position."""
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_decoder_get_available_frames", Int32](
+        lib.call["ma_shim_decoder_get_available_frames", Int32](
             dec, holder.unsafe_ptr()
         )
     )
@@ -189,19 +189,19 @@ def decoder_get_available_frames(
 def decoder_output_channels(
     lib: MaLib, dec: OpaquePointer[MutUntrackedOrigin]
 ) -> UInt32:
-    return lib.handle.call["ma_shim_decoder_output_channels", UInt32](dec)
+    return lib.call["ma_shim_decoder_output_channels", UInt32](dec)
 
 
 def decoder_output_sample_rate(
     lib: MaLib, dec: OpaquePointer[MutUntrackedOrigin]
 ) -> UInt32:
-    return lib.handle.call["ma_shim_decoder_output_sample_rate", UInt32](dec)
+    return lib.call["ma_shim_decoder_output_sample_rate", UInt32](dec)
 
 
 def decoder_output_format(
     lib: MaLib, dec: OpaquePointer[MutUntrackedOrigin]
 ) -> Int:
-    return Int(lib.handle.call["ma_shim_decoder_output_format", Int32](dec))
+    return Int(lib.call["ma_shim_decoder_output_format", Int32](dec))
 
 
 def decoder_init_stream[
@@ -222,7 +222,7 @@ def decoder_init_stream[
     included). The caller must not touch `user` afterwards.
     """
     return MaResult(
-        lib.handle.call["ma_shim_decoder_init_stream", Int32](
+        lib.call["ma_shim_decoder_init_stream", Int32](
             dec,
             stream_read_tramp[S],
             stream_seek_tramp[S],
@@ -252,7 +252,7 @@ def decoder_init_stream_ptrs(
     for exercising the shim's argument checks: a real stream goes through
     `decoder_init_stream`."""
     return MaResult(
-        lib.handle.call["ma_shim_decoder_init_stream", Int32](
+        lib.call["ma_shim_decoder_init_stream", Int32](
             dec,
             on_read,
             on_seek,
@@ -271,6 +271,6 @@ def decoder_stream_user(
 ) -> OpaquePointer[MutUntrackedOrigin]:
     """The stream the decoder was initialised with, or NULL if it has none or
     `type_tag` (see `stream_tag`) is not the tag it was initialised with."""
-    return lib.handle.call[
+    return lib.call[
         "ma_shim_decoder_stream_user", OpaquePointer[MutUntrackedOrigin]
     ](dec, type_tag)

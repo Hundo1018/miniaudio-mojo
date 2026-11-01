@@ -41,6 +41,24 @@ def play(path: String) raises MaError:
 `MaLib.default()` loads `build/libma_shim.so` (built by `pixi run build-shim`); set
 `MINIAUDIO_MOJO_LIB` to load it from elsewhere.
 
+## Link modes
+
+By default `MaLib.default()` loads the shim at run time (`dlopen` of `build/libma_shim.so`).
+For a single self-contained binary, or a WebAssembly module, where nothing can be loaded at
+run time, build in static mode:
+
+```bash
+pixi run build-shim-static     # build/libma_shim.a
+mojo build -D MINIAUDIO_LINK=static -I src app.mojo -o app \
+    -Xlinker build/libma_shim.a -Xlinker -lpthread -Xlinker -lm -Xlinker -ldl -Xlinker -latomic
+```
+
+Every binding call is then `external_call`: the IR has `declare`s for the `ma_shim_*` symbols
+and no `dlopen` / `dlsym`. Your code doesn't change, since `MaLib.default()` still returns a
+library; the path argument of `MaLib(path)` is ignored. `pixi run test-static` runs the whole suite
+this way. Callbacks (user streams, the sound end callback) are plain C function pointers in both
+modes.
+
 ## Errors
 
 Every raising function raises `MaError`, which carries the miniaudio result as a `MaResult`:

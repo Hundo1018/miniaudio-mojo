@@ -51,11 +51,11 @@ struct MaLoadResult(Copyable, Movable):
 
 
 def resource_manager_alloc(lib: MaLib) -> OpaquePointer[MutUntrackedOrigin]:
-    return lib.handle.call["ma_shim_resource_manager_alloc", OpaquePointer[MutUntrackedOrigin]]()
+    return lib.call["ma_shim_resource_manager_alloc", OpaquePointer[MutUntrackedOrigin]]()
 
 
 def resource_manager_free(lib: MaLib, rm: OpaquePointer[MutUntrackedOrigin]):
-    lib.handle.call["ma_shim_resource_manager_free", NoneType](rm)
+    lib.call["ma_shim_resource_manager_free", NoneType](rm)
 
 
 def resource_manager_init(
@@ -63,20 +63,20 @@ def resource_manager_init(
 ) -> MaResult:
     """Zero job threads plus non-blocking keeps every job on the calling thread."""
     return MaResult(
-        lib.handle.call["ma_shim_resource_manager_init", Int32](
+        lib.call["ma_shim_resource_manager_init", Int32](
             rm, job_thread_count, Int32(1) if non_blocking else Int32(0)
         )
     )
 
 
 def resource_manager_uninit(lib: MaLib, rm: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_resource_manager_uninit", Int32](rm))
+    return MaResult(lib.call["ma_shim_resource_manager_uninit", Int32](rm))
 
 
 def resource_manager_has_log(lib: MaLib, rm: OpaquePointer[MutUntrackedOrigin]) -> MaBool:
     var holder = [Int32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_resource_manager_has_log", Int32](
+        lib.call["ma_shim_resource_manager_has_log", Int32](
             rm, holder.unsafe_ptr()
         )
     )
@@ -88,7 +88,7 @@ def resource_manager_register_file(
 ) -> MaResult:
     var path_c = path + "\x00"
     return MaResult(
-        lib.handle.call["ma_shim_resource_manager_register_file", Int32](
+        lib.call["ma_shim_resource_manager_register_file", Int32](
             rm, path_c.as_bytes().unsafe_ptr(), flags
         )
     )
@@ -97,7 +97,7 @@ def resource_manager_register_file(
 def resource_manager_unregister_file(lib: MaLib, rm: OpaquePointer[MutUntrackedOrigin], path: String) -> MaResult:
     var path_c = path + "\x00"
     return MaResult(
-        lib.handle.call["ma_shim_resource_manager_unregister_file", Int32](
+        lib.call["ma_shim_resource_manager_unregister_file", Int32](
             rm, path_c.as_bytes().unsafe_ptr()
         )
     )
@@ -116,7 +116,7 @@ def resource_manager_register_decoded_data(
     """miniaudio does not copy the frames; the caller keeps them alive."""
     var name_c = name + "\x00"
     return MaResult(
-        lib.handle.call["ma_shim_resource_manager_register_decoded_data", Int32](
+        lib.call["ma_shim_resource_manager_register_decoded_data", Int32](
             rm,
             name_c.as_bytes().unsafe_ptr(),
             frames.unsafe_ptr(),
@@ -133,7 +133,7 @@ def resource_manager_register_encoded_data(
 ) -> MaResult:
     var name_c = name + "\x00"
     return MaResult(
-        lib.handle.call["ma_shim_resource_manager_register_encoded_data", Int32](
+        lib.call["ma_shim_resource_manager_register_encoded_data", Int32](
             rm, name_c.as_bytes().unsafe_ptr(), data.unsafe_ptr(), UInt64(len(data))
         )
     )
@@ -142,7 +142,7 @@ def resource_manager_register_encoded_data(
 def resource_manager_unregister_data(lib: MaLib, rm: OpaquePointer[MutUntrackedOrigin], name: String) -> MaResult:
     var name_c = name + "\x00"
     return MaResult(
-        lib.handle.call["ma_shim_resource_manager_unregister_data", Int32](
+        lib.call["ma_shim_resource_manager_unregister_data", Int32](
             rm, name_c.as_bytes().unsafe_ptr()
         )
     )
@@ -150,7 +150,7 @@ def resource_manager_unregister_data(lib: MaLib, rm: OpaquePointer[MutUntrackedO
 
 def resource_manager_post_job_quit(lib: MaLib, rm: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_resource_manager_post_job_quit", Int32](rm)
+        lib.call["ma_shim_resource_manager_post_job_quit", Int32](rm)
     )
 
 
@@ -158,7 +158,7 @@ def resource_manager_next_job(lib: MaLib, rm: OpaquePointer[MutUntrackedOrigin])
     """Pops a job into the shim's slot; the value is the job's type code."""
     var holder = [Int32(-1)]
     var code = MaResult(
-        lib.handle.call["ma_shim_resource_manager_next_job", Int32](
+        lib.call["ma_shim_resource_manager_next_job", Int32](
             rm, holder.unsafe_ptr()
         )
     )
@@ -167,19 +167,19 @@ def resource_manager_next_job(lib: MaLib, rm: OpaquePointer[MutUntrackedOrigin])
 
 def resource_manager_post_job(lib: MaLib, rm: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
     """Puts the job in the shim's slot back on the queue."""
-    return MaResult(lib.handle.call["ma_shim_resource_manager_post_job", Int32](rm))
+    return MaResult(lib.call["ma_shim_resource_manager_post_job", Int32](rm))
 
 
 def resource_manager_process_job(lib: MaLib, rm: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
     """Runs the job in the shim's slot."""
     return MaResult(
-        lib.handle.call["ma_shim_resource_manager_process_job", Int32](rm)
+        lib.call["ma_shim_resource_manager_process_job", Int32](rm)
     )
 
 
 def resource_manager_process_next_job(lib: MaLib, rm: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_resource_manager_process_next_job", Int32](rm)
+        lib.call["ma_shim_resource_manager_process_next_job", Int32](rm)
     )
 
 
@@ -187,11 +187,11 @@ def resource_manager_process_next_job(lib: MaLib, rm: OpaquePointer[MutUntracked
 
 
 def rm_data_buffer_alloc(lib: MaLib) -> OpaquePointer[MutUntrackedOrigin]:
-    return lib.handle.call["ma_shim_rm_data_buffer_alloc", OpaquePointer[MutUntrackedOrigin]]()
+    return lib.call["ma_shim_rm_data_buffer_alloc", OpaquePointer[MutUntrackedOrigin]]()
 
 
 def rm_data_buffer_free(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin]):
-    lib.handle.call["ma_shim_rm_data_buffer_free", NoneType](d)
+    lib.call["ma_shim_rm_data_buffer_free", NoneType](d)
 
 
 def rm_data_buffer_init(
@@ -199,7 +199,7 @@ def rm_data_buffer_init(
 ) -> MaResult:
     var path_c = path + "\x00"
     return MaResult(
-        lib.handle.call["ma_shim_rm_data_buffer_init", Int32](
+        lib.call["ma_shim_rm_data_buffer_init", Int32](
             d, rm, path_c.as_bytes().unsafe_ptr(), flags
         )
     )
@@ -211,7 +211,7 @@ def rm_data_buffer_init_ex(
     """Through the config struct, with a pipeline-notifications struct attached."""
     var path_c = path + "\x00"
     return MaResult(
-        lib.handle.call["ma_shim_rm_data_buffer_init_ex", Int32](
+        lib.call["ma_shim_rm_data_buffer_init_ex", Int32](
             d, rm, path_c.as_bytes().unsafe_ptr(), flags
         )
     )
@@ -219,12 +219,12 @@ def rm_data_buffer_init_ex(
 
 def rm_data_buffer_init_copy(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin], rm: OpaquePointer[MutUntrackedOrigin], existing: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_rm_data_buffer_init_copy", Int32](d, rm, existing)
+        lib.call["ma_shim_rm_data_buffer_init_copy", Int32](d, rm, existing)
     )
 
 
 def rm_data_buffer_uninit(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_rm_data_buffer_uninit", Int32](d))
+    return MaResult(lib.call["ma_shim_rm_data_buffer_uninit", Int32](d))
 
 
 def rm_data_buffer_read(
@@ -232,7 +232,7 @@ def rm_data_buffer_read(
 ) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_rm_data_buffer_read", Int32](
+        lib.call["ma_shim_rm_data_buffer_read", Int32](
             d, dst.unsafe_ptr(), frame_count, holder.unsafe_ptr()
         )
     )
@@ -240,7 +240,7 @@ def rm_data_buffer_read(
 
 
 def rm_data_buffer_seek(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin], frame_index: UInt64) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_rm_data_buffer_seek", Int32](d, frame_index))
+    return MaResult(lib.call["ma_shim_rm_data_buffer_seek", Int32](d, frame_index))
 
 
 def rm_data_buffer_get_data_format(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin]) -> MaDataFormat:
@@ -248,7 +248,7 @@ def rm_data_buffer_get_data_format(lib: MaLib, d: OpaquePointer[MutUntrackedOrig
     var ch = [UInt32(0)]
     var rate = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_rm_data_buffer_get_data_format", Int32](
+        lib.call["ma_shim_rm_data_buffer_get_data_format", Int32](
             d, fmt.unsafe_ptr(), ch.unsafe_ptr(), rate.unsafe_ptr()
         )
     )
@@ -258,7 +258,7 @@ def rm_data_buffer_get_data_format(lib: MaLib, d: OpaquePointer[MutUntrackedOrig
 def rm_data_buffer_get_cursor(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin]) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_rm_data_buffer_get_cursor", Int32](d, holder.unsafe_ptr())
+        lib.call["ma_shim_rm_data_buffer_get_cursor", Int32](d, holder.unsafe_ptr())
     )
     return MaCount(code, holder[0])
 
@@ -266,7 +266,7 @@ def rm_data_buffer_get_cursor(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin]) 
 def rm_data_buffer_get_length(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin]) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_rm_data_buffer_get_length", Int32](d, holder.unsafe_ptr())
+        lib.call["ma_shim_rm_data_buffer_get_length", Int32](d, holder.unsafe_ptr())
     )
     return MaCount(code, holder[0])
 
@@ -274,7 +274,7 @@ def rm_data_buffer_get_length(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin]) 
 def rm_data_buffer_get_available(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin]) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_rm_data_buffer_get_available", Int32](
+        lib.call["ma_shim_rm_data_buffer_get_available", Int32](
             d, holder.unsafe_ptr()
         )
     )
@@ -285,14 +285,14 @@ def rm_data_buffer_result(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin]) -> M
     """The load result the manager recorded for this object."""
     var holder = [Int32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_rm_data_buffer_result", Int32](d, holder.unsafe_ptr())
+        lib.call["ma_shim_rm_data_buffer_result", Int32](d, holder.unsafe_ptr())
     )
     return MaLoadResult(code, MaResult(holder[0]))
 
 
 def rm_data_buffer_set_looping(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin], is_looping: Bool) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_rm_data_buffer_set_looping", Int32](
+        lib.call["ma_shim_rm_data_buffer_set_looping", Int32](
             d, Int32(1) if is_looping else Int32(0)
         )
     )
@@ -301,7 +301,7 @@ def rm_data_buffer_set_looping(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin],
 def rm_data_buffer_is_looping(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin]) -> MaBool:
     var holder = [Int32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_rm_data_buffer_is_looping", Int32](d, holder.unsafe_ptr())
+        lib.call["ma_shim_rm_data_buffer_is_looping", Int32](d, holder.unsafe_ptr())
     )
     return MaBool(code, holder[0] != Int32(0))
 
@@ -310,11 +310,11 @@ def rm_data_buffer_is_looping(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin]) 
 
 
 def rm_data_stream_alloc(lib: MaLib) -> OpaquePointer[MutUntrackedOrigin]:
-    return lib.handle.call["ma_shim_rm_data_stream_alloc", OpaquePointer[MutUntrackedOrigin]]()
+    return lib.call["ma_shim_rm_data_stream_alloc", OpaquePointer[MutUntrackedOrigin]]()
 
 
 def rm_data_stream_free(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin]):
-    lib.handle.call["ma_shim_rm_data_stream_free", NoneType](d)
+    lib.call["ma_shim_rm_data_stream_free", NoneType](d)
 
 
 def rm_data_stream_init(
@@ -322,7 +322,7 @@ def rm_data_stream_init(
 ) -> MaResult:
     var path_c = path + "\x00"
     return MaResult(
-        lib.handle.call["ma_shim_rm_data_stream_init", Int32](
+        lib.call["ma_shim_rm_data_stream_init", Int32](
             d, rm, path_c.as_bytes().unsafe_ptr(), flags
         )
     )
@@ -334,14 +334,14 @@ def rm_data_stream_init_ex(
     """Through the config struct, with a pipeline-notifications struct attached."""
     var path_c = path + "\x00"
     return MaResult(
-        lib.handle.call["ma_shim_rm_data_stream_init_ex", Int32](
+        lib.call["ma_shim_rm_data_stream_init_ex", Int32](
             d, rm, path_c.as_bytes().unsafe_ptr(), flags
         )
     )
 
 
 def rm_data_stream_uninit(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_rm_data_stream_uninit", Int32](d))
+    return MaResult(lib.call["ma_shim_rm_data_stream_uninit", Int32](d))
 
 
 def rm_data_stream_read(
@@ -349,7 +349,7 @@ def rm_data_stream_read(
 ) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_rm_data_stream_read", Int32](
+        lib.call["ma_shim_rm_data_stream_read", Int32](
             d, dst.unsafe_ptr(), frame_count, holder.unsafe_ptr()
         )
     )
@@ -357,7 +357,7 @@ def rm_data_stream_read(
 
 
 def rm_data_stream_seek(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin], frame_index: UInt64) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_rm_data_stream_seek", Int32](d, frame_index))
+    return MaResult(lib.call["ma_shim_rm_data_stream_seek", Int32](d, frame_index))
 
 
 def rm_data_stream_get_data_format(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin]) -> MaDataFormat:
@@ -365,7 +365,7 @@ def rm_data_stream_get_data_format(lib: MaLib, d: OpaquePointer[MutUntrackedOrig
     var ch = [UInt32(0)]
     var rate = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_rm_data_stream_get_data_format", Int32](
+        lib.call["ma_shim_rm_data_stream_get_data_format", Int32](
             d, fmt.unsafe_ptr(), ch.unsafe_ptr(), rate.unsafe_ptr()
         )
     )
@@ -375,7 +375,7 @@ def rm_data_stream_get_data_format(lib: MaLib, d: OpaquePointer[MutUntrackedOrig
 def rm_data_stream_get_cursor(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin]) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_rm_data_stream_get_cursor", Int32](d, holder.unsafe_ptr())
+        lib.call["ma_shim_rm_data_stream_get_cursor", Int32](d, holder.unsafe_ptr())
     )
     return MaCount(code, holder[0])
 
@@ -383,7 +383,7 @@ def rm_data_stream_get_cursor(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin]) 
 def rm_data_stream_get_length(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin]) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_rm_data_stream_get_length", Int32](d, holder.unsafe_ptr())
+        lib.call["ma_shim_rm_data_stream_get_length", Int32](d, holder.unsafe_ptr())
     )
     return MaCount(code, holder[0])
 
@@ -391,7 +391,7 @@ def rm_data_stream_get_length(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin]) 
 def rm_data_stream_get_available(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin]) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_rm_data_stream_get_available", Int32](
+        lib.call["ma_shim_rm_data_stream_get_available", Int32](
             d, holder.unsafe_ptr()
         )
     )
@@ -402,14 +402,14 @@ def rm_data_stream_result(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin]) -> M
     """The load result the manager recorded for this object."""
     var holder = [Int32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_rm_data_stream_result", Int32](d, holder.unsafe_ptr())
+        lib.call["ma_shim_rm_data_stream_result", Int32](d, holder.unsafe_ptr())
     )
     return MaLoadResult(code, MaResult(holder[0]))
 
 
 def rm_data_stream_set_looping(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin], is_looping: Bool) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_rm_data_stream_set_looping", Int32](
+        lib.call["ma_shim_rm_data_stream_set_looping", Int32](
             d, Int32(1) if is_looping else Int32(0)
         )
     )
@@ -418,7 +418,7 @@ def rm_data_stream_set_looping(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin],
 def rm_data_stream_is_looping(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin]) -> MaBool:
     var holder = [Int32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_rm_data_stream_is_looping", Int32](d, holder.unsafe_ptr())
+        lib.call["ma_shim_rm_data_stream_is_looping", Int32](d, holder.unsafe_ptr())
     )
     return MaBool(code, holder[0] != Int32(0))
 
@@ -427,11 +427,11 @@ def rm_data_stream_is_looping(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin]) 
 
 
 def rm_data_source_alloc(lib: MaLib) -> OpaquePointer[MutUntrackedOrigin]:
-    return lib.handle.call["ma_shim_rm_data_source_alloc", OpaquePointer[MutUntrackedOrigin]]()
+    return lib.call["ma_shim_rm_data_source_alloc", OpaquePointer[MutUntrackedOrigin]]()
 
 
 def rm_data_source_free(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin]):
-    lib.handle.call["ma_shim_rm_data_source_free", NoneType](d)
+    lib.call["ma_shim_rm_data_source_free", NoneType](d)
 
 
 def rm_data_source_init(
@@ -439,7 +439,7 @@ def rm_data_source_init(
 ) -> MaResult:
     var path_c = path + "\x00"
     return MaResult(
-        lib.handle.call["ma_shim_rm_data_source_init", Int32](
+        lib.call["ma_shim_rm_data_source_init", Int32](
             d, rm, path_c.as_bytes().unsafe_ptr(), flags
         )
     )
@@ -451,7 +451,7 @@ def rm_data_source_init_ex(
     """Through the config struct, with a pipeline-notifications struct attached."""
     var path_c = path + "\x00"
     return MaResult(
-        lib.handle.call["ma_shim_rm_data_source_init_ex", Int32](
+        lib.call["ma_shim_rm_data_source_init_ex", Int32](
             d, rm, path_c.as_bytes().unsafe_ptr(), flags
         )
     )
@@ -459,12 +459,12 @@ def rm_data_source_init_ex(
 
 def rm_data_source_init_copy(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin], rm: OpaquePointer[MutUntrackedOrigin], existing: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_rm_data_source_init_copy", Int32](d, rm, existing)
+        lib.call["ma_shim_rm_data_source_init_copy", Int32](d, rm, existing)
     )
 
 
 def rm_data_source_uninit(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_rm_data_source_uninit", Int32](d))
+    return MaResult(lib.call["ma_shim_rm_data_source_uninit", Int32](d))
 
 
 def rm_data_source_read(
@@ -472,7 +472,7 @@ def rm_data_source_read(
 ) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_rm_data_source_read", Int32](
+        lib.call["ma_shim_rm_data_source_read", Int32](
             d, dst.unsafe_ptr(), frame_count, holder.unsafe_ptr()
         )
     )
@@ -480,7 +480,7 @@ def rm_data_source_read(
 
 
 def rm_data_source_seek(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin], frame_index: UInt64) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_rm_data_source_seek", Int32](d, frame_index))
+    return MaResult(lib.call["ma_shim_rm_data_source_seek", Int32](d, frame_index))
 
 
 def rm_data_source_get_data_format(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin]) -> MaDataFormat:
@@ -488,7 +488,7 @@ def rm_data_source_get_data_format(lib: MaLib, d: OpaquePointer[MutUntrackedOrig
     var ch = [UInt32(0)]
     var rate = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_rm_data_source_get_data_format", Int32](
+        lib.call["ma_shim_rm_data_source_get_data_format", Int32](
             d, fmt.unsafe_ptr(), ch.unsafe_ptr(), rate.unsafe_ptr()
         )
     )
@@ -498,7 +498,7 @@ def rm_data_source_get_data_format(lib: MaLib, d: OpaquePointer[MutUntrackedOrig
 def rm_data_source_get_cursor(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin]) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_rm_data_source_get_cursor", Int32](d, holder.unsafe_ptr())
+        lib.call["ma_shim_rm_data_source_get_cursor", Int32](d, holder.unsafe_ptr())
     )
     return MaCount(code, holder[0])
 
@@ -506,7 +506,7 @@ def rm_data_source_get_cursor(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin]) 
 def rm_data_source_get_length(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin]) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_rm_data_source_get_length", Int32](d, holder.unsafe_ptr())
+        lib.call["ma_shim_rm_data_source_get_length", Int32](d, holder.unsafe_ptr())
     )
     return MaCount(code, holder[0])
 
@@ -514,7 +514,7 @@ def rm_data_source_get_length(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin]) 
 def rm_data_source_get_available(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin]) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_rm_data_source_get_available", Int32](
+        lib.call["ma_shim_rm_data_source_get_available", Int32](
             d, holder.unsafe_ptr()
         )
     )
@@ -525,14 +525,14 @@ def rm_data_source_result(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin]) -> M
     """The load result the manager recorded for this object."""
     var holder = [Int32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_rm_data_source_result", Int32](d, holder.unsafe_ptr())
+        lib.call["ma_shim_rm_data_source_result", Int32](d, holder.unsafe_ptr())
     )
     return MaLoadResult(code, MaResult(holder[0]))
 
 
 def rm_data_source_set_looping(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin], is_looping: Bool) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_rm_data_source_set_looping", Int32](
+        lib.call["ma_shim_rm_data_source_set_looping", Int32](
             d, Int32(1) if is_looping else Int32(0)
         )
     )
@@ -541,7 +541,7 @@ def rm_data_source_set_looping(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin],
 def rm_data_source_is_looping(lib: MaLib, d: OpaquePointer[MutUntrackedOrigin]) -> MaBool:
     var holder = [Int32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_rm_data_source_is_looping", Int32](d, holder.unsafe_ptr())
+        lib.call["ma_shim_rm_data_source_is_looping", Int32](d, holder.unsafe_ptr())
     )
     return MaBool(code, holder[0] != Int32(0))
 
@@ -552,7 +552,7 @@ def rm_data_source_map_read(
     """map -> copy -> unmap; the shim owns the interior pointer."""
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_rm_data_source_map_read", Int32](
+        lib.call["ma_shim_rm_data_source_map_read", Int32](
             d, dst.unsafe_ptr(), frame_count, holder.unsafe_ptr()
         )
     )
@@ -566,5 +566,5 @@ def resource_manager_borrow_engine(
 ) -> MaResult:
     """Make `rm` a non-owning view of the engine's resource manager."""
     return MaResult(
-        lib.handle.call["ma_shim_resource_manager_borrow_engine", Int32](rm, engine)
+        lib.call["ma_shim_resource_manager_borrow_engine", Int32](rm, engine)
     )

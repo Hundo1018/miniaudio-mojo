@@ -46,13 +46,13 @@ struct MaFlag(Copyable, Movable):
 
 
 def data_source_alloc(lib: MaLib) -> OpaquePointer[MutUntrackedOrigin]:
-    return lib.handle.call[
+    return lib.call[
         "ma_shim_data_source_alloc", OpaquePointer[MutUntrackedOrigin]
     ]()
 
 
 def data_source_free(lib: MaLib, ds: OpaquePointer[MutUntrackedOrigin]):
-    lib.handle.call["ma_shim_data_source_free", NoneType](ds)
+    lib.call["ma_shim_data_source_free", NoneType](ds)
 
 
 def data_source_init_buffer(
@@ -65,7 +65,7 @@ def data_source_init_buffer(
 ) -> MaResult:
     """Initialises `ds` over a shim-owned copy of `frames` (interleaved f32)."""
     return MaResult(
-        lib.handle.call["ma_shim_data_source_init_buffer", Int32](
+        lib.call["ma_shim_data_source_init_buffer", Int32](
             ds,
             frames.unsafe_ptr(),
             frame_count,
@@ -76,7 +76,7 @@ def data_source_init_buffer(
 
 
 def data_source_uninit(lib: MaLib, ds: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_data_source_uninit", Int32](ds))
+    return MaResult(lib.call["ma_shim_data_source_uninit", Int32](ds))
 
 
 # ---- read / seek ------------------------------------------------------------
@@ -94,7 +94,7 @@ def data_source_read_pcm_frames(
     """
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_data_source_read_pcm_frames", Int32](
+        lib.call["ma_shim_data_source_read_pcm_frames", Int32](
             ds,
             out.unsafe_ptr(),
             frame_count,
@@ -110,7 +110,7 @@ def data_source_seek_pcm_frames(
     """Forward-only seek. Returns MaCount(result_code, frames_seeked)."""
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_data_source_seek_pcm_frames", Int32](
+        lib.call["ma_shim_data_source_seek_pcm_frames", Int32](
             ds, frame_count, holder.unsafe_ptr()
         )
     )
@@ -121,7 +121,7 @@ def data_source_seek_to_pcm_frame(
     lib: MaLib, ds: OpaquePointer[MutUntrackedOrigin], frame_index: UInt64
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_data_source_seek_to_pcm_frame", Int32](
+        lib.call["ma_shim_data_source_seek_to_pcm_frame", Int32](
             ds, frame_index
         )
     )
@@ -133,7 +133,7 @@ def data_source_seek_seconds(
     """Forward-only seek in seconds. Returns MaFloat(result_code, seconds_seeked)."""
     var holder = [Float32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_data_source_seek_seconds", Int32](
+        lib.call["ma_shim_data_source_seek_seconds", Int32](
             ds, second_count, holder.unsafe_ptr()
         )
     )
@@ -144,7 +144,7 @@ def data_source_seek_to_second(
     lib: MaLib, ds: OpaquePointer[MutUntrackedOrigin], seek_point: Float32
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_data_source_seek_to_second", Int32](ds, seek_point)
+        lib.call["ma_shim_data_source_seek_to_second", Int32](ds, seek_point)
     )
 
 
@@ -158,7 +158,7 @@ def data_source_get_data_format(
     var channels = [UInt32(0)]
     var sample_rate = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_data_source_get_data_format", Int32](
+        lib.call["ma_shim_data_source_get_data_format", Int32](
             ds,
             fmt.unsafe_ptr(),
             channels.unsafe_ptr(),
@@ -173,7 +173,7 @@ def data_source_get_cursor_in_pcm_frames(
 ) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_data_source_get_cursor_in_pcm_frames", Int32](
+        lib.call["ma_shim_data_source_get_cursor_in_pcm_frames", Int32](
             ds, holder.unsafe_ptr()
         )
     )
@@ -185,7 +185,7 @@ def data_source_get_length_in_pcm_frames(
 ) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_data_source_get_length_in_pcm_frames", Int32](
+        lib.call["ma_shim_data_source_get_length_in_pcm_frames", Int32](
             ds, holder.unsafe_ptr()
         )
     )
@@ -197,7 +197,7 @@ def data_source_get_cursor_in_seconds(
 ) -> MaFloat:
     var holder = [Float32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_data_source_get_cursor_in_seconds", Int32](
+        lib.call["ma_shim_data_source_get_cursor_in_seconds", Int32](
             ds, holder.unsafe_ptr()
         )
     )
@@ -209,7 +209,7 @@ def data_source_get_length_in_seconds(
 ) -> MaFloat:
     var holder = [Float32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_data_source_get_length_in_seconds", Int32](
+        lib.call["ma_shim_data_source_get_length_in_seconds", Int32](
             ds, holder.unsafe_ptr()
         )
     )
@@ -223,7 +223,7 @@ def data_source_set_looping(
     lib: MaLib, ds: OpaquePointer[MutUntrackedOrigin], is_looping: Bool
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_data_source_set_looping", Int32](
+        lib.call["ma_shim_data_source_set_looping", Int32](
             ds, Int32(1) if is_looping else Int32(0)
         )
     )
@@ -233,7 +233,7 @@ def data_source_is_looping(
     lib: MaLib, ds: OpaquePointer[MutUntrackedOrigin]
 ) -> Bool:
     """Returns False for a null/uninitialised handle (documented sentinel)."""
-    return Int(lib.handle.call["ma_shim_data_source_is_looping", Int32](ds)) != 0
+    return Int(lib.call["ma_shim_data_source_is_looping", Int32](ds)) != 0
 
 
 # ---- range / loop point -----------------------------------------------------
@@ -246,7 +246,7 @@ def data_source_set_range_in_pcm_frames(
     range_end: UInt64,
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_data_source_set_range_in_pcm_frames", Int32](
+        lib.call["ma_shim_data_source_set_range_in_pcm_frames", Int32](
             ds, range_beg, range_end
         )
     )
@@ -258,7 +258,7 @@ def data_source_get_range_in_pcm_frames(
     var beg = [UInt64(0)]
     var end = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_data_source_get_range_in_pcm_frames", Int32](
+        lib.call["ma_shim_data_source_get_range_in_pcm_frames", Int32](
             ds, beg.unsafe_ptr(), end.unsafe_ptr()
         )
     )
@@ -272,7 +272,7 @@ def data_source_set_loop_point_in_pcm_frames(
     loop_end: UInt64,
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_data_source_set_loop_point_in_pcm_frames", Int32](
+        lib.call["ma_shim_data_source_set_loop_point_in_pcm_frames", Int32](
             ds, loop_beg, loop_end
         )
     )
@@ -284,7 +284,7 @@ def data_source_get_loop_point_in_pcm_frames(
     var beg = [UInt64(0)]
     var end = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_data_source_get_loop_point_in_pcm_frames", Int32](
+        lib.call["ma_shim_data_source_get_loop_point_in_pcm_frames", Int32](
             ds, beg.unsafe_ptr(), end.unsafe_ptr()
         )
     )
@@ -305,7 +305,7 @@ def data_source_set_current(
     from self; pass `ds` itself for that.
     """
     return MaResult(
-        lib.handle.call["ma_shim_data_source_set_current", Int32](ds, current)
+        lib.call["ma_shim_data_source_set_current", Int32](ds, current)
     )
 
 
@@ -317,7 +317,7 @@ def data_source_current_is(
     """Identity comparison against `expected` (the raw ptr is never exposed)."""
     var holder = [Int32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_data_source_current_is", Int32](
+        lib.call["ma_shim_data_source_current_is", Int32](
             ds, expected, holder.unsafe_ptr()
         )
     )
@@ -331,7 +331,7 @@ def data_source_set_next(
 ) -> MaResult:
     """A null `next` clears the chain."""
     return MaResult(
-        lib.handle.call["ma_shim_data_source_set_next", Int32](ds, next_ds)
+        lib.call["ma_shim_data_source_set_next", Int32](ds, next_ds)
     )
 
 
@@ -343,7 +343,7 @@ def data_source_next_is(
     """Identity comparison against `expected` (the raw ptr is never exposed)."""
     var holder = [Int32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_data_source_next_is", Int32](
+        lib.call["ma_shim_data_source_next_is", Int32](
             ds, expected, holder.unsafe_ptr()
         )
     )
@@ -357,7 +357,7 @@ def data_source_set_next_callback(
 ) -> MaResult:
     """Installs the shim-owned next-callback returning `next`; null clears it."""
     return MaResult(
-        lib.handle.call["ma_shim_data_source_set_next_callback", Int32](ds, next_ds)
+        lib.call["ma_shim_data_source_set_next_callback", Int32](ds, next_ds)
     )
 
 
@@ -366,7 +366,7 @@ def data_source_has_next_callback(
 ) -> MaFlag:
     var holder = [Int32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_data_source_has_next_callback", Int32](
+        lib.call["ma_shim_data_source_has_next_callback", Int32](
             ds, holder.unsafe_ptr()
         )
     )
@@ -377,13 +377,13 @@ def data_source_has_next_callback(
 
 
 def data_source_node_alloc(lib: MaLib) -> OpaquePointer[MutUntrackedOrigin]:
-    return lib.handle.call[
+    return lib.call[
         "ma_shim_data_source_node_alloc", OpaquePointer[MutUntrackedOrigin]
     ]()
 
 
 def data_source_node_free(lib: MaLib, node: OpaquePointer[MutUntrackedOrigin]):
-    lib.handle.call["ma_shim_data_source_node_free", NoneType](node)
+    lib.call["ma_shim_data_source_node_free", NoneType](node)
 
 
 def data_source_node_init(
@@ -393,21 +393,21 @@ def data_source_node_init(
     ds: OpaquePointer[MutUntrackedOrigin],
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_data_source_node_init", Int32](node, engine, ds)
+        lib.call["ma_shim_data_source_node_init", Int32](node, engine, ds)
     )
 
 
 def data_source_node_uninit(
     lib: MaLib, node: OpaquePointer[MutUntrackedOrigin]
 ) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_data_source_node_uninit", Int32](node))
+    return MaResult(lib.call["ma_shim_data_source_node_uninit", Int32](node))
 
 
 def data_source_node_set_looping(
     lib: MaLib, node: OpaquePointer[MutUntrackedOrigin], is_looping: Bool
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_data_source_node_set_looping", Int32](
+        lib.call["ma_shim_data_source_node_set_looping", Int32](
             node, Int32(1) if is_looping else Int32(0)
         )
     )
@@ -418,7 +418,7 @@ def data_source_node_is_looping(
 ) -> Bool:
     """Returns False for a null/uninitialised handle (documented sentinel)."""
     return (
-        Int(lib.handle.call["ma_shim_data_source_node_is_looping", Int32](node)) != 0
+        Int(lib.call["ma_shim_data_source_node_is_looping", Int32](node)) != 0
     )
 
 def data_source_borrow_sound(
@@ -427,7 +427,7 @@ def data_source_borrow_sound(
     snd: OpaquePointer[MutUntrackedOrigin],
 ) -> MaResult:
     """Make `ds` a non-owning view of a sound's data source (ma_sound_get_data_source)."""
-    return MaResult(lib.handle.call["ma_shim_data_source_borrow_sound", Int32](ds, snd))
+    return MaResult(lib.call["ma_shim_data_source_borrow_sound", Int32](ds, snd))
 
 
 def data_source_is_same(
@@ -438,7 +438,7 @@ def data_source_is_same(
     """Identity: do the two handles resolve to the same underlying data source?"""
     var holder = [Int32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_data_source_is_same", Int32](
+        lib.call["ma_shim_data_source_is_same", Int32](
             ds, other, holder.unsafe_ptr()
         )
     )

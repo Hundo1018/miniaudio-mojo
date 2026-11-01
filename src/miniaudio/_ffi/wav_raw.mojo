@@ -39,11 +39,11 @@ struct MaCodecFormat(Copyable, Movable):
 
 
 def wav_alloc(lib: MaLib) -> OpaquePointer[MutUntrackedOrigin]:
-    return lib.handle.call["ma_shim_wav_alloc", OpaquePointer[MutUntrackedOrigin]]()
+    return lib.call["ma_shim_wav_alloc", OpaquePointer[MutUntrackedOrigin]]()
 
 
 def wav_free(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]):
-    lib.handle.call["ma_shim_wav_free", NoneType](h)
+    lib.call["ma_shim_wav_free", NoneType](h)
 
 
 def wav_init_file(
@@ -55,7 +55,7 @@ def wav_init_file(
 ) -> MaResult:
     var path_c = path + "\x00"
     return MaResult(
-        lib.handle.call["ma_shim_wav_init_file", Int32](
+        lib.call["ma_shim_wav_init_file", Int32](
             h,
             path_c.as_bytes().unsafe_ptr(),
             Int32(preferred_format),
@@ -72,7 +72,7 @@ def wav_init_memory(
     seek_point_count: UInt32,
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_wav_init_memory", Int32](
+        lib.call["ma_shim_wav_init_memory", Int32](
             h,
             data.unsafe_ptr(),
             len(data),
@@ -83,7 +83,7 @@ def wav_init_memory(
 
 
 def wav_uninit(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_wav_uninit", Int32](h))
+    return MaResult(lib.call["ma_shim_wav_uninit", Int32](h))
 
 
 def wav_read_pcm_frames(
@@ -99,7 +99,7 @@ def wav_read_pcm_frames(
     """
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_wav_read_pcm_frames", Int32](
+        lib.call["ma_shim_wav_read_pcm_frames", Int32](
             h,
             out.unsafe_ptr(),
             UInt64(len(out) * 4),
@@ -119,7 +119,7 @@ def wav_read_pcm_frames_s16(
     """As wav_read_pcm_frames, for a handle whose format is s16."""
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_wav_read_pcm_frames", Int32](
+        lib.call["ma_shim_wav_read_pcm_frames", Int32](
             h,
             out.unsafe_ptr(),
             UInt64(len(out) * 2),
@@ -133,7 +133,7 @@ def wav_read_pcm_frames_s16(
 def wav_seek_to_pcm_frame(
     lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], frame_index: UInt64
 ) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_wav_seek_to_pcm_frame", Int32](h, frame_index))
+    return MaResult(lib.call["ma_shim_wav_seek_to_pcm_frame", Int32](h, frame_index))
 
 
 def wav_get_data_format(
@@ -143,7 +143,7 @@ def wav_get_data_format(
     var channels = [UInt32(0)]
     var rate = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_wav_get_data_format", Int32](
+        lib.call["ma_shim_wav_get_data_format", Int32](
             h,
             fmt.unsafe_ptr(),
             channels.unsafe_ptr(),
@@ -162,7 +162,7 @@ def wav_get_channel_map(
     var buf = List[UInt8](capacity=Int(capacity))
     buf.resize(Int(capacity), UInt8(0))
     var code = MaResult(
-        lib.handle.call["ma_shim_wav_get_data_format", Int32](
+        lib.call["ma_shim_wav_get_data_format", Int32](
             h,
             null_handle(),
             null_handle(),
@@ -179,7 +179,7 @@ def wav_get_cursor_in_pcm_frames(
 ) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_wav_get_cursor_in_pcm_frames", Int32](
+        lib.call["ma_shim_wav_get_cursor_in_pcm_frames", Int32](
             h, holder.unsafe_ptr()
         )
     )
@@ -191,7 +191,7 @@ def wav_get_length_in_pcm_frames(
 ) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_wav_get_length_in_pcm_frames", Int32](
+        lib.call["ma_shim_wav_get_length_in_pcm_frames", Int32](
             h, holder.unsafe_ptr()
         )
     )
@@ -215,7 +215,7 @@ def wav_init_stream[
     included). The caller must not touch `user` afterwards.
     """
     return MaResult(
-        lib.handle.call["ma_shim_wav_init_stream", Int32](
+        lib.call["ma_shim_wav_init_stream", Int32](
             h,
             stream_read_tramp[S],
             stream_seek_tramp[S],
@@ -245,7 +245,7 @@ def wav_init_stream_ptrs(
     for exercising the shim's argument checks: a real stream goes through
     `wav_init_stream`."""
     return MaResult(
-        lib.handle.call["ma_shim_wav_init_stream", Int32](
+        lib.call["ma_shim_wav_init_stream", Int32](
             h,
             on_read,
             on_seek,
@@ -264,6 +264,6 @@ def wav_stream_user(
 ) -> OpaquePointer[MutUntrackedOrigin]:
     """The stream the handle was initialised with, or NULL if it has none or
     `type_tag` (see `stream_tag`) is not the tag it was initialised with."""
-    return lib.handle.call[
+    return lib.call[
         "ma_shim_wav_stream_user", OpaquePointer[MutUntrackedOrigin]
     ](h, type_tag)

@@ -14,7 +14,7 @@ map as "the default map for that channel count", and for `copy_or_default` a
 NULL input means "fill the default". An empty output list is invalid.
 """
 
-from miniaudio._lib import MaLib
+from miniaudio._lib import MaLib, null_handle
 from miniaudio.result import MaResult
 from miniaudio._ffi.device_raw import MaText
 from miniaudio._ffi.spatializer_raw import MaU32, MaBool
@@ -83,7 +83,7 @@ def _addr(map: List[UInt8]) -> Int:
 
 def channel_map_init_blank(lib: MaLib, mut map: List[UInt8], channels: UInt32) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_channel_map_init_blank", Int32](
+        lib.call["ma_shim_channel_map_init_blank", Int32](
             _addr(map), UInt32(len(map)), channels
         )
     )
@@ -94,7 +94,7 @@ def channel_map_init_standard(
 ) -> MaResult:
     """Fills at most len(map) entries even when channels is larger."""
     return MaResult(
-        lib.handle.call["ma_shim_channel_map_init_standard", Int32](
+        lib.call["ma_shim_channel_map_init_standard", Int32](
             Int32(standard), _addr(map), UInt32(len(map)), channels
         )
     )
@@ -104,7 +104,7 @@ def channel_map_copy(
     lib: MaLib, mut out: List[UInt8], inp: List[UInt8], channels: UInt32
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_channel_map_copy", Int32](
+        lib.call["ma_shim_channel_map_copy", Int32](
             _addr(out), UInt32(len(out)), _addr(inp), UInt32(len(inp)), channels
         )
     )
@@ -115,7 +115,7 @@ def channel_map_copy_or_default(
 ) -> MaResult:
     """An empty `inp` fills the default map instead of copying."""
     return MaResult(
-        lib.handle.call["ma_shim_channel_map_copy_or_default", Int32](
+        lib.call["ma_shim_channel_map_copy_or_default", Int32](
             _addr(out), UInt32(len(out)), _addr(inp), UInt32(len(inp)), channels
         )
     )
@@ -127,7 +127,7 @@ def channel_map_get_channel(
     """An empty `map` reads the default map; an index past the end is CHANNEL_NONE."""
     var holder = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_channel_map_get_channel", Int32](
+        lib.call["ma_shim_channel_map_get_channel", Int32](
             _addr(map), UInt32(len(map)), channel_count, channel_index, holder.unsafe_ptr()
         )
     )
@@ -137,7 +137,7 @@ def channel_map_get_channel(
 def channel_map_is_valid(lib: MaLib, map: List[UInt8], channels: UInt32) -> MaBool:
     var holder = [Int32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_channel_map_is_valid", Int32](
+        lib.call["ma_shim_channel_map_is_valid", Int32](
             _addr(map), UInt32(len(map)), channels, holder.unsafe_ptr()
         )
     )
@@ -149,7 +149,7 @@ def channel_map_is_equal(
 ) -> MaBool:
     var holder = [Int32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_channel_map_is_equal", Int32](
+        lib.call["ma_shim_channel_map_is_equal", Int32](
             _addr(a), UInt32(len(a)), _addr(b), UInt32(len(b)), channels, holder.unsafe_ptr()
         )
     )
@@ -159,7 +159,7 @@ def channel_map_is_equal(
 def channel_map_is_blank(lib: MaLib, map: List[UInt8], channels: UInt32) -> MaBool:
     var holder = [Int32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_channel_map_is_blank", Int32](
+        lib.call["ma_shim_channel_map_is_blank", Int32](
             _addr(map), UInt32(len(map)), channels, holder.unsafe_ptr()
         )
     )
@@ -171,7 +171,7 @@ def channel_map_contains_channel_position(
 ) -> MaBool:
     var holder = [Int32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_channel_map_contains_channel_position", Int32](
+        lib.call["ma_shim_channel_map_contains_channel_position", Int32](
             channels, _addr(map), UInt32(len(map)), position, holder.unsafe_ptr()
         )
     )
@@ -184,7 +184,7 @@ def channel_map_find_channel_position(
     var found = [Int32(0)]
     var index = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_channel_map_find_channel_position", Int32](
+        lib.call["ma_shim_channel_map_find_channel_position", Int32](
             channels,
             _addr(map),
             UInt32(len(map)),
@@ -204,7 +204,7 @@ def channel_map_to_string(
     buf.resize(capacity, UInt8(0))
     var length = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_channel_map_to_string", Int32](
+        lib.call["ma_shim_channel_map_to_string", Int32](
             _addr(map),
             UInt32(len(map)),
             channels,
@@ -220,8 +220,8 @@ def channel_map_length(lib: MaLib, map: List[UInt8], channels: UInt32) -> MaU32:
     """Asks for the length only (a NULL output buffer)."""
     var length = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_channel_map_to_string", Int32](
-            _addr(map), UInt32(len(map)), channels, Int(0), UInt32(0), length.unsafe_ptr()
+        lib.call["ma_shim_channel_map_to_string", Int32](
+            _addr(map), UInt32(len(map)), channels, null_handle(), UInt32(0), length.unsafe_ptr()
         )
     )
     return MaU32(code, length[0])
@@ -231,7 +231,7 @@ def channel_position_to_string(lib: MaLib, position: UInt32) -> MaText:
     var buf = List[UInt8](capacity=64)
     buf.resize(64, UInt8(0))
     var code = MaResult(
-        lib.handle.call["ma_shim_channel_position_to_string", Int32](
+        lib.call["ma_shim_channel_position_to_string", Int32](
             position, buf.unsafe_ptr(), UInt32(64)
         )
     )

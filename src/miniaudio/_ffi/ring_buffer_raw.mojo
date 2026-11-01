@@ -29,18 +29,18 @@ struct MaDistance(Copyable, Movable):
 
 
 def rb_alloc(lib: MaLib) -> OpaquePointer[MutUntrackedOrigin]:
-    return lib.handle.call["ma_shim_rb_alloc", OpaquePointer[MutUntrackedOrigin]]()
+    return lib.call["ma_shim_rb_alloc", OpaquePointer[MutUntrackedOrigin]]()
 
 
 def rb_free(lib: MaLib, rb: OpaquePointer[MutUntrackedOrigin]):
-    lib.handle.call["ma_shim_rb_free", NoneType](rb)
+    lib.call["ma_shim_rb_free", NoneType](rb)
 
 
 def rb_init(
     lib: MaLib, rb: OpaquePointer[MutUntrackedOrigin], buffer_size_in_bytes: UInt64
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_rb_init", Int32](rb, buffer_size_in_bytes)
+        lib.call["ma_shim_rb_init", Int32](rb, buffer_size_in_bytes)
     )
 
 
@@ -57,7 +57,7 @@ def rb_init_ex(
     The shim then owns that backing store and frees it on uninit.
     """
     return MaResult(
-        lib.handle.call["ma_shim_rb_init_ex", Int32](
+        lib.call["ma_shim_rb_init_ex", Int32](
             rb,
             subbuffer_size_in_bytes,
             subbuffer_count,
@@ -68,11 +68,11 @@ def rb_init_ex(
 
 
 def rb_uninit(lib: MaLib, rb: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_rb_uninit", Int32](rb))
+    return MaResult(lib.call["ma_shim_rb_uninit", Int32](rb))
 
 
 def rb_reset(lib: MaLib, rb: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_rb_reset", Int32](rb))
+    return MaResult(lib.call["ma_shim_rb_reset", Int32](rb))
 
 
 def rb_write(
@@ -87,7 +87,7 @@ def rb_write(
     """
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_rb_write", Int32](
+        lib.call["ma_shim_rb_write", Int32](
             rb, src.unsafe_ptr(), size_in_bytes, holder.unsafe_ptr()
         )
     )
@@ -106,7 +106,7 @@ def rb_read(
     """
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_rb_read", Int32](
+        lib.call["ma_shim_rb_read", Int32](
             rb, dst.unsafe_ptr(), size_in_bytes, holder.unsafe_ptr()
         )
     )
@@ -117,7 +117,7 @@ def rb_seek_read(
     lib: MaLib, rb: OpaquePointer[MutUntrackedOrigin], offset_in_bytes: UInt64
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_rb_seek_read", Int32](rb, offset_in_bytes)
+        lib.call["ma_shim_rb_seek_read", Int32](rb, offset_in_bytes)
     )
 
 
@@ -125,7 +125,7 @@ def rb_seek_write(
     lib: MaLib, rb: OpaquePointer[MutUntrackedOrigin], offset_in_bytes: UInt64
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_rb_seek_write", Int32](rb, offset_in_bytes)
+        lib.call["ma_shim_rb_seek_write", Int32](rb, offset_in_bytes)
     )
 
 
@@ -134,7 +134,7 @@ def rb_pointer_distance(
 ) -> MaDistance:
     var holder = [Int32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_rb_pointer_distance", Int32](
+        lib.call["ma_shim_rb_pointer_distance", Int32](
             rb, holder.unsafe_ptr()
         )
     )
@@ -144,7 +144,7 @@ def rb_pointer_distance(
 def rb_available_read(lib: MaLib, rb: OpaquePointer[MutUntrackedOrigin]) -> MaUInt:
     var holder = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_rb_available_read", Int32](rb, holder.unsafe_ptr())
+        lib.call["ma_shim_rb_available_read", Int32](rb, holder.unsafe_ptr())
     )
     return MaUInt(code, holder[0])
 
@@ -152,7 +152,7 @@ def rb_available_read(lib: MaLib, rb: OpaquePointer[MutUntrackedOrigin]) -> MaUI
 def rb_available_write(lib: MaLib, rb: OpaquePointer[MutUntrackedOrigin]) -> MaUInt:
     var holder = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_rb_available_write", Int32](rb, holder.unsafe_ptr())
+        lib.call["ma_shim_rb_available_write", Int32](rb, holder.unsafe_ptr())
     )
     return MaUInt(code, holder[0])
 
@@ -162,7 +162,7 @@ def rb_get_subbuffer_size(
 ) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_rb_get_subbuffer_size", Int32](
+        lib.call["ma_shim_rb_get_subbuffer_size", Int32](
             rb, holder.unsafe_ptr()
         )
     )
@@ -174,7 +174,7 @@ def rb_get_subbuffer_stride(
 ) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_rb_get_subbuffer_stride", Int32](
+        lib.call["ma_shim_rb_get_subbuffer_stride", Int32](
             rb, holder.unsafe_ptr()
         )
     )
@@ -186,7 +186,7 @@ def rb_get_subbuffer_offset(
 ) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_rb_get_subbuffer_offset", Int32](
+        lib.call["ma_shim_rb_get_subbuffer_offset", Int32](
             rb, subbuffer_index, holder.unsafe_ptr()
         )
     )
@@ -199,7 +199,7 @@ def rb_get_subbuffer_ptr_offset(
     """Byte offset of subbuffer N's pointer from the ring buffer's backing store."""
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_rb_get_subbuffer_ptr_offset", Int32](
+        lib.call["ma_shim_rb_get_subbuffer_ptr_offset", Int32](
             rb, subbuffer_index, holder.unsafe_ptr()
         )
     )
@@ -210,11 +210,11 @@ def rb_get_subbuffer_ptr_offset(
 
 
 def pcm_rb_alloc(lib: MaLib) -> OpaquePointer[MutUntrackedOrigin]:
-    return lib.handle.call["ma_shim_pcm_rb_alloc", OpaquePointer[MutUntrackedOrigin]]()
+    return lib.call["ma_shim_pcm_rb_alloc", OpaquePointer[MutUntrackedOrigin]]()
 
 
 def pcm_rb_free(lib: MaLib, rb: OpaquePointer[MutUntrackedOrigin]):
-    lib.handle.call["ma_shim_pcm_rb_free", NoneType](rb)
+    lib.call["ma_shim_pcm_rb_free", NoneType](rb)
 
 
 def pcm_rb_init(
@@ -225,7 +225,7 @@ def pcm_rb_init(
     buffer_size_in_frames: UInt32,
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_pcm_rb_init", Int32](
+        lib.call["ma_shim_pcm_rb_init", Int32](
             rb, Int32(format), channels, buffer_size_in_frames
         )
     )
@@ -242,7 +242,7 @@ def pcm_rb_init_ex(
     use_preallocated: Bool,
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_pcm_rb_init_ex", Int32](
+        lib.call["ma_shim_pcm_rb_init_ex", Int32](
             rb,
             Int32(format),
             channels,
@@ -255,11 +255,11 @@ def pcm_rb_init_ex(
 
 
 def pcm_rb_uninit(lib: MaLib, rb: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_pcm_rb_uninit", Int32](rb))
+    return MaResult(lib.call["ma_shim_pcm_rb_uninit", Int32](rb))
 
 
 def pcm_rb_reset(lib: MaLib, rb: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_pcm_rb_reset", Int32](rb))
+    return MaResult(lib.call["ma_shim_pcm_rb_reset", Int32](rb))
 
 
 def pcm_rb_write(
@@ -271,7 +271,7 @@ def pcm_rb_write(
     """Copies up to frame_count f32 frames from `src`. Returns (code, frames_written)."""
     var holder = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_pcm_rb_write", Int32](
+        lib.call["ma_shim_pcm_rb_write", Int32](
             rb, src.unsafe_ptr(), frame_count, holder.unsafe_ptr()
         )
     )
@@ -287,7 +287,7 @@ def pcm_rb_read(
     """Copies up to frame_count f32 frames into `dst`. Returns (code, frames_read)."""
     var holder = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_pcm_rb_read", Int32](
+        lib.call["ma_shim_pcm_rb_read", Int32](
             rb, dst.unsafe_ptr(), frame_count, holder.unsafe_ptr()
         )
     )
@@ -298,7 +298,7 @@ def pcm_rb_seek_read(
     lib: MaLib, rb: OpaquePointer[MutUntrackedOrigin], offset_in_frames: UInt32
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_pcm_rb_seek_read", Int32](rb, offset_in_frames)
+        lib.call["ma_shim_pcm_rb_seek_read", Int32](rb, offset_in_frames)
     )
 
 
@@ -306,7 +306,7 @@ def pcm_rb_seek_write(
     lib: MaLib, rb: OpaquePointer[MutUntrackedOrigin], offset_in_frames: UInt32
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_pcm_rb_seek_write", Int32](rb, offset_in_frames)
+        lib.call["ma_shim_pcm_rb_seek_write", Int32](rb, offset_in_frames)
     )
 
 
@@ -315,7 +315,7 @@ def pcm_rb_pointer_distance(
 ) -> MaDistance:
     var holder = [Int32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_pcm_rb_pointer_distance", Int32](
+        lib.call["ma_shim_pcm_rb_pointer_distance", Int32](
             rb, holder.unsafe_ptr()
         )
     )
@@ -327,7 +327,7 @@ def pcm_rb_available_read(
 ) -> MaUInt:
     var holder = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_pcm_rb_available_read", Int32](
+        lib.call["ma_shim_pcm_rb_available_read", Int32](
             rb, holder.unsafe_ptr()
         )
     )
@@ -339,7 +339,7 @@ def pcm_rb_available_write(
 ) -> MaUInt:
     var holder = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_pcm_rb_available_write", Int32](
+        lib.call["ma_shim_pcm_rb_available_write", Int32](
             rb, holder.unsafe_ptr()
         )
     )
@@ -351,7 +351,7 @@ def pcm_rb_get_subbuffer_size(
 ) -> MaUInt:
     var holder = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_pcm_rb_get_subbuffer_size", Int32](
+        lib.call["ma_shim_pcm_rb_get_subbuffer_size", Int32](
             rb, holder.unsafe_ptr()
         )
     )
@@ -363,7 +363,7 @@ def pcm_rb_get_subbuffer_stride(
 ) -> MaUInt:
     var holder = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_pcm_rb_get_subbuffer_stride", Int32](
+        lib.call["ma_shim_pcm_rb_get_subbuffer_stride", Int32](
             rb, holder.unsafe_ptr()
         )
     )
@@ -376,7 +376,7 @@ def pcm_rb_get_subbuffer_offset(
     """Frame offset of subbuffer N (frames, unlike the byte-valued ptr offset)."""
     var holder = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_pcm_rb_get_subbuffer_offset", Int32](
+        lib.call["ma_shim_pcm_rb_get_subbuffer_offset", Int32](
             rb, subbuffer_index, holder.unsafe_ptr()
         )
     )
@@ -389,7 +389,7 @@ def pcm_rb_get_subbuffer_ptr_offset(
     """Byte offset of subbuffer N's pointer from the ring buffer's backing store."""
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_pcm_rb_get_subbuffer_ptr_offset", Int32](
+        lib.call["ma_shim_pcm_rb_get_subbuffer_ptr_offset", Int32](
             rb, subbuffer_index, holder.unsafe_ptr()
         )
     )
@@ -413,7 +413,7 @@ def pcm_rb_get_data_format(
     var channels = [UInt32(0)]
     var sample_rate = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_pcm_rb_get_data_format", Int32](
+        lib.call["ma_shim_pcm_rb_get_data_format", Int32](
             rb,
             fmt.unsafe_ptr(),
             channels.unsafe_ptr(),
@@ -427,5 +427,5 @@ def pcm_rb_set_sample_rate(
     lib: MaLib, rb: OpaquePointer[MutUntrackedOrigin], sample_rate: UInt32
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_pcm_rb_set_sample_rate", Int32](rb, sample_rate)
+        lib.call["ma_shim_pcm_rb_set_sample_rate", Int32](rb, sample_rate)
     )

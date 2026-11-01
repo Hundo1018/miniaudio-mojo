@@ -112,33 +112,33 @@ def _cap[T: Copyable](items: List[T], cap: Int) -> UInt64:
 
 
 def mem_malloc(lib: MaLib, size: UInt64) -> OpaquePointer[MutUntrackedOrigin]:
-    return lib.handle.call["ma_shim_mem_malloc", OpaquePointer[MutUntrackedOrigin]](size)
+    return lib.call["ma_shim_mem_malloc", OpaquePointer[MutUntrackedOrigin]](size)
 
 
 def mem_calloc(lib: MaLib, size: UInt64) -> OpaquePointer[MutUntrackedOrigin]:
-    return lib.handle.call["ma_shim_mem_calloc", OpaquePointer[MutUntrackedOrigin]](size)
+    return lib.call["ma_shim_mem_calloc", OpaquePointer[MutUntrackedOrigin]](size)
 
 
 def mem_realloc(
     lib: MaLib, p: OpaquePointer[MutUntrackedOrigin], size: UInt64
 ) -> OpaquePointer[MutUntrackedOrigin]:
-    return lib.handle.call["ma_shim_mem_realloc", OpaquePointer[MutUntrackedOrigin]](p, size)
+    return lib.call["ma_shim_mem_realloc", OpaquePointer[MutUntrackedOrigin]](p, size)
 
 
 def mem_free(lib: MaLib, p: OpaquePointer[MutUntrackedOrigin]):
-    lib.handle.call["ma_shim_mem_free", NoneType](p)
+    lib.call["ma_shim_mem_free", NoneType](p)
 
 
 def mem_aligned_malloc(
     lib: MaLib, size: UInt64, alignment: UInt64
 ) -> OpaquePointer[MutUntrackedOrigin]:
-    return lib.handle.call["ma_shim_mem_aligned_malloc", OpaquePointer[MutUntrackedOrigin]](
+    return lib.call["ma_shim_mem_aligned_malloc", OpaquePointer[MutUntrackedOrigin]](
         size, alignment
     )
 
 
 def mem_aligned_free(lib: MaLib, p: OpaquePointer[MutUntrackedOrigin]):
-    lib.handle.call["ma_shim_mem_aligned_free", NoneType](p)
+    lib.call["ma_shim_mem_aligned_free", NoneType](p)
 
 
 # ---- crt_util ---------------------------------------------------------------
@@ -147,7 +147,7 @@ def mem_aligned_free(lib: MaLib, p: OpaquePointer[MutUntrackedOrigin]):
 def crt_strcpy_s(lib: MaLib, mut dst: List[UInt8], dst_cap: Int, src: List[UInt8]) -> Int:
     """errno-style: 0, 22 (NULL dst or src) or 34 (does not fit)."""
     return Int(
-        lib.handle.call["ma_shim_crt_strcpy_s", Int32](
+        lib.call["ma_shim_crt_strcpy_s", Int32](
             _addr(dst), _cap(dst, dst_cap), _addr(src)
         )
     )
@@ -157,7 +157,7 @@ def crt_strncpy_s(
     lib: MaLib, mut dst: List[UInt8], dst_cap: Int, src: List[UInt8], count: UInt64
 ) -> Int:
     return Int(
-        lib.handle.call["ma_shim_crt_strncpy_s", Int32](
+        lib.call["ma_shim_crt_strncpy_s", Int32](
             _addr(dst), _cap(dst, dst_cap), _addr(src), count
         )
     )
@@ -165,7 +165,7 @@ def crt_strncpy_s(
 
 def crt_strcat_s(lib: MaLib, mut dst: List[UInt8], dst_cap: Int, src: List[UInt8]) -> Int:
     return Int(
-        lib.handle.call["ma_shim_crt_strcat_s", Int32](
+        lib.call["ma_shim_crt_strcat_s", Int32](
             _addr(dst), _cap(dst, dst_cap), _addr(src)
         )
     )
@@ -175,7 +175,7 @@ def crt_strncat_s(
     lib: MaLib, mut dst: List[UInt8], dst_cap: Int, src: List[UInt8], count: UInt64
 ) -> Int:
     return Int(
-        lib.handle.call["ma_shim_crt_strncat_s", Int32](
+        lib.call["ma_shim_crt_strncat_s", Int32](
             _addr(dst), _cap(dst, dst_cap), _addr(src), count
         )
     )
@@ -185,7 +185,7 @@ def crt_strappend(
     lib: MaLib, mut dst: List[UInt8], dst_cap: Int, a: List[UInt8], b: List[UInt8]
 ) -> Int:
     return Int(
-        lib.handle.call["ma_shim_crt_strappend", Int32](
+        lib.call["ma_shim_crt_strappend", Int32](
             _addr(dst), _cap(dst, dst_cap), _addr(a), _addr(b)
         )
     )
@@ -193,7 +193,7 @@ def crt_strappend(
 
 def crt_itoa_s(lib: MaLib, value: Int32, mut dst: List[UInt8], dst_cap: Int, radix: Int32) -> Int:
     return Int(
-        lib.handle.call["ma_shim_crt_itoa_s", Int32](
+        lib.call["ma_shim_crt_itoa_s", Int32](
             value, _addr(dst), _cap(dst, dst_cap), radix
         )
     )
@@ -201,55 +201,55 @@ def crt_itoa_s(lib: MaLib, value: Int32, mut dst: List[UInt8], dst_cap: Int, rad
 
 def crt_strcmp(lib: MaLib, a: List[UInt8], b: List[UInt8]) -> Int:
     """Difference of the first mismatching bytes; an empty list is NULL (sorts first)."""
-    return Int(lib.handle.call["ma_shim_crt_strcmp", Int32](_addr(a), _addr(b)))
+    return Int(lib.call["ma_shim_crt_strcmp", Int32](_addr(a), _addr(b)))
 
 
 def crt_wcscpy_s(lib: MaLib, mut dst: List[UInt32], dst_cap: Int, src: List[UInt32]) -> Int:
     return Int(
-        lib.handle.call["ma_shim_crt_wcscpy_s", Int32](
+        lib.call["ma_shim_crt_wcscpy_s", Int32](
             _addr(dst), _cap(dst, dst_cap), _addr(src)
         )
     )
 
 
 def crt_wcscmp(lib: MaLib, a: List[UInt32], b: List[UInt32]) -> Int:
-    return Int(lib.handle.call["ma_shim_crt_wcscmp", Int32](_addr(a), _addr(b)))
+    return Int(lib.call["ma_shim_crt_wcscmp", Int32](_addr(a), _addr(b)))
 
 
 def crt_wcslen(lib: MaLib, s: List[UInt32]) -> UInt64:
     """Length in wide characters, not counting the NUL; NULL (empty list) is 0."""
-    return lib.handle.call["ma_shim_crt_wcslen", UInt64](_addr(s))
+    return lib.call["ma_shim_crt_wcslen", UInt64](_addr(s))
 
 
 def crt_fopen(lib: MaLib, path: List[UInt8], mode: List[UInt8]) -> MaResult:
     """MA_SUCCESS when the open worked (the file is closed again), else ma_result."""
-    return MaResult(lib.handle.call["ma_shim_crt_fopen", Int32](_addr(path), _addr(mode)))
+    return MaResult(lib.call["ma_shim_crt_fopen", Int32](_addr(path), _addr(mode)))
 
 
 # ---- dl ---------------------------------------------------------------------
 
 
 def dl_open(lib: MaLib, filename: List[UInt8]) -> OpaquePointer[MutUntrackedOrigin]:
-    return lib.handle.call["ma_shim_dl_open", OpaquePointer[MutUntrackedOrigin]](_addr(filename))
+    return lib.call["ma_shim_dl_open", OpaquePointer[MutUntrackedOrigin]](_addr(filename))
 
 
 def dl_sym(
     lib: MaLib, library: OpaquePointer[MutUntrackedOrigin], symbol: List[UInt8]
 ) -> OpaquePointer[MutUntrackedOrigin]:
-    return lib.handle.call["ma_shim_dl_sym", OpaquePointer[MutUntrackedOrigin]](
+    return lib.call["ma_shim_dl_sym", OpaquePointer[MutUntrackedOrigin]](
         library, _addr(symbol)
     )
 
 
 def dl_close(lib: MaLib, library: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_dl_close", Int32](library))
+    return MaResult(lib.call["ma_shim_dl_close", Int32](library))
 
 
 def dl_call_f64(lib: MaLib, proc: OpaquePointer[MutUntrackedOrigin], arg: Float64) -> MaF64:
     """Calls a resolved `double f(double)` such as cos or sqrt."""
     var holder = [Float64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_dl_call_f64", Int32](proc, arg, holder.unsafe_ptr())
+        lib.call["ma_shim_dl_call_f64", Int32](proc, arg, holder.unsafe_ptr())
     )
     return MaF64(code, holder[0])
 
@@ -258,29 +258,29 @@ def dl_call_f64(lib: MaLib, proc: OpaquePointer[MutUntrackedOrigin], arg: Float6
 
 
 def spinlock_alloc(lib: MaLib) -> OpaquePointer[MutUntrackedOrigin]:
-    return lib.handle.call["ma_shim_spinlock_alloc", OpaquePointer[MutUntrackedOrigin]]()
+    return lib.call["ma_shim_spinlock_alloc", OpaquePointer[MutUntrackedOrigin]]()
 
 
 def spinlock_free(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]):
-    lib.handle.call["ma_shim_spinlock_free", NoneType](h)
+    lib.call["ma_shim_spinlock_free", NoneType](h)
 
 
 def spinlock_lock(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
     """Spins (yielding) until the lock is held. Locking twice from one thread hangs."""
-    return MaResult(lib.handle.call["ma_shim_spinlock_lock", Int32](h))
+    return MaResult(lib.call["ma_shim_spinlock_lock", Int32](h))
 
 
 def spinlock_lock_noyield(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_spinlock_lock_noyield", Int32](h))
+    return MaResult(lib.call["ma_shim_spinlock_lock_noyield", Int32](h))
 
 
 def spinlock_unlock(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_spinlock_unlock", Int32](h))
+    return MaResult(lib.call["ma_shim_spinlock_unlock", Int32](h))
 
 
 def spinlock_is_locked(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaBool:
     var holder = [Int32(0)]
-    var code = MaResult(lib.handle.call["ma_shim_spinlock_is_locked", Int32](h, holder.unsafe_ptr()))
+    var code = MaResult(lib.call["ma_shim_spinlock_is_locked", Int32](h, holder.unsafe_ptr()))
     return MaBool(code, holder[0] != 0)
 
 
@@ -288,11 +288,11 @@ def spinlock_is_locked(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaBo
 
 
 def duplex_rb_alloc(lib: MaLib) -> OpaquePointer[MutUntrackedOrigin]:
-    return lib.handle.call["ma_shim_duplex_rb_alloc", OpaquePointer[MutUntrackedOrigin]]()
+    return lib.call["ma_shim_duplex_rb_alloc", OpaquePointer[MutUntrackedOrigin]]()
 
 
 def duplex_rb_free(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]):
-    lib.handle.call["ma_shim_duplex_rb_free", NoneType](h)
+    lib.call["ma_shim_duplex_rb_free", NoneType](h)
 
 
 def duplex_rb_init(
@@ -305,7 +305,7 @@ def duplex_rb_init(
     capture_internal_period_size_in_frames: UInt32,
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_duplex_rb_init", Int32](
+        lib.call["ma_shim_duplex_rb_init", Int32](
             h,
             Int32(capture_format),
             capture_channels,
@@ -317,7 +317,7 @@ def duplex_rb_init(
 
 
 def duplex_rb_uninit(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_duplex_rb_uninit", Int32](h))
+    return MaResult(lib.call["ma_shim_duplex_rb_uninit", Int32](h))
 
 
 def duplex_rb_write(
@@ -327,7 +327,7 @@ def duplex_rb_write(
     of the buffer's format (f32 samples here). Returns (code, frames_written)."""
     var holder = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_duplex_rb_write", Int32](
+        lib.call["ma_shim_duplex_rb_write", Int32](
             h, _addr(src), frame_count, holder.unsafe_ptr()
         )
     )
@@ -340,7 +340,7 @@ def duplex_rb_read(
     """Copies up to frame_count frames into `dst`. Returns (code, frames_read)."""
     var holder = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_duplex_rb_read", Int32](
+        lib.call["ma_shim_duplex_rb_read", Int32](
             h, _addr(dst), frame_count, holder.unsafe_ptr()
         )
     )
@@ -350,7 +350,7 @@ def duplex_rb_read(
 def duplex_rb_available_read(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaU32:
     var holder = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_duplex_rb_available_read", Int32](h, holder.unsafe_ptr())
+        lib.call["ma_shim_duplex_rb_available_read", Int32](h, holder.unsafe_ptr())
     )
     return MaU32(code, holder[0])
 
@@ -358,7 +358,7 @@ def duplex_rb_available_read(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -
 def duplex_rb_available_write(lib: MaLib, h: OpaquePointer[MutUntrackedOrigin]) -> MaU32:
     var holder = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_duplex_rb_available_write", Int32](h, holder.unsafe_ptr())
+        lib.call["ma_shim_duplex_rb_available_write", Int32](h, holder.unsafe_ptr())
     )
     return MaU32(code, holder[0])
 
@@ -371,7 +371,7 @@ def runtime_version(lib: MaLib) -> MaVersion:
     var minor = [UInt32(0)]
     var revision = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_runtime_version", Int32](
+        lib.call["ma_shim_runtime_version", Int32](
             major.unsafe_ptr(), minor.unsafe_ptr(), revision.unsafe_ptr()
         )
     )
@@ -381,7 +381,7 @@ def runtime_version(lib: MaLib) -> MaVersion:
 def runtime_is_backend_enabled(lib: MaLib, backend: Int) -> MaBool:
     var holder = [Int32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_runtime_is_backend_enabled", Int32](
+        lib.call["ma_shim_runtime_is_backend_enabled", Int32](
             Int32(backend), holder.unsafe_ptr()
         )
     )
@@ -391,7 +391,7 @@ def runtime_is_backend_enabled(lib: MaLib, backend: Int) -> MaBool:
 def runtime_is_loopback_supported(lib: MaLib, backend: Int) -> MaBool:
     var holder = [Int32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_runtime_is_loopback_supported", Int32](
+        lib.call["ma_shim_runtime_is_loopback_supported", Int32](
             Int32(backend), holder.unsafe_ptr()
         )
     )

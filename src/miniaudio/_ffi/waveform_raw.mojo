@@ -16,13 +16,13 @@ comptime WAVEFORM_TYPE_SAWTOOTH: Int = 3
 
 
 def waveform_alloc(lib: MaLib) -> OpaquePointer[MutUntrackedOrigin]:
-    return lib.handle.call[
+    return lib.call[
         "ma_shim_waveform_alloc", OpaquePointer[MutUntrackedOrigin]
     ]()
 
 
 def waveform_free(lib: MaLib, wf: OpaquePointer[MutUntrackedOrigin]):
-    lib.handle.call["ma_shim_waveform_free", NoneType](wf)
+    lib.call["ma_shim_waveform_free", NoneType](wf)
 
 
 def waveform_init(
@@ -36,7 +36,7 @@ def waveform_init(
     frequency: Float64,
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_waveform_init", Int32](
+        lib.call["ma_shim_waveform_init", Int32](
             wf,
             Int32(format),
             channels,
@@ -49,7 +49,7 @@ def waveform_init(
 
 
 def waveform_uninit(lib: MaLib, wf: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_waveform_uninit", Int32](wf))
+    return MaResult(lib.call["ma_shim_waveform_uninit", Int32](wf))
 
 
 def waveform_read_pcm_frames(
@@ -64,7 +64,7 @@ def waveform_read_pcm_frames(
     """
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_waveform_read_pcm_frames", Int32](
+        lib.call["ma_shim_waveform_read_pcm_frames", Int32](
             wf,
             out.unsafe_ptr(),
             frame_count,
@@ -78,27 +78,27 @@ def waveform_seek_to_pcm_frame(
     lib: MaLib, wf: OpaquePointer[MutUntrackedOrigin], frame_index: UInt64
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_waveform_seek_to_pcm_frame", Int32](wf, frame_index)
+        lib.call["ma_shim_waveform_seek_to_pcm_frame", Int32](wf, frame_index)
     )
 
 
 def waveform_set_amplitude(
     lib: MaLib, wf: OpaquePointer[MutUntrackedOrigin], amplitude: Float64
 ) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_waveform_set_amplitude", Int32](wf, amplitude))
+    return MaResult(lib.call["ma_shim_waveform_set_amplitude", Int32](wf, amplitude))
 
 
 def waveform_set_frequency(
     lib: MaLib, wf: OpaquePointer[MutUntrackedOrigin], frequency: Float64
 ) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_waveform_set_frequency", Int32](wf, frequency))
+    return MaResult(lib.call["ma_shim_waveform_set_frequency", Int32](wf, frequency))
 
 
 def waveform_set_type(
     lib: MaLib, wf: OpaquePointer[MutUntrackedOrigin], waveform_type: Int
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_waveform_set_type", Int32](wf, Int32(waveform_type))
+        lib.call["ma_shim_waveform_set_type", Int32](wf, Int32(waveform_type))
     )
 
 
@@ -106,7 +106,7 @@ def waveform_set_sample_rate(
     lib: MaLib, wf: OpaquePointer[MutUntrackedOrigin], sample_rate: UInt32
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_waveform_set_sample_rate", Int32](wf, sample_rate)
+        lib.call["ma_shim_waveform_set_sample_rate", Int32](wf, sample_rate)
     )
 
 
@@ -114,13 +114,13 @@ def waveform_set_sample_rate(
 
 
 def pulsewave_alloc(lib: MaLib) -> OpaquePointer[MutUntrackedOrigin]:
-    return lib.handle.call[
+    return lib.call[
         "ma_shim_pulsewave_alloc", OpaquePointer[MutUntrackedOrigin]
     ]()
 
 
 def pulsewave_free(lib: MaLib, pw: OpaquePointer[MutUntrackedOrigin]):
-    lib.handle.call["ma_shim_pulsewave_free", NoneType](pw)
+    lib.call["ma_shim_pulsewave_free", NoneType](pw)
 
 
 def pulsewave_init(
@@ -134,7 +134,7 @@ def pulsewave_init(
     frequency: Float64,
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_pulsewave_init", Int32](
+        lib.call["ma_shim_pulsewave_init", Int32](
             pw,
             Int32(format),
             channels,
@@ -147,7 +147,7 @@ def pulsewave_init(
 
 
 def pulsewave_uninit(lib: MaLib, pw: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_pulsewave_uninit", Int32](pw))
+    return MaResult(lib.call["ma_shim_pulsewave_uninit", Int32](pw))
 
 
 def pulsewave_read_pcm_frames(
@@ -163,7 +163,7 @@ def pulsewave_read_pcm_frames(
     """
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_pulsewave_read_pcm_frames", Int32](
+        lib.call["ma_shim_pulsewave_read_pcm_frames", Int32](
             pw,
             out.unsafe_ptr(),
             frame_count,
@@ -177,27 +177,27 @@ def pulsewave_seek_to_pcm_frame(
     lib: MaLib, pw: OpaquePointer[MutUntrackedOrigin], frame_index: UInt64
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_pulsewave_seek_to_pcm_frame", Int32](pw, frame_index)
+        lib.call["ma_shim_pulsewave_seek_to_pcm_frame", Int32](pw, frame_index)
     )
 
 
 def pulsewave_set_amplitude(
     lib: MaLib, pw: OpaquePointer[MutUntrackedOrigin], amplitude: Float64
 ) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_pulsewave_set_amplitude", Int32](pw, amplitude))
+    return MaResult(lib.call["ma_shim_pulsewave_set_amplitude", Int32](pw, amplitude))
 
 
 def pulsewave_set_frequency(
     lib: MaLib, pw: OpaquePointer[MutUntrackedOrigin], frequency: Float64
 ) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_pulsewave_set_frequency", Int32](pw, frequency))
+    return MaResult(lib.call["ma_shim_pulsewave_set_frequency", Int32](pw, frequency))
 
 
 def pulsewave_set_sample_rate(
     lib: MaLib, pw: OpaquePointer[MutUntrackedOrigin], sample_rate: UInt32
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_pulsewave_set_sample_rate", Int32](pw, sample_rate)
+        lib.call["ma_shim_pulsewave_set_sample_rate", Int32](pw, sample_rate)
     )
 
 
@@ -205,5 +205,5 @@ def pulsewave_set_duty_cycle(
     lib: MaLib, pw: OpaquePointer[MutUntrackedOrigin], duty_cycle: Float64
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_pulsewave_set_duty_cycle", Int32](pw, duty_cycle)
+        lib.call["ma_shim_pulsewave_set_duty_cycle", Int32](pw, duty_cycle)
     )

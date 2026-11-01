@@ -43,7 +43,7 @@ def decoding_backend_config_init(
     var fmt = [Int32(0)]
     var seeks = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_decoding_backend_config_init", Int32](
+        lib.call["ma_shim_decoding_backend_config_init", Int32](
             Int32(preferred_format),
             seek_point_count,
             fmt.unsafe_ptr(),
@@ -68,7 +68,7 @@ def decode_file(
     var ch = [UInt32(0)]
     var sr = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_decode_file", Int32](
+        lib.call["ma_shim_decode_file", Int32](
             path_c.as_bytes().unsafe_ptr(),
             Int32(format),
             channels,
@@ -97,7 +97,7 @@ def decode_memory(
     var ch = [UInt32(0)]
     var sr = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_decode_memory", Int32](
+        lib.call["ma_shim_decode_memory", Int32](
             data.unsafe_ptr(),
             len(data),
             Int32(format),
@@ -130,7 +130,7 @@ def decode_from_vfs(
     var ch = [UInt32(0)]
     var sr = [UInt32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_decode_from_vfs", Int32](
+        lib.call["ma_shim_decode_from_vfs", Int32](
             vfs,
             path_c.as_bytes().unsafe_ptr(),
             Int32(format),
@@ -148,4 +148,4 @@ def decode_from_vfs(
 
 def decode_free(lib: MaLib, frames: OpaquePointer[MutUntrackedOrigin]):
     """Releases a buffer returned by a successful decode. Null is a no-op."""
-    lib.handle.call["ma_shim_decode_free", NoneType](frames)
+    lib.call["ma_shim_decode_free", NoneType](frames)

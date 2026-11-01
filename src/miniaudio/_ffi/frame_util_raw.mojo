@@ -41,7 +41,7 @@ def interleave_pcm_frames(
 ) -> MaResult:
     """Weave one plane per channel into `interleaved`."""
     return MaResult(
-        lib.handle.call["ma_shim_interleave_pcm_frames", Int32](
+        lib.call["ma_shim_interleave_pcm_frames", Int32](
             Int32(format),
             channels,
             frame_count,
@@ -63,7 +63,7 @@ def deinterleave_pcm_frames(
 ) -> MaResult:
     """Split `interleaved` into one plane per channel, `channel_stride_in_bytes` apart."""
     return MaResult(
-        lib.handle.call["ma_shim_deinterleave_pcm_frames", Int32](
+        lib.call["ma_shim_deinterleave_pcm_frames", Int32](
             Int32(format),
             channels,
             frame_count,
@@ -83,7 +83,7 @@ def silence_pcm_frames(
 ) -> MaResult:
     """Zero the frames; u8 is unsigned, so its silence is 128 instead."""
     return MaResult(
-        lib.handle.call["ma_shim_silence_pcm_frames", Int32](
+        lib.call["ma_shim_silence_pcm_frames", Int32](
             frames.unsafe_ptr(), frame_count, Int32(format), channels
         )
     )
@@ -99,7 +99,7 @@ def offset_pcm_frames_ptr(
     """The address `offset_in_frames` frames into the buffer."""
     var holder = [Int(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_offset_pcm_frames_ptr", Int32](
+        lib.call["ma_shim_offset_pcm_frames_ptr", Int32](
             frames.unsafe_ptr(), offset_in_frames, Int32(format), channels,
             holder.unsafe_ptr(),
         )
@@ -117,7 +117,7 @@ def offset_pcm_frames_const_ptr(
     """`offset_pcm_frames_ptr` for a read-only buffer."""
     var holder = [Int(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_offset_pcm_frames_const_ptr", Int32](
+        lib.call["ma_shim_offset_pcm_frames_const_ptr", Int32](
             frames.unsafe_ptr(), offset_in_frames, Int32(format), channels,
             holder.unsafe_ptr(),
         )
@@ -135,7 +135,7 @@ def debug_fill_pcm_frames_with_sine_wave(
 ) -> MaResult:
     """Fill with a full-scale 400 Hz sine, in `format`."""
     return MaResult(
-        lib.handle.call["ma_shim_debug_fill_pcm_frames_with_sine_wave", Int32](
+        lib.call["ma_shim_debug_fill_pcm_frames_with_sine_wave", Int32](
             frames.unsafe_ptr(), frame_count, Int32(format), channels, sample_rate
         )
     )

@@ -20,13 +20,13 @@ from miniaudio._ffi.stream_raw import (
 
 
 def encoder_alloc(lib: MaLib) -> OpaquePointer[MutUntrackedOrigin]:
-    return lib.handle.call[
+    return lib.call[
         "ma_shim_encoder_alloc", OpaquePointer[MutUntrackedOrigin]
     ]()
 
 
 def encoder_free(lib: MaLib, enc: OpaquePointer[MutUntrackedOrigin]):
-    lib.handle.call["ma_shim_encoder_free", NoneType](enc)
+    lib.call["ma_shim_encoder_free", NoneType](enc)
 
 
 def encoder_init_file(
@@ -40,7 +40,7 @@ def encoder_init_file(
 ) -> MaResult:
     var path_c = path + "\x00"
     return MaResult(
-        lib.handle.call["ma_shim_encoder_init_file", Int32](
+        lib.call["ma_shim_encoder_init_file", Int32](
             enc,
             path_c.as_bytes().unsafe_ptr(),
             Int32(encoding_format),
@@ -63,7 +63,7 @@ def encoder_init_file_vfs(
     """Init to a file path through the VFS API (default stdio VFS)."""
     var path_c = path + "\x00"
     return MaResult(
-        lib.handle.call["ma_shim_encoder_init_file_vfs", Int32](
+        lib.call["ma_shim_encoder_init_file_vfs", Int32](
             enc,
             path_c.as_bytes().unsafe_ptr(),
             Int32(encoding_format),
@@ -75,7 +75,7 @@ def encoder_init_file_vfs(
 
 
 def encoder_uninit(lib: MaLib, enc: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_encoder_uninit", Int32](enc))
+    return MaResult(lib.call["ma_shim_encoder_uninit", Int32](enc))
 
 
 def encoder_write_pcm_frames(
@@ -90,7 +90,7 @@ def encoder_write_pcm_frames(
     """
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_encoder_write_pcm_frames", Int32](
+        lib.call["ma_shim_encoder_write_pcm_frames", Int32](
             enc,
             input.unsafe_ptr(),
             frame_count,
@@ -120,7 +120,7 @@ def encoder_init_stream[
     not touch `user` afterwards.
     """
     return MaResult(
-        lib.handle.call["ma_shim_encoder_init_stream", Int32](
+        lib.call["ma_shim_encoder_init_stream", Int32](
             enc,
             sink_write_tramp[S],
             sink_seek_tramp[S],
@@ -152,7 +152,7 @@ def encoder_init_stream_ptrs(
     for exercising the shim's argument checks: a real sink goes through
     `encoder_init_stream`."""
     return MaResult(
-        lib.handle.call["ma_shim_encoder_init_stream", Int32](
+        lib.call["ma_shim_encoder_init_stream", Int32](
             enc,
             on_write,
             on_seek,
@@ -172,6 +172,6 @@ def encoder_stream_user(
 ) -> OpaquePointer[MutUntrackedOrigin]:
     """The sink the encoder was initialised with, or NULL if it has none or
     `type_tag` (see `stream_tag`) is not the tag it was initialised with."""
-    return lib.handle.call[
+    return lib.call[
         "ma_shim_encoder_stream_user", OpaquePointer[MutUntrackedOrigin]
     ](enc, type_tag)

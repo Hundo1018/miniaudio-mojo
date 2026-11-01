@@ -1,19 +1,32 @@
-"""MaLib — the single owner of the loaded miniaudio shim (libma_shim.so).
+"""MaLib — the single owner of the miniaudio shim, shared via ArcPointer[MaLib].
 
-Loaded once and shared via ArcPointer[MaLib] into the high-level wrapper types,
-so binding/API methods never thread a `bridge` argument. The library path is
-resolved centrally (MINIAUDIO_MOJO_LIB env var, else build/libma_shim.so) rather
-than hardcoded at every call site.
+Two link modes, picked at compile time:
+
+- **dynamic** (default): `MaLib.default()` dlopens the shim (MINIAUDIO_MOJO_LIB env var, else
+  build/libma_shim.so) and `call` looks each symbol up with dlsym.
+- **static** (`mojo build -D MINIAUDIO_LINK=static -Xlinker build/libma_shim.a ...`): `call` is
+  `external_call`, so the IR has plain `declare`s that the linker resolves against the shim
+  object. Nothing is loaded and no dlopen / dlsym code is emitted, which is what a WebAssembly
+  module (no dlopen) needs.
+
+Binding code only ever writes `lib.call["ma_shim_x", R](args...)`, so it is the same in both.
 """
 
-from std.ffi import OwnedDLHandle
+from std.ffi import external_call
+from std.os import abort
 from std.os.env import getenv
+from std.sys.defines import get_defined_string
 
 from miniaudio.result import MaResult, MaError
 
 
 comptime LIB_PATH_ENV = "MINIAUDIO_MOJO_LIB"
 comptime DEFAULT_LIB_PATH = "./build/libma_shim.so"
+comptime LINK_MODE = get_defined_string["MINIAUDIO_LINK", "dynamic"]()
+comptime LINK_STATIC = LINK_MODE == "static"
+comptime _RTLD_NOW = Int32(2)
+
+comptime _Opaque = OpaquePointer[MutUntrackedOrigin]
 
 
 def null_handle() -> OpaquePointer[MutUntrackedOrigin]:
@@ -22,36 +35,64 @@ def null_handle() -> OpaquePointer[MutUntrackedOrigin]:
     return OpaquePointer[MutUntrackedOrigin](unsafe_from_address=Int(0))
 
 
-def _open(path: String) raises MaError -> OwnedDLHandle:
-    try:
-        return OwnedDLHandle(path)
-    except e:
-        raise MaError(MaResult.DOES_NOT_EXIST, String("cannot load ", path, ": ", e))
+def _dl_error() -> String:
+    var msg = external_call["dlerror", _Opaque]()
+    if msg == null_handle():
+        return String("unknown dlopen error")
+    return String(unsafe_from_utf8_ptr=msg.unsafe_bitcast[UInt8]())
 
 
 struct MaLib(Movable):
-    var handle: OwnedDLHandle
+    var _dl: _Opaque  # dlopen handle in dynamic mode; null in static mode
 
     def __init__(out self, var path: String) raises MaError:
-        self.handle = _open(path)
+        """Load the shim at `path`. In static mode the shim is already linked in and
+        `path` is ignored."""
+        comptime if LINK_STATIC:
+            self._dl = null_handle()
+        else:
+            self._dl = external_call["dlopen", _Opaque](
+                path.as_c_string_slice().unsafe_ptr(), _RTLD_NOW
+            )
+            if self._dl == null_handle():
+                raise MaError(MaResult.DOES_NOT_EXIST, String("cannot load ", path, ": ", _dl_error()))
 
     @staticmethod
     def default() raises MaError -> MaLib:
+        comptime if LINK_STATIC:
+            return MaLib(String(""))
         var path = getenv(LIB_PATH_ENV)
         if path == "":
             path = String(DEFAULT_LIB_PATH)
         return MaLib(path)
 
+    def __del__(deinit self):
+        comptime if not LINK_STATIC:
+            # Also runs when dlopen failed in __init__ (the field was already set to null).
+            if self._dl != null_handle():
+                _ = external_call["dlclose", Int32](self._dl)
+
+    def call[
+        name: StaticString, R: RegisterPassable = NoneType, *Ts: AnyType
+    ](self, *args: *Ts) -> R:
+        """Call shim function `name` with C types `args`, returning `R`."""
+        comptime if LINK_STATIC:
+            return external_call[name, R](*args)
+        else:
+            var sym = external_call["dlsym", _Opaque](self._dl, name.unsafe_ptr())
+            if sym == null_handle():
+                abort(String("miniaudio shim has no symbol ", name))
+            var f = UnsafePointer(to=sym).unsafe_bitcast[def(*args: *Ts) thin abi("C") -> R]()[]
+            return f(*args)
+
     def version(self) raises MaError -> String:
-        var raw = self.handle.call[
-            "ma_shim_version", OpaquePointer[MutUntrackedOrigin]
-        ]()
+        var raw = self.call["ma_shim_version", OpaquePointer[MutUntrackedOrigin]]()
         if raw == null_handle():
             raise MaError(MaResult.ERROR, "ma_shim_version returned null")
         return String(unsafe_from_utf8_ptr=raw.unsafe_bitcast[UInt8]())
 
     def result_description(self, result: MaResult) -> String:
-        var raw = self.handle.call[
+        var raw = self.call[
             "ma_shim_result_description", OpaquePointer[MutUntrackedOrigin]
         ](result.code)
         if raw == null_handle():

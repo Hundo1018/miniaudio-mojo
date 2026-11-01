@@ -24,13 +24,13 @@ from miniaudio._ffi.device_raw import MaBool
 
 
 def audio_buffer_ref_alloc(lib: MaLib) -> OpaquePointer[MutUntrackedOrigin]:
-    return lib.handle.call[
+    return lib.call[
         "ma_shim_audio_buffer_ref_alloc", OpaquePointer[MutUntrackedOrigin]
     ]()
 
 
 def audio_buffer_ref_free(lib: MaLib, ab: OpaquePointer[MutUntrackedOrigin]):
-    lib.handle.call["ma_shim_audio_buffer_ref_free", NoneType](ab)
+    lib.call["ma_shim_audio_buffer_ref_free", NoneType](ab)
 
 
 def audio_buffer_ref_init(
@@ -43,7 +43,7 @@ def audio_buffer_ref_init(
 ) -> MaResult:
     """Points the ref at a shim-owned copy of frame_count frames from `src`."""
     return MaResult(
-        lib.handle.call["ma_shim_audio_buffer_ref_init", Int32](
+        lib.call["ma_shim_audio_buffer_ref_init", Int32](
             ab, Int32(format), channels, src.unsafe_ptr(), frame_count
         )
     )
@@ -58,7 +58,7 @@ def audio_buffer_ref_init_null_data(
 ) -> MaResult:
     """init with a NULL source pointer — the shim rejects it (negative path)."""
     return MaResult(
-        lib.handle.call["ma_shim_audio_buffer_ref_init", Int32](
+        lib.call["ma_shim_audio_buffer_ref_init", Int32](
             ab, Int32(format), channels, null_handle(), frame_count
         )
     )
@@ -67,7 +67,7 @@ def audio_buffer_ref_init_null_data(
 def audio_buffer_ref_uninit(
     lib: MaLib, ab: OpaquePointer[MutUntrackedOrigin]
 ) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_audio_buffer_ref_uninit", Int32](ab))
+    return MaResult(lib.call["ma_shim_audio_buffer_ref_uninit", Int32](ab))
 
 
 def audio_buffer_ref_set_data(
@@ -78,7 +78,7 @@ def audio_buffer_ref_set_data(
 ) -> MaResult:
     """Replace the shim-owned frames and rewind the cursor to 0."""
     return MaResult(
-        lib.handle.call["ma_shim_audio_buffer_ref_set_data", Int32](
+        lib.call["ma_shim_audio_buffer_ref_set_data", Int32](
             ab, src.unsafe_ptr(), frame_count
         )
     )
@@ -97,7 +97,7 @@ def audio_buffer_ref_read(
     """
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_audio_buffer_ref_read", Int32](
+        lib.call["ma_shim_audio_buffer_ref_read", Int32](
             ab,
             dst.unsafe_ptr(),
             frame_count,
@@ -112,7 +112,7 @@ def audio_buffer_ref_seek(
     lib: MaLib, ab: OpaquePointer[MutUntrackedOrigin], frame_index: UInt64
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_audio_buffer_ref_seek", Int32](ab, frame_index)
+        lib.call["ma_shim_audio_buffer_ref_seek", Int32](ab, frame_index)
     )
 
 
@@ -125,7 +125,7 @@ def audio_buffer_ref_map_read(
     """map -> copy -> unmap. MA_AT_END means the cursor landed on the end."""
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_audio_buffer_ref_map_read", Int32](
+        lib.call["ma_shim_audio_buffer_ref_map_read", Int32](
             ab, dst.unsafe_ptr(), frame_count, holder.unsafe_ptr()
         )
     )
@@ -137,7 +137,7 @@ def audio_buffer_ref_at_end(
 ) -> MaBool:
     var holder = [Int32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_audio_buffer_ref_at_end", Int32](
+        lib.call["ma_shim_audio_buffer_ref_at_end", Int32](
             ab, holder.unsafe_ptr()
         )
     )
@@ -149,7 +149,7 @@ def audio_buffer_ref_get_cursor(
 ) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_audio_buffer_ref_get_cursor", Int32](
+        lib.call["ma_shim_audio_buffer_ref_get_cursor", Int32](
             ab, holder.unsafe_ptr()
         )
     )
@@ -161,7 +161,7 @@ def audio_buffer_ref_get_length(
 ) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_audio_buffer_ref_get_length", Int32](
+        lib.call["ma_shim_audio_buffer_ref_get_length", Int32](
             ab, holder.unsafe_ptr()
         )
     )
@@ -173,7 +173,7 @@ def audio_buffer_ref_get_available(
 ) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_audio_buffer_ref_get_available", Int32](
+        lib.call["ma_shim_audio_buffer_ref_get_available", Int32](
             ab, holder.unsafe_ptr()
         )
     )
@@ -184,13 +184,13 @@ def audio_buffer_ref_get_available(
 
 
 def audio_buffer_alloc(lib: MaLib) -> OpaquePointer[MutUntrackedOrigin]:
-    return lib.handle.call[
+    return lib.call[
         "ma_shim_audio_buffer_alloc", OpaquePointer[MutUntrackedOrigin]
     ]()
 
 
 def audio_buffer_free(lib: MaLib, ab: OpaquePointer[MutUntrackedOrigin]):
-    lib.handle.call["ma_shim_audio_buffer_free", NoneType](ab)
+    lib.call["ma_shim_audio_buffer_free", NoneType](ab)
 
 
 def audio_buffer_init(
@@ -203,7 +203,7 @@ def audio_buffer_init(
 ) -> MaResult:
     """Non-copying init: the shim keeps the frames alive for miniaudio."""
     return MaResult(
-        lib.handle.call["ma_shim_audio_buffer_init", Int32](
+        lib.call["ma_shim_audio_buffer_init", Int32](
             ab, Int32(format), channels, src.unsafe_ptr(), frame_count
         )
     )
@@ -219,7 +219,7 @@ def audio_buffer_init_copy(
 ) -> MaResult:
     """Copying init: miniaudio allocates and copies the frames itself."""
     return MaResult(
-        lib.handle.call["ma_shim_audio_buffer_init_copy", Int32](
+        lib.call["ma_shim_audio_buffer_init_copy", Int32](
             ab, Int32(format), channels, src.unsafe_ptr(), frame_count
         )
     )
@@ -234,7 +234,7 @@ def audio_buffer_init_copy_silent(
 ) -> MaResult:
     """init_copy with a NULL source — miniaudio fills the buffer with silence."""
     return MaResult(
-        lib.handle.call["ma_shim_audio_buffer_init_copy", Int32](
+        lib.call["ma_shim_audio_buffer_init_copy", Int32](
             ab, Int32(format), channels, null_handle(), frame_count
         )
     )
@@ -254,14 +254,14 @@ def audio_buffer_alloc_and_init(
     first frame — see the note in ma_shim_audio_buffer.h. Bound as-is.
     """
     return MaResult(
-        lib.handle.call["ma_shim_audio_buffer_alloc_and_init", Int32](
+        lib.call["ma_shim_audio_buffer_alloc_and_init", Int32](
             ab, Int32(format), channels, src.unsafe_ptr(), frame_count
         )
     )
 
 
 def audio_buffer_uninit(lib: MaLib, ab: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_audio_buffer_uninit", Int32](ab))
+    return MaResult(lib.call["ma_shim_audio_buffer_uninit", Int32](ab))
 
 
 def audio_buffer_read(
@@ -273,7 +273,7 @@ def audio_buffer_read(
 ) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_audio_buffer_read", Int32](
+        lib.call["ma_shim_audio_buffer_read", Int32](
             ab,
             dst.unsafe_ptr(),
             frame_count,
@@ -288,7 +288,7 @@ def audio_buffer_seek(
     lib: MaLib, ab: OpaquePointer[MutUntrackedOrigin], frame_index: UInt64
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_audio_buffer_seek", Int32](ab, frame_index)
+        lib.call["ma_shim_audio_buffer_seek", Int32](ab, frame_index)
     )
 
 
@@ -301,7 +301,7 @@ def audio_buffer_map_read(
     """map -> copy -> unmap. MA_AT_END means the cursor landed on the end."""
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_audio_buffer_map_read", Int32](
+        lib.call["ma_shim_audio_buffer_map_read", Int32](
             ab, dst.unsafe_ptr(), frame_count, holder.unsafe_ptr()
         )
     )
@@ -313,7 +313,7 @@ def audio_buffer_at_end(
 ) -> MaBool:
     var holder = [Int32(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_audio_buffer_at_end", Int32](
+        lib.call["ma_shim_audio_buffer_at_end", Int32](
             ab, holder.unsafe_ptr()
         )
     )
@@ -325,7 +325,7 @@ def audio_buffer_get_cursor(
 ) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_audio_buffer_get_cursor", Int32](
+        lib.call["ma_shim_audio_buffer_get_cursor", Int32](
             ab, holder.unsafe_ptr()
         )
     )
@@ -337,7 +337,7 @@ def audio_buffer_get_length(
 ) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_audio_buffer_get_length", Int32](
+        lib.call["ma_shim_audio_buffer_get_length", Int32](
             ab, holder.unsafe_ptr()
         )
     )
@@ -349,7 +349,7 @@ def audio_buffer_get_available(
 ) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_audio_buffer_get_available", Int32](
+        lib.call["ma_shim_audio_buffer_get_available", Int32](
             ab, holder.unsafe_ptr()
         )
     )

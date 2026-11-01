@@ -15,13 +15,13 @@ comptime NOISE_TYPE_BROWNIAN: Int = 2
 
 
 def noise_alloc(lib: MaLib) -> OpaquePointer[MutUntrackedOrigin]:
-    return lib.handle.call[
+    return lib.call[
         "ma_shim_noise_alloc", OpaquePointer[MutUntrackedOrigin]
     ]()
 
 
 def noise_free(lib: MaLib, ns: OpaquePointer[MutUntrackedOrigin]):
-    lib.handle.call["ma_shim_noise_free", NoneType](ns)
+    lib.call["ma_shim_noise_free", NoneType](ns)
 
 
 def noise_init(
@@ -34,7 +34,7 @@ def noise_init(
     amplitude: Float64,
 ) -> MaResult:
     return MaResult(
-        lib.handle.call["ma_shim_noise_init", Int32](
+        lib.call["ma_shim_noise_init", Int32](
             ns,
             Int32(format),
             channels,
@@ -51,7 +51,7 @@ def noise_get_heap_size(
     """Heap miniaudio needs for this config (0 for white noise), without building one."""
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_noise_get_heap_size", Int32](
+        lib.call["ma_shim_noise_get_heap_size", Int32](
             Int32(format), channels, Int32(noise_type), holder.unsafe_ptr()
         )
     )
@@ -69,7 +69,7 @@ def noise_init_preallocated(
 ) -> MaResult:
     """Init through miniaudio's preallocated-heap path with a shim-owned block."""
     return MaResult(
-        lib.handle.call["ma_shim_noise_init_preallocated", Int32](
+        lib.call["ma_shim_noise_init_preallocated", Int32](
             ns,
             Int32(format),
             channels,
@@ -81,7 +81,7 @@ def noise_init_preallocated(
 
 
 def noise_uninit(lib: MaLib, ns: OpaquePointer[MutUntrackedOrigin]) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_noise_uninit", Int32](ns))
+    return MaResult(lib.call["ma_shim_noise_uninit", Int32](ns))
 
 
 def noise_read_pcm_frames(
@@ -92,7 +92,7 @@ def noise_read_pcm_frames(
 ) -> MaCount:
     var holder = [UInt64(0)]
     var code = MaResult(
-        lib.handle.call["ma_shim_noise_read_pcm_frames", Int32](
+        lib.call["ma_shim_noise_read_pcm_frames", Int32](
             ns,
             out.unsafe_ptr(),
             frame_count,
@@ -105,12 +105,12 @@ def noise_read_pcm_frames(
 def noise_set_amplitude(
     lib: MaLib, ns: OpaquePointer[MutUntrackedOrigin], amplitude: Float64
 ) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_noise_set_amplitude", Int32](ns, amplitude))
+    return MaResult(lib.call["ma_shim_noise_set_amplitude", Int32](ns, amplitude))
 
 
 def noise_set_seed(
     lib: MaLib, ns: OpaquePointer[MutUntrackedOrigin], seed: Int32
 ) -> MaResult:
-    return MaResult(lib.handle.call["ma_shim_noise_set_seed", Int32](ns, seed))
+    return MaResult(lib.call["ma_shim_noise_set_seed", Int32](ns, seed))
 
 
