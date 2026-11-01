@@ -17,6 +17,15 @@ from miniaudio._lib import MaLib, null_handle
 from miniaudio.result import MaResult
 from miniaudio._ffi.decoder_raw import MaCount
 from miniaudio._ffi.converter_raw import MaChannelMap
+from miniaudio.stream import ReadSeekTellStream
+from miniaudio._ffi.stream_raw import (
+    StreamPtr,
+    stream_read_tramp,
+    stream_seek_tramp,
+    stream_tell_tramp,
+    stream_destroy,
+    stream_tag,
+)
 
 
 @fieldwise_init
@@ -187,3 +196,74 @@ def wav_get_length_in_pcm_frames(
         )
     )
     return MaCount(code, holder[0])
+
+
+def wav_init_stream[
+    S: ReadSeekTellStream
+](
+    lib: MaLib,
+    h: OpaquePointer[MutUntrackedOrigin],
+    user: StreamPtr[S],
+    preferred_format: Int,
+    seek_point_count: UInt32,
+) -> MaResult:
+    """Init from the stream at `user` (custom read / seek / tell I/O).
+
+    `user` is a heap cell from `stream_leak`. The shim ALWAYS takes it over,
+    whether this succeeds or fails: it destroys the stream after the object is
+    uninitialised, or straight away when init fails (invalid arguments
+    included). The caller must not touch `user` afterwards.
+    """
+    return MaResult(
+        lib.handle.call["ma_shim_wav_init_stream", Int32](
+            h,
+            stream_read_tramp[S],
+            stream_seek_tramp[S],
+            stream_tell_tramp[S],
+            stream_destroy[S],
+            user,
+            stream_tag[S](),
+            Int32(preferred_format),
+            seek_point_count,
+        )
+    )
+
+
+def wav_init_stream_ptrs(
+    lib: MaLib,
+    h: OpaquePointer[MutUntrackedOrigin],
+    on_read: OpaquePointer[MutUntrackedOrigin],
+    on_seek: OpaquePointer[MutUntrackedOrigin],
+    on_tell: OpaquePointer[MutUntrackedOrigin],
+    on_destroy: OpaquePointer[MutUntrackedOrigin],
+    user: OpaquePointer[MutUntrackedOrigin],
+    type_tag: UInt64,
+    preferred_format: Int,
+    seek_point_count: UInt32,
+) -> MaResult:
+    """The same shim call with every pointer passed bare, NULLs included. Only
+    for exercising the shim's argument checks: a real stream goes through
+    `wav_init_stream`."""
+    return MaResult(
+        lib.handle.call["ma_shim_wav_init_stream", Int32](
+            h,
+            on_read,
+            on_seek,
+            on_tell,
+            on_destroy,
+            user,
+            type_tag,
+            Int32(preferred_format),
+            seek_point_count,
+        )
+    )
+
+
+def wav_stream_user(
+    lib: MaLib, h: OpaquePointer[MutUntrackedOrigin], type_tag: UInt64
+) -> OpaquePointer[MutUntrackedOrigin]:
+    """The stream the handle was initialised with, or NULL if it has none or
+    `type_tag` (see `stream_tag`) is not the tag it was initialised with."""
+    return lib.handle.call[
+        "ma_shim_wav_stream_user", OpaquePointer[MutUntrackedOrigin]
+    ](h, type_tag)

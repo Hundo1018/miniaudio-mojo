@@ -1,7 +1,9 @@
 #include "ma_shim_mp3.h"
 #include "miniaudio.h"
+#include "ma_shim_stream.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 /* ======================================================================== */
 /* ma_mp3                                                                    */
@@ -19,6 +21,10 @@ MA_API ma_result ma_mp3_init_file(
 MA_API ma_result ma_mp3_init_memory(
     const void* pData, size_t dataSize, const ma_decoding_backend_config* pConfig,
     const ma_allocation_callbacks* pAllocationCallbacks, void* pWav);
+MA_API ma_result ma_mp3_init(
+    ma_read_proc onRead, ma_seek_proc onSeek, ma_tell_proc onTell, void* pReadSeekTellUserData,
+    const ma_decoding_backend_config* pConfig, const ma_allocation_callbacks* pAllocationCallbacks,
+    void* pMP3);
 MA_API void ma_mp3_uninit(void* pWav, const ma_allocation_callbacks* pAllocationCallbacks);
 MA_API ma_result ma_mp3_read_pcm_frames(
     void* pWav, void* pFramesOut, ma_uint64 frameCount, ma_uint64* pFramesRead);
@@ -31,6 +37,7 @@ MA_API ma_result ma_mp3_get_length_in_pcm_frames(void* pWav, ma_uint64* pLength)
 
 typedef struct ma_shim_mp3 {
     int initialized;
+    shimint_stream stream; /* user-supplied I/O (init_stream); zeroed otherwise */
     union {
         max_align_t   align;
         unsigned char bytes[MA_SHIM_MP3_STORAGE_BYTES];
@@ -45,11 +52,21 @@ static ma_shim_mp3* mp3_ready(void* handle) {
     return h;
 }
 
-static void mp3_teardown(ma_shim_mp3* h) {
+/* Uninitialise the codec, if it is initialised. A user-supplied stream is left
+ * alone: it stays reachable until the handle is freed or re-initialised. */
+static void mp3_uninit_object(ma_shim_mp3* h) {
     if (h->initialized) {
         ma_mp3_uninit(h->mp3.bytes, NULL);
         h->initialized = 0;
     }
+}
+
+/* Full reset, for free and re-init: uninitialise, then release a user-supplied
+ * stream (its destroy callback runs strictly after ma_mp3_uninit, exactly
+ * once). */
+static void mp3_teardown(ma_shim_mp3* h) {
+    mp3_uninit_object(h);
+    shimint_stream_release(&h->stream);
 }
 
 static ma_result mp3_make_config(
@@ -129,13 +146,91 @@ int ma_shim_mp3_init_memory(
     return (int)result;
 }
 
+/* The user stream's callbacks, adapted to miniaudio's ma_read_proc / ma_seek_proc /
+ * ma_tell_proc: miniaudio hands back the user pointer it was given, which here is
+ * the shim handle that carries the stream. */
+static ma_result mp3_stream_on_read(void* pUserData, void* pBufferOut, size_t bytesToRead, size_t* pBytesRead) {
+    ma_shim_mp3* h = (ma_shim_mp3*)pUserData;
+    size_t bytes_read = 0;
+    int result = h->stream.read(h->stream.user, pBufferOut, bytesToRead, &bytes_read);
+    if (pBytesRead != NULL) {
+        *pBytesRead = bytes_read;
+    }
+    return (ma_result)result;
+}
+
+static ma_result mp3_stream_on_seek(void* pUserData, ma_int64 offset, ma_seek_origin origin) {
+    ma_shim_mp3* h = (ma_shim_mp3*)pUserData;
+    return (ma_result)h->stream.seek(h->stream.user, (long long)offset, (int)origin);
+}
+
+static ma_result mp3_stream_on_tell(void* pUserData, ma_int64* pCursor) {
+    ma_shim_mp3* h = (ma_shim_mp3*)pUserData;
+    long long cursor = 0;
+    int result = h->stream.tell(h->stream.user, &cursor);
+    *pCursor = (ma_int64)cursor;
+    return (ma_result)result;
+}
+
+/* @binds ma_mp3_init, ma_decoding_backend_config_init */
+int ma_shim_mp3_init_stream(
+    void*                     handle,
+    ma_shim_stream_read_fn    on_read,
+    ma_shim_stream_seek_fn    on_seek,
+    ma_shim_stream_tell_fn    on_tell,
+    ma_shim_stream_destroy_fn on_destroy,
+    void*                     user,
+    unsigned long long        type_tag,
+    int                       preferred_format,
+    unsigned int              seek_point_count
+) {
+    ma_shim_mp3* h = (ma_shim_mp3*)handle;
+    shimint_stream incoming;
+    ma_decoding_backend_config config;
+    ma_result result = MA_INVALID_ARGS;
+
+    memset(&incoming, 0, sizeof(incoming));
+    incoming.read = on_read;
+    incoming.seek = on_seek;
+    incoming.tell = on_tell;
+    incoming.destroy = on_destroy;
+    incoming.user = user;
+    incoming.type_tag = type_tag;
+
+    if (h != NULL && on_read != NULL && on_seek != NULL && on_tell != NULL && user != NULL) {
+        result = mp3_make_config(preferred_format, seek_point_count, &config);
+    }
+    if (result != MA_SUCCESS) {
+        shimint_stream_release(&incoming);
+        return (int)result;
+    }
+    mp3_teardown(h);
+    h->stream = incoming;
+    result = ma_mp3_init(
+        mp3_stream_on_read, mp3_stream_on_seek, mp3_stream_on_tell, h, &config, NULL, h->mp3.bytes);
+    if (result == MA_SUCCESS) {
+        h->initialized = 1;
+    } else {
+        shimint_stream_release(&h->stream);
+    }
+    return (int)result;
+}
+
+void* ma_shim_mp3_stream_user(void* handle, unsigned long long type_tag) {
+    ma_shim_mp3* h = (ma_shim_mp3*)handle;
+    if (h == NULL) {
+        return NULL;
+    }
+    return shimint_stream_user(&h->stream, type_tag);
+}
+
 /* @binds ma_mp3_uninit */
 int ma_shim_mp3_uninit(void* handle) {
     ma_shim_mp3* h = (ma_shim_mp3*)handle;
     if (h == NULL) {
         return MA_INVALID_ARGS;
     }
-    mp3_teardown(h);
+    mp3_uninit_object(h);
     return MA_SUCCESS;
 }
 

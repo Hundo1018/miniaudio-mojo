@@ -14,6 +14,8 @@ from miniaudio._lib import MaLib, null_handle
 from miniaudio.result import MaResult, MaError, MA_SUCCESS
 from miniaudio.decoder import SampleFormat, SAMPLE_FORMAT_F32
 import miniaudio._ffi.encoder_raw as raw
+from miniaudio.stream import WriteSeekStream
+from miniaudio._ffi.stream_raw import stream_leak, stream_reclaim, stream_tag
 
 
 @fieldwise_init
@@ -125,6 +127,62 @@ struct Encoder(Movable):
             raw.encoder_free(lib[], ptr)
             raise lib[].error("encoder init to file (vfs) failed", code)
         return Self(lib.copy(), ptr, channels)
+
+    @staticmethod
+    def to_stream[
+        S: WriteSeekStream
+    ](
+        lib: ArcPointer[MaLib],
+        var sink: S,
+        *,
+        channels: UInt32,
+        sample_rate: UInt32,
+        format: SampleFormat = SAMPLE_FORMAT_F32,
+        encoding_format: EncodingFormat = ENCODING_FORMAT_WAV,
+    ) raises MaError -> Self:
+        """Encode into a sink you implement (ma_encoder_init with your own I/O).
+
+        `sink` moves into the encoder, which keeps it alive on the heap and
+        destroys it exactly once, after the encoder has been finished and
+        dropped (at once if this raises). The WAV header is written up front
+        and patched with the final sizes when the encoder finishes, by seeking
+        back in the sink: call `finish()` (dropping the encoder does it too,
+        but destroys the sink right after), then read the result with
+        `stream[S]()`.
+        """
+        var user = stream_leak(sink^)
+        var ptr = raw.encoder_alloc(lib[])
+        if ptr == null_handle():
+            stream_reclaim(user)
+            raise MaError(MaResult.OUT_OF_MEMORY, "encoder_alloc failed (out of memory)")
+        # The shim takes the sink over whether or not init succeeds.
+        var code = raw.encoder_init_stream(
+            lib[], ptr, user, encoding_format.code, format.code, channels, sample_rate
+        )
+        if code != MA_SUCCESS:
+            raw.encoder_free(lib[], ptr)
+            raise lib[].error("encoder init to stream failed", code)
+        return Self(lib.copy(), ptr, channels)
+
+    def finish(mut self) raises MaError:
+        """Finalise the output (the WAV header gets its final sizes) and stop
+        accepting frames. A sink from `to_stream` stays reachable through
+        `stream[S]()` until the encoder is dropped; the handle itself stays
+        valid but unusable. Calling it again is harmless."""
+        var code = raw.encoder_uninit(self._lib[], self._ptr)
+        if code != MA_SUCCESS:
+            raise self._lib[].error("encoder finish failed", code)
+
+    def stream[S: WriteSeekStream](mut self) raises MaError -> ref[self] S:
+        """The sink this encoder was built from with `to_stream`.
+
+        Raises if the encoder has no sink (it writes to a file), or `S` is not
+        its type. Its contents are complete only after `finish()`.
+        """
+        var user = raw.encoder_stream_user(self._lib[], self._ptr, stream_tag[S]())
+        if user == null_handle():
+            raise MaError(MaResult.INVALID_ARGS, "encoder has no sink of the requested type")
+        return user.unsafe_bitcast[S]().unsafe_origin_cast[origin_of(self)]()[]
 
     def channels(self) -> UInt32:
         return self._channels

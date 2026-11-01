@@ -9,6 +9,14 @@ This is the layer the TDD contract tests target directly.
 from miniaudio._lib import MaLib
 from miniaudio.result import MaResult
 from miniaudio._ffi.decoder_raw import MaCount
+from miniaudio.stream import WriteSeekStream
+from miniaudio._ffi.stream_raw import (
+    StreamPtr,
+    sink_write_tramp,
+    sink_seek_tramp,
+    stream_destroy,
+    stream_tag,
+)
 
 
 def encoder_alloc(lib: MaLib) -> OpaquePointer[MutUntrackedOrigin]:
@@ -90,3 +98,80 @@ def encoder_write_pcm_frames(
         )
     )
     return MaCount(code, holder[0])
+
+
+def encoder_init_stream[
+    S: WriteSeekStream
+](
+    lib: MaLib,
+    enc: OpaquePointer[MutUntrackedOrigin],
+    user: StreamPtr[S],
+    encoding_format: Int,
+    format: Int,
+    channels: UInt32,
+    sample_rate: UInt32,
+) -> MaResult:
+    """Init an encoder that writes through the sink at `user` (custom I/O).
+
+    `user` is a heap cell from `stream_leak`. The shim ALWAYS takes it over,
+    whether this succeeds or fails: it destroys the sink after the encoder is
+    uninitialised (which is when the WAV header gets its final sizes), or
+    straight away when init fails (invalid arguments included). The caller must
+    not touch `user` afterwards.
+    """
+    return MaResult(
+        lib.handle.call["ma_shim_encoder_init_stream", Int32](
+            enc,
+            sink_write_tramp[S],
+            sink_seek_tramp[S],
+            stream_destroy[S],
+            user,
+            stream_tag[S](),
+            Int32(encoding_format),
+            Int32(format),
+            channels,
+            sample_rate,
+        )
+    )
+
+
+def encoder_init_stream_ptrs(
+    lib: MaLib,
+    enc: OpaquePointer[MutUntrackedOrigin],
+    on_write: OpaquePointer[MutUntrackedOrigin],
+    on_seek: OpaquePointer[MutUntrackedOrigin],
+    on_destroy: OpaquePointer[MutUntrackedOrigin],
+    user: OpaquePointer[MutUntrackedOrigin],
+    type_tag: UInt64,
+    encoding_format: Int,
+    format: Int,
+    channels: UInt32,
+    sample_rate: UInt32,
+) -> MaResult:
+    """The same shim call with every pointer passed bare, NULLs included. Only
+    for exercising the shim's argument checks: a real sink goes through
+    `encoder_init_stream`."""
+    return MaResult(
+        lib.handle.call["ma_shim_encoder_init_stream", Int32](
+            enc,
+            on_write,
+            on_seek,
+            on_destroy,
+            user,
+            type_tag,
+            Int32(encoding_format),
+            Int32(format),
+            channels,
+            sample_rate,
+        )
+    )
+
+
+def encoder_stream_user(
+    lib: MaLib, enc: OpaquePointer[MutUntrackedOrigin], type_tag: UInt64
+) -> OpaquePointer[MutUntrackedOrigin]:
+    """The sink the encoder was initialised with, or NULL if it has none or
+    `type_tag` (see `stream_tag`) is not the tag it was initialised with."""
+    return lib.handle.call[
+        "ma_shim_encoder_stream_user", OpaquePointer[MutUntrackedOrigin]
+    ](enc, type_tag)

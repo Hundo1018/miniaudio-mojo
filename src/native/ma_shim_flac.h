@@ -25,6 +25,8 @@
  * pointers so an uninitialised handle is observable as MA_INVALID_ARGS.
  */
 
+#include "ma_shim_stream.h"
+
 #include <stddef.h>
 
 #ifdef __cplusplus
@@ -50,6 +52,29 @@ int ma_shim_flac_init_memory(
     int          preferred_format,
     unsigned int seek_point_count
 );
+/* Init from user-supplied read / seek / tell callbacks (custom I/O; no file or
+ * memory block). All three callbacks are mandatory (miniaudio's MP3 backend
+ * calls tell unconditionally) and so is the user pointer. The user stream is
+ * adopted: see ma_shim_stream.h for the always-consumed ownership contract and
+ * the callback shapes. Everything else behaves like the init_file path, and the
+ * stream stays alive after uninit (so a caller can still look at it) and is
+ * released (destroy runs) when the handle is freed or initialised again. */
+int ma_shim_flac_init_stream(
+    void*                     handle,
+    ma_shim_stream_read_fn    on_read,
+    ma_shim_stream_seek_fn    on_seek,
+    ma_shim_stream_tell_fn    on_tell,
+    ma_shim_stream_destroy_fn on_destroy,
+    void*                     user,
+    unsigned long long        type_tag,
+    int                       preferred_format,
+    unsigned int              seek_point_count
+);
+/* The user pointer the handle was initialised with, if type_tag matches the tag
+ * it was initialised with; NULL for a plain file / memory handle, a null
+ * handle or another tag. Still answers after uninit. */
+void* ma_shim_flac_stream_user(void* handle, unsigned long long type_tag);
+
 int ma_shim_flac_uninit(void* handle);
 
 /* Reads up to frame_count frames into `out`, which is out_capacity_bytes long.

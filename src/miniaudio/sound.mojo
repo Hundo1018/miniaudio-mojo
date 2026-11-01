@@ -6,8 +6,8 @@ volume/pan/pitch, looping, spatialization, seeking, and cursor/length queries.
 
 A sound must not outlive its engine, so `Sound` holds an `ArcPointer[Engine]`
 that keeps the engine alive; `__deinit__` uninits the sound (while the engine is
-still valid) before releasing that reference. `at_end()` polls completion (the
-constrained, shim-friendly stand-in for ma_sound_set_end_callback).
+still valid) before releasing that reference. `at_end()` polls completion;
+`set_end_callback` runs your own `SoundEndHandler` when the sound reaches its end.
 
 A sound can come from a file (`from_file`), from a `DataSource` you built
 (`from_data_source`; the sound keeps the source alive), or from a `SoundConfig`
@@ -47,6 +47,7 @@ from miniaudio._sound_types import (
     SOUND_FLAG_NO_SPATIALIZATION,
     SOUND_SOURCE_CHANNEL_COUNT,
     FRAME_RANGE_END,
+    SoundEndHandler,
 )
 from miniaudio._ffi.sound_raw import Vec3, MaCone, MaDataFormat
 import miniaudio._ffi.sound_raw as raw
@@ -214,6 +215,43 @@ struct Sound(Movable):
 
     def at_end(self) -> Bool:
         return raw.sound_at_end(self._lib[], self._ptr) != 0
+
+    def set_end_callback[H: SoundEndHandler](mut self, var handler: H) raises MaError:
+        """Runs `handler.on_end()` when the sound reaches its end (ma_sound_set_end_callback).
+
+            struct Done(SoundEndHandler):
+                var finished: ArcPointer[Atomic[DType.int64]]
+                def on_end(mut self):
+                    _ = self.finished[].fetch_add(1)
+
+            sound.set_end_callback(Done(finished.copy()))
+
+        Fires once each time playback runs off the end of the data: not for a looping
+        sound, and not for a stop you asked for (`stop()`, a scheduled stop time).
+        Starting the sound again re-arms it. A new handler replaces the old one; the
+        old one is destroyed before this returns, and so is the current one when
+        `clear_end_callback()` is called or the sound is dropped.
+
+        **The handler runs on the audio thread**, under a lock that `set_end_callback`,
+        `clear_end_callback` and dropping the sound also take. So it must be quick, must
+        not block, and must not call anything on this sound. Hand work to another thread
+        (an atomic, a queue) and do it there.
+
+        Raises for an uninitialised sound, or one without a data source (it has no end).
+        A `copy_of` sound starts without a handler.
+        """
+        var code = raw.sound_set_end_callback(self._lib[], self._ptr, handler^)
+        if code != MA_SUCCESS:
+            raise self._lib[].error("sound set_end_callback failed", code)
+
+    def clear_end_callback(mut self) raises MaError:
+        """Detaches the end handler, if any, and destroys it before returning.
+
+        After this returns the handler is not running and never will again.
+        """
+        var code = raw.sound_clear_end_callback(self._lib[], self._ptr)
+        if code != MA_SUCCESS:
+            raise self._lib[].error("sound clear_end_callback failed", code)
 
     def set_spatialization_enabled(mut self, enabled: Bool) raises MaError:
         if (

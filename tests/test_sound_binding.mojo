@@ -8,7 +8,8 @@ shimint_engine_ptr) and exercised across its full control/query surface.
 from std.testing import assert_equal, assert_true, TestSuite
 
 from miniaudio._lib import MaLib, null_handle
-from miniaudio.result import MA_SUCCESS, MA_INVALID_ARGS
+from miniaudio.result import MA_SUCCESS, MA_INVALID_ARGS, MA_INVALID_OPERATION
+from support.sound_end_handlers import Tally, Marker, counter, count, raw_read_periods, raw_periods_until_fired
 import miniaudio._ffi.engine_raw as eraw
 import miniaudio._ffi.sound_raw as raw
 import miniaudio._ffi.data_source_raw as dsraw
@@ -1070,6 +1071,116 @@ def test_an_initialised_buffer_source_handle_can_become_a_view() raises:
 
     raw.sound_free(lib, snd)
     dsraw.data_source_free(lib, own)
+    dsraw.data_source_free(lib, ds)
+    eraw.engine_free(lib, eng)
+
+
+def test_end_callback_null_and_uninitialised_handles_invalid_args() raises:
+    var lib = _lib()
+    var fired = counter()
+    var destroyed = counter()
+    assert_equal(
+        raw.sound_set_end_callback(lib, null_handle(), Tally(fired, destroyed)),
+        MA_INVALID_ARGS,
+    )
+    assert_equal(raw.sound_clear_end_callback(lib, null_handle()), MA_INVALID_ARGS)
+    # A refused handler stays the caller's, and the raw layer destroys it.
+    assert_equal(count(destroyed), 1)
+
+    var snd = raw.sound_alloc(lib)  # allocated, never initialised
+    assert_equal(
+        raw.sound_set_end_callback(lib, snd, Tally(fired, destroyed)), MA_INVALID_ARGS
+    )
+    assert_equal(raw.sound_clear_end_callback(lib, snd), MA_INVALID_ARGS)
+    assert_equal(count(destroyed), 2)
+    assert_equal(count(fired), 0)
+    raw.sound_free(lib, snd)
+
+
+def test_end_callback_needs_a_data_source() raises:
+    """A sound built from an empty config has no end to report: refused, handler destroyed."""
+    var lib = _lib()
+    var eng = _engine(lib)
+    var cfg = raw.sound_config_alloc(lib)
+    assert_equal(raw.sound_config_init_for_engine(lib, cfg, eng), MA_SUCCESS)
+    var snd = raw.sound_alloc(lib)
+    assert_equal(raw.sound_init_ex(lib, snd, eng, cfg), MA_SUCCESS)
+
+    var fired = counter()
+    var destroyed = counter()
+    assert_equal(
+        raw.sound_set_end_callback(lib, snd, Tally(fired, destroyed)),
+        MA_INVALID_OPERATION,
+    )
+    assert_equal(count(destroyed), 1)
+    # Clearing is still fine: there is just nothing to clear.
+    assert_equal(raw.sound_clear_end_callback(lib, snd), MA_SUCCESS)
+    assert_equal(count(destroyed), 1)
+
+    raw.sound_free(lib, snd)
+    raw.sound_config_free(lib, cfg)
+    eraw.engine_free(lib, eng)
+
+
+def test_end_callback_fires_once_at_the_end_and_clear_destroys_the_handler() raises:
+    var lib = _lib()
+    var eng = _engine(lib)
+    var ds = _constant_source(lib, 64, eraw.engine_get_sample_rate(lib, eng))
+    var snd = raw.sound_alloc(lib)
+    assert_equal(raw.sound_init_from_data_source(lib, snd, eng, ds, 0), MA_SUCCESS)
+
+    var fired = counter()
+    var destroyed = counter()
+    assert_equal(
+        raw.sound_set_end_callback(lib, snd, Tally(fired, destroyed)), MA_SUCCESS
+    )
+    assert_equal(count(destroyed), 0)  # the shim owns it now
+    assert_equal(raw.sound_start(lib, snd), MA_SUCCESS)
+    assert_true(raw_periods_until_fired(lib, eng, fired) <= 16)
+    raw_read_periods(lib, eng, 3)
+    assert_equal(count(fired), 1)  # one end, one call
+    assert_equal(count(destroyed), 0)
+
+    assert_equal(raw.sound_clear_end_callback(lib, snd), MA_SUCCESS)
+    assert_equal(count(destroyed), 1)
+    # Clearing again, with nothing set, is a harmless success.
+    assert_equal(raw.sound_clear_end_callback(lib, snd), MA_SUCCESS)
+    assert_equal(count(destroyed), 1)
+
+    raw.sound_free(lib, snd)
+    dsraw.data_source_free(lib, ds)
+    eraw.engine_free(lib, eng)
+
+
+def test_end_callback_replace_destroys_old_and_free_destroys_current() raises:
+    var lib = _lib()
+    var eng = _engine(lib)
+    var ds = _constant_source(lib, 64, eraw.engine_get_sample_rate(lib, eng))
+    var snd = raw.sound_alloc(lib)
+    assert_equal(raw.sound_init_from_data_source(lib, snd, eng, ds, 0), MA_SUCCESS)
+
+    var fired = counter()
+    var destroyed = counter()
+    var mark = counter()
+    var mark_destroyed = counter()
+    assert_equal(
+        raw.sound_set_end_callback(lib, snd, Tally(fired, destroyed)), MA_SUCCESS
+    )
+    assert_equal(
+        raw.sound_set_end_callback(lib, snd, Marker(mark, 7, mark_destroyed)),
+        MA_SUCCESS,
+    )
+    assert_equal(count(destroyed), 1)  # the replaced one
+    assert_equal(count(mark_destroyed), 0)
+
+    assert_equal(raw.sound_start(lib, snd), MA_SUCCESS)
+    assert_true(raw_periods_until_fired(lib, eng, mark) <= 16)
+    assert_equal(count(mark), 7)
+    assert_equal(count(fired), 0)  # the replaced handler never ran
+
+    raw.sound_free(lib, snd)  # frees the sound: the current handler goes with it
+    assert_equal(count(mark_destroyed), 1)
+    assert_equal(count(destroyed), 1)
     dsraw.data_source_free(lib, ds)
     eraw.engine_free(lib, eng)
 

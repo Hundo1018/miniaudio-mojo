@@ -13,6 +13,21 @@ from miniaudio.result import MaResult
 from miniaudio._lib import MaLib, null_handle
 from miniaudio.result import MA_SUCCESS, MA_INVALID_ARGS, MA_AT_END
 import miniaudio._ffi.flac_raw as raw
+from miniaudio._ffi.stream_raw import (
+    Opaque,
+    stream_leak,
+    stream_tag,
+)
+from support.stream_fixtures import (
+    T_READS,
+    T_SEEKS,
+    T_TELLS,
+    T_DESTROYED,
+    TallyBytes,
+    TallySink,
+    new_tally,
+    tally_ptr,
+)
 from support.codec_fixtures import (
     FLAC_PATH,
     MISSING_PATH,
@@ -324,6 +339,228 @@ def test_uninit_is_idempotent_and_reinit_ok() raises:
     assert_equal(raw.flac_init_file(lib, h, FLAC_PATH, FMT_F32, 0), MA_SUCCESS)
     assert_equal(raw.flac_get_length_in_pcm_frames(lib, h).value, UInt64(CODEC_FRAMES))
     raw.flac_free(lib, h)
+
+
+# ---- init_stream: ma_flac_init with a user-supplied read/seek/tell stream -----
+#
+# The stream is a TallyBytes (tests/support/stream_fixtures.mojo): a user type
+# that implements the stream trait and counts what miniaudio does to it.
+
+
+def _stream_handle(
+    lib: MaLib, mut tally: List[Int], data: List[UInt8], chunk: Int = 0
+) raises -> OpaquePointer[MutUntrackedOrigin]:
+    var h = raw.flac_alloc(lib)
+    var cell = stream_leak(TallyBytes(data.copy(), tally_ptr(tally), chunk=chunk))
+    assert_equal(raw.flac_init_stream(lib, h, cell, FMT_F32, 0), MA_SUCCESS)
+    return h
+
+
+def _memory_handle(lib: MaLib, data: List[UInt8]) raises -> OpaquePointer[MutUntrackedOrigin]:
+    var h = raw.flac_alloc(lib)
+    assert_equal(raw.flac_init_memory(lib, h, data, FMT_F32, 0), MA_SUCCESS)
+    return h
+
+
+def test_init_stream_decodes_like_init_memory() raises:
+    var lib = _lib()
+    var data = read_file_bytes(FLAC_PATH)
+    var tally = new_tally()
+    var s = _stream_handle(lib, tally, data)
+    var m = _memory_handle(lib, data)
+    var sf = raw.flac_get_data_format(lib, s)
+    var mf = raw.flac_get_data_format(lib, m)
+    assert_equal(sf.result, MA_SUCCESS)
+    assert_equal(sf.format, mf.format)
+    assert_equal(sf.channels, mf.channels)
+    assert_equal(sf.sample_rate, mf.sample_rate)
+    assert_equal(raw.flac_get_length_in_pcm_frames(lib, s).value, UInt64(CODEC_FRAMES))
+    var a = _zeros(2 * 2048)
+    var b = _zeros(2 * 2048)
+    assert_equal(raw.flac_read_pcm_frames(lib, s, a, 2048).value, UInt64(2048))
+    assert_equal(raw.flac_read_pcm_frames(lib, m, b, 2048).value, UInt64(2048))
+    for i in range(2 * 2048):
+        assert_equal(a[i], b[i])
+    assert_equal(
+        raw.flac_get_cursor_in_pcm_frames(lib, s).value, raw.flac_get_cursor_in_pcm_frames(lib, m).value
+    )
+    assert_true(tally[T_READS] > 0)  # the bytes really came through the user's read
+    # (dr_flac never asks for the position, so there is no tell count to check)
+    raw.flac_free(lib, s)
+    raw.flac_free(lib, m)
+    assert_equal(tally[T_DESTROYED], 1)
+    assert_true(len(data) > 0)  # (init_memory reads `data` in place until the handle is freed)
+
+
+def test_short_reads_do_not_change_the_decode() raises:
+    """A stream may hand back a few bytes per read: the library asks again, so the
+    parsers (which take any short read for the end of the data) never see one."""
+    var lib = _lib()
+    var data = read_file_bytes(FLAC_PATH)
+    var tally = new_tally()
+    var s = _stream_handle(lib, tally, data, chunk=13)  # never more than 13 bytes per read
+    var m = _memory_handle(lib, data)
+    var a = _zeros(2 * 1024)
+    var b = _zeros(2 * 1024)
+    assert_equal(raw.flac_read_pcm_frames(lib, s, a, 1024).value, UInt64(1024))
+    assert_equal(raw.flac_read_pcm_frames(lib, m, b, 1024).value, UInt64(1024))
+    for i in range(2 * 1024):
+        assert_equal(a[i], b[i])
+    raw.flac_free(lib, s)
+    raw.flac_free(lib, m)
+    assert_equal(tally[T_DESTROYED], 1)
+    assert_true(len(data) > 0)
+
+
+def test_seek_goes_through_the_stream_callback() raises:
+    var lib = _lib()
+    var data = read_file_bytes(FLAC_PATH)
+    var tally = new_tally()
+    var s = _stream_handle(lib, tally, data)
+    var m = _memory_handle(lib, data)
+    var seeks_before = tally[T_SEEKS]
+    assert_equal(raw.flac_seek_to_pcm_frame(lib, s, 5000), MA_SUCCESS)
+    assert_equal(raw.flac_seek_to_pcm_frame(lib, m, 5000), MA_SUCCESS)
+    assert_true(tally[T_SEEKS] > seeks_before)
+    var a = _zeros(2 * 256)
+    var b = _zeros(2 * 256)
+    assert_equal(raw.flac_read_pcm_frames(lib, s, a, 256).value, UInt64(256))
+    assert_equal(raw.flac_read_pcm_frames(lib, m, b, 256).value, UInt64(256))
+    for i in range(2 * 256):
+        assert_equal(a[i], b[i])
+    assert_equal(
+        raw.flac_get_cursor_in_pcm_frames(lib, s).value, raw.flac_get_cursor_in_pcm_frames(lib, m).value
+    )
+    # and the same samples as a fresh decoder reading from there
+    var fresh = _memory_handle(lib, data)
+    var c = _zeros(2 * 256)
+    assert_equal(raw.flac_seek_to_pcm_frame(lib, fresh, 5000), MA_SUCCESS)
+    assert_equal(raw.flac_read_pcm_frames(lib, fresh, c, 256).value, UInt64(256))
+    for i in range(2 * 256):
+        assert_equal(a[i], c[i])
+    raw.flac_free(lib, s)
+    raw.flac_free(lib, m)
+    raw.flac_free(lib, fresh)
+    assert_equal(tally[T_DESTROYED], 1)
+    assert_true(len(data) > 0)
+
+
+def test_init_stream_fails_when_the_stream_fails_and_still_destroys_it_once() raises:
+    var lib = _lib()
+    var data = read_file_bytes(FLAC_PATH)
+    var h = raw.flac_alloc(lib)
+
+    # every read raises
+    var t1 = new_tally()
+    var c1 = stream_leak(TallyBytes(data.copy(), tally_ptr(t1), fail_read_at=1))
+    assert_equal(raw.flac_init_stream(lib, h, c1, FMT_F32, 0), MA_INVALID_FILE)
+    assert_equal(t1[T_DESTROYED], 1)  # consumed on failure, before any free
+    var buf = _zeros(8)
+    assert_equal(raw.flac_read_pcm_frames(lib, h, buf, 4).result, MA_INVALID_ARGS)
+
+    # not audio at all
+    var t2 = new_tally()
+    var c2 = stream_leak(TallyBytes(garbage_bytes(4096), tally_ptr(t2)))
+    assert_equal(raw.flac_init_stream(lib, h, c2, FMT_F32, 0), MA_INVALID_FILE)
+    assert_equal(t2[T_DESTROYED], 1)
+
+    # an empty stream
+    var t3 = new_tally()
+    var c3 = stream_leak(TallyBytes(List[UInt8](), tally_ptr(t3)))
+    assert_equal(raw.flac_init_stream(lib, h, c3, FMT_F32, 0), MA_INVALID_FILE)
+    assert_equal(t3[T_DESTROYED], 1)
+
+    raw.flac_free(lib, h)
+    assert_equal(t1[T_DESTROYED], 1)  # freeing the handle does not destroy them again
+    assert_equal(t2[T_DESTROYED], 1)
+    assert_equal(t3[T_DESTROYED], 1)
+
+
+def test_init_stream_rejects_bad_arguments() raises:
+    var lib = _lib()
+    var data = read_file_bytes(FLAC_PATH)
+    var t = new_tally()
+    # a null handle: still consumes (destroys) the stream
+    var c1 = stream_leak(TallyBytes(data.copy(), tally_ptr(t)))
+    assert_equal(raw.flac_init_stream(lib, null_handle(), c1, FMT_F32, 0), MA_INVALID_ARGS)
+    assert_equal(t[T_DESTROYED], 1)
+    # an out-of-range format code
+    var h = raw.flac_alloc(lib)
+    var c2 = stream_leak(TallyBytes(data.copy(), tally_ptr(t)))
+    assert_equal(raw.flac_init_stream(lib, h, c2, 99, 0), MA_INVALID_ARGS)
+    assert_equal(t[T_DESTROYED], 2)
+    # null callbacks / user pointer, passed bare (never called: the shim refuses first)
+    var fake = Opaque(unsafe_from_address=Int(4096))
+    var none = null_handle()
+    assert_equal(raw.flac_init_stream_ptrs(lib, h, none, fake, fake, none, fake, 1, FMT_F32, 0), MA_INVALID_ARGS)
+    assert_equal(raw.flac_init_stream_ptrs(lib, h, fake, none, fake, none, fake, 1, FMT_F32, 0), MA_INVALID_ARGS)
+    assert_equal(raw.flac_init_stream_ptrs(lib, h, fake, fake, none, none, fake, 1, FMT_F32, 0), MA_INVALID_ARGS)
+    assert_equal(raw.flac_init_stream_ptrs(lib, h, fake, fake, fake, none, none, 1, FMT_F32, 0), MA_INVALID_ARGS)
+    assert_equal(raw.flac_init_stream_ptrs(lib, null_handle(), fake, fake, fake, none, fake, 1, FMT_F32, 0), MA_INVALID_ARGS)
+    # none of that left the handle usable
+    var buf = _zeros(8)
+    assert_equal(raw.flac_read_pcm_frames(lib, h, buf, 4).result, MA_INVALID_ARGS)
+    raw.flac_free(lib, h)
+    assert_equal(t[T_DESTROYED], 2)
+    assert_true(len(data) > 0)
+
+
+def test_stream_user_hands_back_the_stream_only_for_its_type() raises:
+    var lib = _lib()
+    var data = read_file_bytes(FLAC_PATH)
+    var tally = new_tally()
+    var h = raw.flac_alloc(lib)
+    var cell = stream_leak(TallyBytes(data.copy(), tally_ptr(tally)))
+    assert_equal(raw.flac_init_stream(lib, h, cell, FMT_F32, 0), MA_SUCCESS)
+    assert_equal(Int(raw.flac_stream_user(lib, h, stream_tag[TallyBytes]())), Int(cell))
+    assert_equal(Int(raw.flac_stream_user(lib, h, stream_tag[TallySink]())), 0)  # another type
+    assert_equal(Int(raw.flac_stream_user(lib, null_handle(), stream_tag[TallyBytes]())), 0)
+    # a handle opened from a file has no stream
+    var f = _open(lib)
+    assert_equal(Int(raw.flac_stream_user(lib, f, stream_tag[TallyBytes]())), 0)
+    raw.flac_free(lib, f)
+    raw.flac_free(lib, h)
+    assert_equal(tally[T_DESTROYED], 1)
+    assert_true(len(data) > 0)
+
+
+def test_uninit_keeps_the_stream_until_the_handle_is_freed() raises:
+    var lib = _lib()
+    var data = read_file_bytes(FLAC_PATH)
+    var tally = new_tally()
+    var h = _stream_handle(lib, tally, data)
+    assert_equal(raw.flac_uninit(lib, h), MA_SUCCESS)
+    var buf = _zeros(8)
+    assert_equal(raw.flac_read_pcm_frames(lib, h, buf, 4).result, MA_INVALID_ARGS)
+    assert_equal(tally[T_DESTROYED], 0)  # the decoder is gone, the stream is not
+    assert_true(raw.flac_stream_user(lib, h, stream_tag[TallyBytes]()) != null_handle())
+    assert_equal(raw.flac_uninit(lib, h), MA_SUCCESS)  # idempotent
+    assert_equal(tally[T_DESTROYED], 0)
+    raw.flac_free(lib, h)
+    assert_equal(tally[T_DESTROYED], 1)
+    assert_true(len(data) > 0)
+
+
+def test_reinit_destroys_the_previous_stream_exactly_once() raises:
+    var lib = _lib()
+    var data = read_file_bytes(FLAC_PATH)
+    var ta = new_tally()
+    var tb = new_tally()
+    var h = raw.flac_alloc(lib)
+    var a = stream_leak(TallyBytes(data.copy(), tally_ptr(ta)))
+    assert_equal(raw.flac_init_stream(lib, h, a, FMT_F32, 0), MA_SUCCESS)
+    var b = stream_leak(TallyBytes(data.copy(), tally_ptr(tb)))
+    assert_equal(raw.flac_init_stream(lib, h, b, FMT_F32, 0), MA_SUCCESS)
+    assert_equal(ta[T_DESTROYED], 1)  # replaced
+    assert_equal(tb[T_DESTROYED], 0)
+    assert_equal(Int(raw.flac_stream_user(lib, h, stream_tag[TallyBytes]())), Int(b))
+    assert_equal(raw.flac_init_file(lib, h, FLAC_PATH, FMT_F32, 0), MA_SUCCESS)
+    assert_equal(tb[T_DESTROYED], 1)  # replaced by a file decoder
+    assert_equal(Int(raw.flac_stream_user(lib, h, stream_tag[TallyBytes]())), 0)
+    raw.flac_free(lib, h)
+    assert_equal(ta[T_DESTROYED], 1)
+    assert_equal(tb[T_DESTROYED], 1)
+    assert_true(len(data) > 0)
 
 
 def main() raises:

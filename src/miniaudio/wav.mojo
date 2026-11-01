@@ -17,6 +17,8 @@ from miniaudio._lib import MaLib, null_handle
 from miniaudio.result import MaResult, MaError, MA_SUCCESS, MA_AT_END
 from miniaudio.decoder import SampleFormat, DataFormat, SAMPLE_FORMAT_F32, SAMPLE_FORMAT_S16
 import miniaudio._ffi.wav_raw as raw
+from miniaudio.stream import ReadSeekTellStream
+from miniaudio._ffi.stream_raw import stream_leak, stream_reclaim, stream_tag
 
 
 struct WavDecoder(Movable):
@@ -68,6 +70,49 @@ struct WavDecoder(Movable):
             raise lib[].error("wav init from memory failed", code)
         # `data` must outlive the decoder (miniaudio references, not copies it).
         return Self(lib.copy(), ptr, data^)
+
+    @staticmethod
+    def from_stream[
+        S: ReadSeekTellStream
+    ](
+        lib: ArcPointer[MaLib],
+        var stream: S,
+        *,
+        format: SampleFormat = SAMPLE_FORMAT_F32,
+        seek_points: UInt32 = 0,
+    ) raises MaError -> Self:
+        """Decode from a stream you implement (ma_wav_init with your own I/O).
+
+        `stream` moves into the decoder, which keeps it alive on the heap for as
+        long as miniaudio may read through it and destroys it exactly once,
+        after the decoder is uninitialised and dropped (at once if this raises).
+        Get it back with `stream[S]()`. The stream needs `tell` as well as
+        `read` and `seek`. miniaudio calls it from whichever thread reads the
+        decoder.
+        """
+        var user = stream_leak(stream^)
+        var ptr = raw.wav_alloc(lib[])
+        if ptr == null_handle():
+            stream_reclaim(user)
+            raise MaError(MaResult.OUT_OF_MEMORY, "wav_alloc failed (out of memory)")
+        # The shim takes the stream over whether or not init succeeds.
+        var code = raw.wav_init_stream(lib[], ptr, user, format.code, seek_points)
+        if code != MA_SUCCESS:
+            raw.wav_free(lib[], ptr)
+            raise lib[].error("wav init from stream failed", code)
+        return Self(lib.copy(), ptr, List[UInt8]())
+
+    def stream[S: ReadSeekTellStream](mut self) raises MaError -> ref[self] S:
+        """The stream this decoder was built from with `from_stream`.
+
+        Raises if the decoder has no stream (it was opened from a file or from
+        memory), or `S` is not its type. It stays reachable after `uninit()`
+        and is destroyed when the decoder is dropped.
+        """
+        var user = raw.wav_stream_user(self._lib[], self._ptr, stream_tag[S]())
+        if user == null_handle():
+            raise MaError(MaResult.INVALID_ARGS, "wav decoder has no stream of the requested type")
+        return user.unsafe_bitcast[S]().unsafe_origin_cast[origin_of(self)]()[]
 
     def data_format(self) raises MaError -> DataFormat:
         var f = raw.wav_get_data_format(self._lib[], self._ptr)
