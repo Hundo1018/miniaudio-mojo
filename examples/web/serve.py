@@ -3,7 +3,8 @@
 
     python3 examples/web/serve.py [port]      # then open http://localhost:8000/
 
-Serves examples/web/ plus build/wasm/audio.wasm (as /audio.wasm) and the generated
+Serves examples/web/ plus build/wasm/audio.wasm (as /audio.wasm), the shared runtime
+(ludens-wasm-rt host.mjs, as /host.mjs), web/miniaudio_host.mjs and the generated
 test clip (as /clip.wav). COOP/COEP make the page cross-origin isolated, which is
 what lets main.js share a ring buffer with the AudioWorklet.
 """
@@ -13,16 +14,20 @@ from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+import ludens_wasm_rt
+
 ROOT = Path(__file__).resolve().parent.parent.parent
 WEB = ROOT / "examples" / "web"
 ALIASES = {
     "/audio.wasm": ROOT / "build" / "wasm" / "audio.wasm",
+    "/host.mjs": ludens_wasm_rt.HOST_MJS,
+    "/miniaudio_host.mjs": ROOT / "web" / "miniaudio_host.mjs",
     "/clip.wav": ROOT / "build" / "test_assets" / "sine_440_stereo.wav",
 }
 
 
 class Handler(SimpleHTTPRequestHandler):
-    extensions_map = {**SimpleHTTPRequestHandler.extensions_map, ".wasm": "application/wasm", ".js": "text/javascript"}
+    extensions_map = {**SimpleHTTPRequestHandler.extensions_map, ".wasm": "application/wasm", ".js": "text/javascript", ".mjs": "text/javascript"}
 
     def translate_path(self, path):
         alias = ALIASES.get(path.split("?")[0])

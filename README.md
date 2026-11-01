@@ -61,11 +61,14 @@ modes.
 
 ## Browser (WebAssembly)
 
-Mojo 1.2.0 has no WebAssembly target, so `tools/wasm/build_wasm.py` takes the static-mode
-LLVM IR, retargets it to wasm64 and finishes it with LLVM 23. miniaudio is compiled with
-`MA_NO_DEVICE_IO MA_NO_THREADING`, against musl math/string and a small freestanding runtime
-(`tools/wasm/runtime.c`). The result is one module with no Emscripten runtime; its only import
-is `env.host_write`. The browser does the audio output:
+Mojo 1.2.0 has no WebAssembly target, so the [ludens-wasm-rt](https://github.com/Hundo1018/ludens-wasm-rt)
+driver takes the static-mode LLVM IR, retargets it to wasm64 and finishes it with LLVM 23. What
+to build is declared in `wasm.toml` (a passive manifest; it has no effect on native builds).
+miniaudio is compiled with `MA_NO_DEVICE_IO MA_NO_THREADING`, against the driver's vendored musl
+math/string subset and its small freestanding runtime. The result is one module with no
+Emscripten runtime; its only import is `env.host_write`, which ludens-wasm-rt's `host.mjs`
+provides (`web/miniaudio_host.mjs` exports `createImports(rt)` so several libraries' JS glue can
+share one `importObject`). The browser does the audio output:
 
 - `Engine.create_offline(lib)`: an engine with no device; `engine.render(out, frames)` mixes
   exactly `frames` frames whenever you ask. Without threads, loads finish inside the call that
@@ -83,8 +86,9 @@ pixi run -e wasm test-wasm      # native vs wasm: same scene, byte-identical PCM
 pixi run -e wasm web            # build, then serve on http://localhost:8000/ (COOP/COEP set)
 ```
 
-The `wasm` environment adds LLVM 23, Node 24 and emscripten 4.0.9 (about 3 GB). emscripten is
-used only for its wasm64 libc headers and musl sources. The default environment doesn't change.
+The `wasm` environment adds LLVM 23, Node 24 and the ludens-wasm-rt driver, as a dev dependency
+of that environment only. The default environment, `pixi run test` and the native builds don't
+depend on it.
 Browsers start audio only after a user gesture.
 
 ## Errors

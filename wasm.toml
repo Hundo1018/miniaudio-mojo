@@ -1,0 +1,12 @@
+# Build manifest for ludens-wasm-rt (https://github.com/Hundo1018/ludens-wasm-rt).
+# Passive: nothing reads this unless you build a wasm64 module with that driver.
+[lib]
+name = "miniaudio"
+mojo_defines = ["MINIAUDIO_LINK=static"]
+include = ["src"]
+c_sources = ["vendor/miniaudio/miniaudio.c", "src/native/ma_shim*.c"]
+# Shim files that need devices, contexts or threads are not part of the wasm build.
+c_exclude = ["ma_shim_context.c", "ma_shim_sync.c"]
+c_defines = ["MA_NO_DEVICE_IO", "MA_NO_THREADING", "MA_NO_RUNTIME_LINKING"]
+js = "web/miniaudio_host.mjs"
+host_imports = []

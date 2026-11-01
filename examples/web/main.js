@@ -1,4 +1,7 @@
-// Main thread: owns the wasm64 module (miniaudio-mojo, built by tools/wasm/build_wasm.py),
+import { instantiate } from "./host.mjs"; // ludens-wasm-rt's shared runtime
+import * as miniaudio from "./miniaudio_host.mjs";
+
+// Main thread: owns the wasm64 module (miniaudio-mojo, built by the ludens-wasm-rt driver),
 // renders 128-frame blocks with web_render, and keeps the AudioWorklet's
 // SharedArrayBuffer ring ~TARGET_FRAMES ahead of playback (see worklet.js).
 const SAMPLE_RATE = 48000;
@@ -9,19 +12,12 @@ const BLOCK = 128;
 const stats = { started: false, rendered: 0, played: 0, underruns: 0, rms: 0, clip: "none", error: "" };
 window.maStats = stats; // for automated checks
 
-let x, memory, scene, ring, ctl, ctx, analyser;
+let rt, x, memory, scene, ring, ctl, ctx, analyser;
 
 async function loadModule() {
-  const decoder = new TextDecoder();
-  const env = {
-    host_write: (fd, ptr, len) =>
-      console[Number(fd) === 2 ? "error" : "log"](
-        decoder.decode(new Uint8Array(memory.buffer, Number(ptr), Number(len))),
-      ),
-  };
-  const { instance } = await WebAssembly.instantiateStreaming(fetch("audio.wasm"), { env });
-  x = instance.exports;
-  memory = x.memory;
+  rt = await instantiate(fetch("audio.wasm"), { libs: [miniaudio] });
+  x = rt.exports;
+  memory = rt.memory;
   scene = x.web_create(SAMPLE_RATE);
   if (!scene) throw new Error("web_create failed");
 }
@@ -34,7 +30,7 @@ function fill() {
   while (buffered + BLOCK <= TARGET_FRAMES) {
     const ptr = x.web_render(scene, BLOCK);
     if (!ptr) throw new Error("web_render failed");
-    const block = new Float32Array(memory.buffer, Number(ptr), BLOCK * 2); // memory may have grown
+    const block = rt.f32(ptr, BLOCK * 2); // memory may have grown
     for (let i = 0; i < BLOCK; i++) {
       ring[2 * w] = block[2 * i];
       ring[2 * w + 1] = block[2 * i + 1];
@@ -74,7 +70,7 @@ function frame() {
 
 async function loadClip(bytes, name) {
   const p = x.web_alloc(BigInt(bytes.length));
-  new Uint8Array(memory.buffer, Number(p), bytes.length).set(bytes);
+  rt.put(p, bytes);
   const rc = x.web_load_clip(scene, p, BigInt(bytes.length));
   x.web_free(p);
   stats.clip = rc === 0 ? name : `failed (ma_result ${rc})`;

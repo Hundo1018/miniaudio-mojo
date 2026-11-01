@@ -3,7 +3,7 @@
 
     pixi run -e wasm test-wasm
 
-1. builds build/wasm/audio.wasm (tools/wasm/build_wasm.py, examples/web/audio.mojo);
+1. builds build/wasm/audio.wasm (ludens-wasm-rt driver on wasm.toml, examples/web/audio.mojo);
 2. builds the native reference examples/web/render_native.mojo statically linked,
    for a baseline x86-64 CPU (no FMA, like wasm);
 3. renders examples/web/scene.render_scene -- a decoded WAV clip plus a Mojo
@@ -19,6 +19,8 @@ import struct
 import subprocess
 import sys
 from pathlib import Path
+
+import ludens_wasm_rt
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 OUT = ROOT / "build" / "wasm"
@@ -48,7 +50,7 @@ def component(left: list[float], hz: float, shape) -> float:
 
 def main() -> int:
     run(["pixi", "run", "-e", "default", "build-shim-static"], env=native_env())  # native C: system cc
-    print(run([sys.executable, "tools/wasm/build_wasm.py", "examples/web/audio.mojo",
+    print(run([sys.executable, "-m", "ludens_wasm_rt.build_wasm", "--lib", ".", "examples/web/audio.mojo",
                "-I", "examples/web", "-o", str(OUT / "audio.wasm"), "--export", "web_*"]))
     # The native reference links in the default environment, outside the wasm activation.
     run(["pixi", "run", "-e", "default", "mojo", "build", "--target-cpu", "x86-64", "-D", "MINIAUDIO_LINK=static", "-I", "src",
@@ -57,7 +59,8 @@ def main() -> int:
          "-Xlinker", "-lm", "-Xlinker", "-ldl", "-Xlinker", "-latomic"], env=native_env())
     native, wasm = OUT / "scene_native.f32", OUT / "scene_wasm.f32"
     print(run([str(OUT / "render_native"), str(CLIP), str(FRAMES), str(native)]))
-    print(run(["node", "tools/wasm/render_wasm.mjs", str(OUT / "audio.wasm"), str(CLIP), str(FRAMES), str(wasm)]))
+    print(run(["node", "tools/wasm/render_wasm.mjs", str(OUT / "audio.wasm"), str(CLIP), str(FRAMES), str(wasm)],
+              env={**os.environ, "LUDENS_WASM_HOST": str(ludens_wasm_rt.HOST_MJS)}))
 
     a, b = native.read_bytes(), wasm.read_bytes()
     ha, hb = hashlib.sha256(a).hexdigest(), hashlib.sha256(b).hexdigest()
