@@ -90,3 +90,27 @@ gen-test-wav = "python3 tools/gen_test_wav.py"
 
 [dependencies]
 mojo = ">=1.2.0,<2"
+
+# --- WebAssembly (issue #3): see README "Browser (WebAssembly)" and tools/wasm/ ---
+# `wasm`: LLVM 23 (clang / opt / llc / wasm-ld) turns Mojo's IR and the C code into one wasm64
+# module; Node 24 runs memory64/table64 modules. `emsdk`: emscripten, used only for its wasm64
+# libc headers and musl sources (emcc is never run). It pins LLVM 21, so it lives in its own
+# environment, which build_wasm.py reads from .pixi/envs/emsdk.
+[feature.wasm.dependencies]
+clang = "23.1.4.*"
+lld = "23.1.4.*"
+llvm-tools = "23.1.4.*"
+nodejs = "24.*"
+
+[feature.emsdk.dependencies]
+emscripten = "4.0.9.*"
+
+[feature.wasm.tasks]
+emsdk = "pixi install -e emsdk"
+build-wasm = "pixi run emsdk && pixi run -e default gen-test-wav && python3 tools/wasm/build_wasm.py examples/web/audio.mojo -I examples/web -o build/wasm/audio.wasm --export 'web_*'"
+test-wasm = "pixi run emsdk && pixi run -e default gen-test-wav && python3 tools/wasm/test_wasm.py"
+web = "pixi run build-wasm && python3 examples/web/serve.py"
+
+[environments]
+wasm = ["wasm"]
+emsdk = { features = ["emsdk"], no-default-feature = true }

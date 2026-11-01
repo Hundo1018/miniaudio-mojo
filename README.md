@@ -59,6 +59,34 @@ library; the path argument of `MaLib(path)` is ignored. `pixi run test-static` r
 this way. Callbacks (user streams, the sound end callback) are plain C function pointers in both
 modes.
 
+## Browser (WebAssembly)
+
+Mojo 1.2.0 has no WebAssembly target, so `tools/wasm/build_wasm.py` takes the static-mode
+LLVM IR, retargets it to wasm64 and finishes it with LLVM 23. miniaudio is compiled with
+`MA_NO_DEVICE_IO MA_NO_THREADING`, against musl math/string and a small freestanding runtime
+(`tools/wasm/runtime.c`). The result is one module with no Emscripten runtime; its only import
+is `env.host_write`. The browser does the audio output:
+
+- `Engine.create_offline(lib)`: an engine with no device; `engine.render(out, frames)` mixes
+  exactly `frames` frames whenever you ask. Without threads, loads finish inside the call that
+  starts them; `engine.process_jobs()` drains anything left queued.
+- Decode from bytes, since a browser has no file system: `decode_memory`, then
+  `DataSource.from_frames`, then `Sound.from_data_source`.
+- `UserNode[P: NodeProcessor]` and `DataSource.from_user[S: UserDataSource]`: nodes and data
+  sources written in Mojo (a synthesizer, an effect, a procedural stream). They work in both link
+  modes and through the wasm function table.
+- `examples/web/`: the main thread renders 128-frame blocks into a SharedArrayBuffer ring, and
+  a ~50-line AudioWorklet plays it. Under-run policy: a short block plays as silence and is counted.
+
+```bash
+pixi run -e wasm test-wasm      # native vs wasm: same scene, byte-identical PCM
+pixi run -e wasm web            # build, then serve on http://localhost:8000/ (COOP/COEP set)
+```
+
+The `wasm` environment adds LLVM 23, Node 24 and emscripten 4.0.9 (about 3 GB). emscripten is
+used only for its wasm64 libc headers and musl sources. The default environment doesn't change.
+Browsers start audio only after a user gesture.
+
 ## Errors
 
 Every raising function raises `MaError`, which carries the miniaudio result as a `MaResult`:

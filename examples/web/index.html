@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>miniaudio-mojo in the browser</title>
+    <style>
+      :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+      body { max-width: 40rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+      button, input[type="file"] { margin: 0.25rem 0.5rem 0.25rem 0; }
+      label { display: block; margin-top: 0.5rem; }
+      #stats { font-family: ui-monospace, monospace; font-size: 0.9rem; }
+    </style>
+  </head>
+  <body>
+    <h1>miniaudio-mojo in the browser</h1>
+    <p>
+      A wasm64 module (Mojo + miniaudio, no Emscripten runtime) mixes a procedural tone written in
+      Mojo with a decoded clip. The main thread renders 128-frame blocks into a shared ring buffer;
+      an AudioWorklet plays them.
+    </p>
+    <button id="start">Start audio</button>
+    <button id="clip">Play clip.wav</button>
+    <input id="file" type="file" accept=".wav,.flac,.mp3,audio/*" />
+    <label>Tone frequency <input id="hz" type="range" min="55" max="880" value="220" /></label>
+    <label>Tone gain <input id="gain" type="range" min="0" max="0.5" step="0.01" value="0.25" /></label>
+    <p>Tone: <span id="tone">220 Hz, gain 0.25</span></p>
+    <p id="stats">not started</p>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>
