@@ -3,9 +3,14 @@ clip with a procedural tone written in Mojo.
 
 Everything on the render path is deterministic: the clip is decoded from bytes
 (no file system), the tone is a `UserNode` driven by an integer phase
-accumulator (no sin/cos), and both sounds skip spatialization and pitch. So the
+accumulator (no sin/cos), and every sound skips spatialization and pitch. So the
 same frames come out natively and in WebAssembly (`pixi run -e wasm test-wasm`
 compares them byte for byte).
+
+Sound effects: register clips once (`add_clip` from an encoded file image,
+`add_clip_pcm` from samples), then `play(clip_id, gain)` starts a one-shot voice.
+Voices overlap, the same clip included; with all `MAX_VOICES` busy the oldest
+voice is taken over.
 """
 
 from std.memory import ArcPointer
@@ -18,6 +23,7 @@ from miniaudio.processor import NodeProcessor
 from miniaudio.sound import Sound, SOUND_FLAG_NO_SPATIALIZATION, SOUND_FLAG_NO_PITCH
 
 comptime CHANNELS: UInt32 = 2
+comptime MAX_VOICES = 8
 
 
 struct Tone(NodeProcessor):
@@ -59,6 +65,10 @@ struct Scene(Movable):
     var tone: UserNode[Tone]
     var clip: List[Sound]  # zero or one; a List because Sound is not copyable
     var sample_rate: UInt32
+    var clips: List[List[Float32]]  # registered clips: interleaved f32 at the engine's format
+    var voices: List[Sound]  # one-shot voices, at most MAX_VOICES
+    var voice_seq: List[Int]  # the play() count at which each voice started
+    var plays: Int
 
     def __init__(out self, sample_rate: UInt32) raises MaError:
         self.lib = ArcPointer(MaLib.default())
@@ -68,6 +78,10 @@ struct Scene(Movable):
         self.tone.attach_to(EndpointNode.of_engine(self.engine))
         self.clip = List[Sound]()
         self.sample_rate = sample_rate
+        self.clips = List[List[Float32]]()
+        self.voices = List[Sound]()
+        self.voice_seq = List[Int]()
+        self.plays = 0
 
     def set_tone(mut self, frequency_hz: Float32, gain: Float32) raises MaError:
         self.tone.processor().set(frequency_hz, gain, self.sample_rate)
@@ -85,6 +99,60 @@ struct Scene(Movable):
         sound.start()
         self.clip.clear()
         self.clip.append(sound^)
+
+    def add_clip_pcm(mut self, samples: List[Float32]) raises MaError -> Int:
+        """Register interleaved stereo f32 samples at the scene's sample rate; returns the clip id."""
+        if len(samples) == 0 or len(samples) % Int(CHANNELS) != 0:
+            raise MaError(MaResult.INVALID_ARGS, "clip samples must be a non-empty whole number of stereo frames")
+        self.clips.append(samples.copy())
+        return len(self.clips) - 1
+
+    def add_clip(mut self, bytes: List[UInt8]) raises MaError -> Int:
+        """Decode an encoded file image (WAV / FLAC / MP3) and register it; returns the clip id."""
+        var decoded = decode_memory(self.lib, bytes, channels=CHANNELS, sample_rate=self.sample_rate)
+        return self.add_clip_pcm(decoded.samples_f32())
+
+    def clip_count(self) -> Int:
+        return len(self.clips)
+
+    def active_voices(self) -> Int:
+        var n = 0
+        for i in range(len(self.voices)):
+            if self.voices[i].is_playing():
+                n += 1
+        return n
+
+    def play(mut self, clip_id: Int, gain: Float32 = 1.0) raises MaError:
+        """Start a one-shot voice for a registered clip. Each voice has its own read position, so a clip can
+        overlap itself. A finished voice's slot is reused first; with none free the oldest voice is replaced."""
+        if clip_id < 0 or clip_id >= len(self.clips):
+            raise MaError(MaResult.INVALID_ARGS, "unknown clip id")
+        var source = ArcPointer(
+            DataSource.from_frames(self.lib, self.clips[clip_id], channels=CHANNELS, sample_rate=self.sample_rate)
+        )
+        var sound = Sound.from_data_source(
+            self.engine, source, flags=SOUND_FLAG_NO_SPATIALIZATION | SOUND_FLAG_NO_PITCH
+        )
+        sound.set_volume(gain)
+        sound.start()
+        self.plays += 1
+        var slot = -1
+        for i in range(len(self.voices)):
+            if not self.voices[i].is_playing():
+                slot = i
+                break
+        if slot < 0 and len(self.voices) < MAX_VOICES:
+            self.voices.append(sound^)
+            self.voice_seq.append(self.plays)
+            return
+        if slot < 0:
+            slot = 0
+            for i in range(1, len(self.voices)):
+                if self.voice_seq[i] < self.voice_seq[slot]:
+                    slot = i
+        swap(self.voices[slot], sound)
+        self.voice_seq[slot] = self.plays
+        _ = sound^
 
     def render(mut self, mut out: List[Float32], frames: UInt64) raises MaError:
         self.engine[].render(out, frames)

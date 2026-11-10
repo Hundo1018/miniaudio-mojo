@@ -27,7 +27,7 @@ STATIC_LIBS = ["-lpthread", "-lm", "-ldl", "-latomic"]
 
 def build(test: Path, link: str) -> tuple[Path, Path, str]:
     exe = BIN_DIR / link / test.stem
-    cmd = ["mojo", "build", "-I", "src", "-I", "tests", str(test), "-o", str(exe)]
+    cmd = ["mojo", "build", "-I", "src", "-I", "tests", "-I", "examples/web", str(test), "-o", str(exe)]
     if link == "static":
         cmd[2:2] = ["-D", "MINIAUDIO_LINK=static", "-Xlinker", str(ROOT / "build" / "libma_shim.a")]
         for lib in STATIC_LIBS:
