@@ -80,6 +80,8 @@ share one `importObject`). The browser does the audio output:
   modes and through the wasm function table.
 - `examples/web/`: the main thread renders 128-frame blocks into a SharedArrayBuffer ring, and
   a ~50-line AudioWorklet plays it. Under-run policy: a short block plays as silence and is counted.
+- Sound effects in the example scene (`examples/web/scene.mojo`): `add_clip` / `add_clip_pcm` register
+  clips, `play(clip_id, gain)` starts a one-shot voice. Up to 8 overlap; the oldest is replaced after that.
 
 ```bash
 pixi run -e wasm test-wasm      # native vs wasm: same scene, byte-identical PCM
