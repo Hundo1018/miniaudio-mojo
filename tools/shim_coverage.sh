@@ -50,7 +50,10 @@ python3 tools/gen_test_wav.py 2>/dev/null || true
 
 for t in ${SHIM_COV_TESTS:-tests/test_*.mojo}; do
     echo "  -> $t"
-    mojo run -I src -I tests "$t"
+    # Scene tests import the web example's modules (same -I as their pixi task).
+    extra=()
+    case "$t" in tests/test_scene_*) extra=(-I examples/web) ;; esac
+    mojo run -I src -I tests ${extra[@]+"${extra[@]}"} "$t"
 done
 
 # ---- 3. Verify .gcda files were written ------------------------------------
