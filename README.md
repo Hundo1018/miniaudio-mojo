@@ -12,7 +12,7 @@ API can still change.
 ## Requirements
 
 - Linux x86-64, a C compiler (`cc`), and [pixi](https://pixi.sh).
-- Mojo `>=1.2.0,<2`, installed by pixi from `conda.modular.com/max`.
+- Mojo `>=1.2.0,<1.3`, installed by pixi from `conda.modular.com/max`.
 
 ## Quick start
 
