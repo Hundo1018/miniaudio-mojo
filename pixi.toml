@@ -90,7 +90,10 @@ gate = "pixi run test && pixi run coverage"
 gen-test-wav = "python3 tools/gen_test_wav.py"
 
 [dependencies]
-mojo = ">=1.2.0,<2"
+# <1.3: src/miniaudio/_lib.mojo uses UnsafePointer, as_c_string_slice() and `def __del__`, which the Mojo 1.3 notes list
+# as changing (read from the notes, not built against 1.3 here). Until that is checked, a `pixi update` must not move the
+# development environment past 1.2.
+mojo = ">=1.2.0,<1.3"
 
 # --- WebAssembly: see README "Browser (WebAssembly)" and wasm.toml ---
 # `wasm`: LLVM 23 (clang / opt / llc / wasm-ld) and Node 24 (memory64 / table64) plus the
